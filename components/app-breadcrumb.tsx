@@ -12,9 +12,22 @@ import {
 } from "@/components/ui/breadcrumb"
 import { navItems } from "@/lib/navigation"
 
+// Titolo della voce corrente. Se la rotta è registrata in navItems usa il suo
+// titolo; altrimenti deriva un'etichetta leggibile dall'ultimo segmento del
+// path, così una rotta sconosciuta non viene etichettata come "Dashboard".
+function currentTitle(pathname: string) {
+  const item = navItems.find((item) => item.url === pathname)
+  if (item) return item.title
+
+  const segment = pathname.split("/").filter(Boolean).pop()
+  if (!segment) return navItems[0].title
+
+  return segment.charAt(0).toUpperCase() + segment.slice(1)
+}
+
 export function AppBreadcrumb() {
   const pathname = usePathname()
-  const current = navItems.find((item) => item.url === pathname) ?? navItems[0]
+  const title = currentTitle(pathname)
 
   return (
     <Breadcrumb>
@@ -24,7 +37,7 @@ export function AppBreadcrumb() {
         </BreadcrumbItem>
         <BreadcrumbSeparator className="hidden md:block" />
         <BreadcrumbItem>
-          <BreadcrumbPage>{current.title}</BreadcrumbPage>
+          <BreadcrumbPage>{title}</BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>

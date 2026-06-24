@@ -24,7 +24,7 @@ export function ModeToggle() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon">
-          <PaletteIcon />
+          <PaletteIcon aria-hidden="true" />
           <span className="sr-only">Cambia tema</span>
         </Button>
       </DropdownMenuTrigger>
