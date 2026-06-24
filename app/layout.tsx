@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { Geist, Geist_Mono, Manrope } from "next/font/google"
 
 import "./globals.css"
@@ -12,6 +13,15 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
+export const metadata: Metadata = {
+  title: {
+    default: "shadcn starter",
+    template: "%s · shadcn starter",
+  },
+  description:
+    "Base di partenza full-stack: Next.js + shadcn/ui, backend con Route Handlers e PostgreSQL con Prisma.",
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -19,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="it"
       suppressHydrationWarning
       className={cn("antialiased", fontMono.variable, "font-sans", manrope.variable)}
     >
