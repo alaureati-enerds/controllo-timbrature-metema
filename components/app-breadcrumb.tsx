@@ -10,13 +10,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { allNavItems, navMain, navTest } from "@/lib/navigation"
+import { navItems } from "@/lib/navigation"
 
 export function AppBreadcrumb() {
   const pathname = usePathname()
-  const current =
-    allNavItems.find((item) => item.url === pathname) ?? navMain[0]
-  const inTestGroup = navTest.items.some((item) => item.url === pathname)
+  const current = navItems.find((item) => item.url === pathname) ?? navItems[0]
 
   return (
     <Breadcrumb>
@@ -25,14 +23,6 @@ export function AppBreadcrumb() {
           <BreadcrumbLink href="/">shadcn starter</BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator className="hidden md:block" />
-        {inTestGroup && (
-          <>
-            <BreadcrumbItem className="hidden md:block">
-              {navTest.title}
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-          </>
-        )}
         <BreadcrumbItem>
           <BreadcrumbPage>{current.title}</BreadcrumbPage>
         </BreadcrumbItem>
