@@ -3,19 +3,42 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { ArrowLeftIcon, LaptopIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
+import { initials } from "@/lib/initials"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 
 type DetailUser = {
@@ -176,8 +199,6 @@ export function UserDetail({
   }
 
   async function remove() {
-    if (!user) return
-    if (!confirm(`Eliminare definitivamente ${user.email}?`)) return
     setBusy(true)
     const { error } = await authClient.admin.removeUser({ userId })
     setBusy(false)
@@ -197,10 +218,13 @@ export function UserDetail({
 
   if (!user) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col items-start gap-4">
         <p className="text-sm text-muted-foreground">Utente non trovato.</p>
         <Button variant="outline" size="sm" asChild>
-          <Link href="/admin/users">← Torna agli utenti</Link>
+          <Link href="/admin/users">
+            <ArrowLeftIcon data-icon="inline-start" />
+            Torna agli utenti
+          </Link>
         </Button>
       </div>
     )
@@ -208,47 +232,78 @@ export function UserDetail({
 
   return (
     <>
-      <header className="flex flex-col gap-1">
-        <Button variant="ghost" size="sm" asChild className="self-start px-0">
-          <Link href="/admin/users">← Utenti</Link>
-        </Button>
-        <h1 className="text-2xl font-semibold tracking-tight">{user.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          {user.email} · ruolo {user.role ?? "user"} ·{" "}
-          {user.banned ? (
-            <span className="text-destructive">
-              bannato
-              {user.banReason ? ` (${user.banReason})` : ""}
-              {user.banExpires
-                ? ` fino al ${new Date(user.banExpires).toLocaleString("it-IT")}`
-                : ""}
-            </span>
-          ) : (
-            "attivo"
+      <Button variant="ghost" size="sm" asChild className="-ml-2 self-start">
+        <Link href="/admin/users">
+          <ArrowLeftIcon data-icon="inline-start" />
+          Utenti
+        </Link>
+      </Button>
+
+      {/* Intestazione identità utente. */}
+      <header className="flex flex-col gap-4 rounded-xl border bg-card p-6 text-card-foreground sm:flex-row sm:items-center sm:gap-5">
+        <Avatar className="size-16 rounded-xl">
+          <AvatarFallback className="rounded-xl text-lg font-medium">
+            {initials(user.name)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-col gap-0.5">
+            <h1 className="truncate text-2xl font-semibold tracking-tight">
+              {user.name}
+            </h1>
+            <p className="truncate text-sm text-muted-foreground">
+              {user.email}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="secondary" className="capitalize">
+              {user.role ?? "user"}
+            </Badge>
+            {user.banned ? (
+              <Badge variant="destructive">
+                Bannato
+                {user.banExpires
+                  ? ` · fino al ${new Date(user.banExpires).toLocaleDateString("it-IT")}`
+                  : " · permanente"}
+              </Badge>
+            ) : (
+              <Badge variant="outline">Attivo</Badge>
+            )}
+          </div>
+          {user.banned && user.banReason && (
+            <p className="text-xs text-muted-foreground">
+              Motivo del ban: {user.banReason}
+            </p>
           )}
-        </p>
+        </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid items-start gap-6 lg:grid-cols-2">
         {/* Ruolo */}
         <Card>
           <CardHeader>
             <CardTitle>Ruolo</CardTitle>
-            <CardDescription>Assegna il ruolo dell&apos;utente.</CardDescription>
+            <CardDescription>
+              Determina i permessi e l&apos;accesso alle aree riservate.
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex items-end gap-2">
-            <select
-              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+            <Select
               value={role}
               disabled={busy}
-              onChange={(e) => setRole(e.target.value as (typeof ROLES)[number])}
+              onValueChange={(v) => setRole(v as (typeof ROLES)[number])}
             >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLES.map((r) => (
+                  <SelectItem key={r} value={r} className="capitalize">
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button onClick={saveRole} disabled={busy || role === user.role}>
               Salva
             </Button>
@@ -260,10 +315,10 @@ export function UserDetail({
           <CardHeader>
             <CardTitle>Reimposta password</CardTitle>
             <CardDescription>
-              Imposta una nuova password per l&apos;utente.
+              Imposta una nuova password; le sessioni attive verranno revocate.
             </CardDescription>
           </CardHeader>
-          <form onSubmit={savePassword}>
+          <form onSubmit={savePassword} className="contents">
             <CardContent>
               <FieldGroup>
                 <Field>
@@ -271,6 +326,8 @@ export function UserDetail({
                   <Input
                     id="new-pw"
                     type="text"
+                    autoComplete="off"
+                    spellCheck={false}
                     minLength={8}
                     required
                     value={newPassword}
@@ -278,11 +335,13 @@ export function UserDetail({
                     disabled={busy}
                   />
                 </Field>
-                <Button type="submit" disabled={busy}>
-                  Reimposta
-                </Button>
               </FieldGroup>
             </CardContent>
+            <CardFooter>
+              <Button type="submit" disabled={busy}>
+                Reimposta
+              </Button>
+            </CardFooter>
           </form>
         </Card>
 
@@ -294,17 +353,21 @@ export function UserDetail({
               Banna (con motivo e scadenza) o riabilita l&apos;utente.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            {user.banned ? (
+          {user.banned ? (
+            <CardFooter>
               <Button variant="outline" onClick={unban} disabled={busy}>
                 Riabilita utente
               </Button>
-            ) : isSelf ? (
+            </CardFooter>
+          ) : isSelf ? (
+            <CardContent>
               <p className="text-sm text-muted-foreground">
                 Non puoi bannare te stesso.
               </p>
-            ) : (
-              <form onSubmit={applyBan}>
+            </CardContent>
+          ) : (
+            <form onSubmit={applyBan} className="contents">
+              <CardContent>
                 <FieldGroup>
                   <Field>
                     <FieldLabel htmlFor="ban-reason">Motivo</FieldLabel>
@@ -318,36 +381,43 @@ export function UserDetail({
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="ban-duration">Durata</FieldLabel>
-                    <select
-                      id="ban-duration"
-                      className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    <Select
                       value={banDuration}
-                      onChange={(e) => setBanDuration(e.target.value)}
+                      onValueChange={setBanDuration}
                       disabled={busy}
                     >
-                      {BAN_DURATIONS.map((d) => (
-                        <option key={d.label} value={d.label}>
-                          {d.label}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id="ban-duration" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BAN_DURATIONS.map((d) => (
+                          <SelectItem key={d.label} value={d.label}>
+                            {d.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </Field>
-                  <Button type="submit" variant="destructive" disabled={busy}>
-                    Banna utente
-                  </Button>
                 </FieldGroup>
-              </form>
-            )}
-          </CardContent>
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" variant="destructive" disabled={busy}>
+                  Banna utente
+                </Button>
+              </CardFooter>
+            </form>
+          )}
         </Card>
 
         {/* Azioni varie */}
         <Card>
           <CardHeader>
             <CardTitle>Azioni</CardTitle>
-            <CardDescription>Impersonificazione ed eliminazione.</CardDescription>
+            <CardDescription>
+              Accedi come l&apos;utente o eliminane l&apos;account.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-start gap-2">
+          <CardContent className="flex flex-wrap items-start gap-2">
             <Button
               variant="outline"
               onClick={impersonate}
@@ -356,14 +426,35 @@ export function UserDetail({
             >
               Accedi come questo utente
             </Button>
-            <Button
-              variant="destructive"
-              onClick={remove}
-              disabled={busy || isSelf}
-              title={isSelf ? "Non puoi eliminare te stesso" : undefined}
-            >
-              Elimina utente
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  disabled={busy || isSelf}
+                  title={isSelf ? "Non puoi eliminare te stesso" : undefined}
+                >
+                  Elimina utente
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Eliminare {user.name}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    L&apos;account {user.email} e i suoi dati verranno rimossi
+                    definitivamente. L&apos;azione non è reversibile.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={remove}
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                  >
+                    Elimina
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       </div>
@@ -373,48 +464,59 @@ export function UserDetail({
         <CardHeader>
           <CardTitle>Sessioni</CardTitle>
           <CardDescription>
-            Sessioni attive dell&apos;utente; puoi revocarle.
+            Sessioni attive dell&apos;utente; puoi revocarle singolarmente.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {sessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nessuna sessione attiva.</p>
+            <p className="text-sm text-muted-foreground">
+              Nessuna sessione attiva.
+            </p>
           ) : (
-            <>
-              <ul className="flex flex-col gap-2">
-                {sessions.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm"
+            <ul className="flex flex-col gap-2">
+              {sessions.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center gap-3 rounded-lg border p-3 text-sm"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                    <LaptopIcon className="size-4" />
+                  </span>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium">
+                      {s.userAgent || "Client sconosciuto"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {s.ipAddress || "—"} ·{" "}
+                      {new Date(s.createdAt).toLocaleString("it-IT")}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto"
+                    disabled={busy}
+                    onClick={() => revokeSession(s.token)}
                   >
-                    <div className="flex min-w-0 flex-col">
-                      <span className="truncate">
-                        {s.userAgent || "Client sconosciuto"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {s.ipAddress || "—"} ·{" "}
-                        {new Date(s.createdAt).toLocaleString("it-IT")}
-                      </span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => revokeSession(s.token)}
-                    >
-                      Revoca
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-              <div>
-                <Button variant="outline" size="sm" onClick={revokeAll} disabled={busy}>
-                  Revoca tutte le sessioni
-                </Button>
-              </div>
-            </>
+                    Revoca
+                  </Button>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
+        {sessions.length > 0 && (
+          <CardFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={revokeAll}
+              disabled={busy}
+            >
+              Revoca tutte le sessioni
+            </Button>
+          </CardFooter>
+        )}
       </Card>
     </>
   )

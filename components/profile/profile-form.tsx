@@ -10,10 +10,16 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -64,18 +70,23 @@ export function ProfileForm({
   }
 
   return (
-    <div className="flex max-w-xl flex-col gap-6">
+    <div className="grid items-start gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Dati profilo</CardTitle>
-          <CardDescription>Aggiorna il tuo nome visualizzato.</CardDescription>
+          <CardDescription>
+            Il nome compare nella barra laterale e nelle attività dell&apos;account.
+          </CardDescription>
         </CardHeader>
-        <form onSubmit={handleNameSubmit}>
+        <form onSubmit={handleNameSubmit} className="contents">
           <CardContent>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input id="email" value={email} disabled readOnly />
+                <FieldDescription>
+                  Per cambiare l&apos;email usa la sezione Sicurezza qui sotto.
+                </FieldDescription>
               </Field>
               <Field>
                 <FieldLabel htmlFor="name">Nome</FieldLabel>
@@ -87,15 +98,17 @@ export function ProfileForm({
                   disabled={savingName}
                 />
               </Field>
-              <Button
-                type="submit"
-                disabled={savingName || name === initialName}
-              >
-                {savingName && <Spinner />}
-                Salva
-              </Button>
             </FieldGroup>
           </CardContent>
+          <CardFooter>
+            <Button
+              type="submit"
+              disabled={savingName || name === initialName}
+            >
+              {savingName && <Spinner />}
+              Salva modifiche
+            </Button>
+          </CardFooter>
         </form>
       </Card>
 
@@ -106,7 +119,7 @@ export function ProfileForm({
             Per sicurezza, le altre sessioni verranno disconnesse.
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handlePasswordSubmit}>
+        <form onSubmit={handlePasswordSubmit} className="contents">
           <CardContent>
             <FieldGroup>
               <Field>
@@ -135,13 +148,16 @@ export function ProfileForm({
                   onChange={(e) => setNewPassword(e.target.value)}
                   disabled={savingPassword}
                 />
+                <FieldDescription>Almeno 8 caratteri.</FieldDescription>
               </Field>
-              <Button type="submit" disabled={savingPassword}>
-                {savingPassword && <Spinner />}
-                Aggiorna password
-              </Button>
             </FieldGroup>
           </CardContent>
+          <CardFooter>
+            <Button type="submit" disabled={savingPassword}>
+              {savingPassword && <Spinner />}
+              Aggiorna password
+            </Button>
+          </CardFooter>
         </form>
       </Card>
     </div>

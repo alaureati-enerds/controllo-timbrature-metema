@@ -2,14 +2,27 @@
 
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
+import { LaptopIcon, ShieldAlertIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -111,8 +124,7 @@ export function AccountSecurity({ currentEmail }: { currentEmail: string }) {
   const [confirmEmail, setConfirmEmail] = useState("")
   const [deleting, setDeleting] = useState(false)
 
-  async function handleDelete(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function handleDelete() {
     if (confirmEmail !== currentEmail) {
       toast.error("L'email digitata non corrisponde")
       return
@@ -124,48 +136,61 @@ export function AccountSecurity({ currentEmail }: { currentEmail: string }) {
       toast.error(error.message ?? "Eliminazione non riuscita")
       return
     }
-    toast.success(
-      "Link di conferma inviato alla tua email (in dev: nei log)."
-    )
+    toast.success("Link di conferma inviato alla tua email (in dev: nei log).")
     router.refresh()
   }
 
+  const otherSessions = sessions.filter((s) => s.token !== currentToken)
+
   return (
-    <div className="flex max-w-xl flex-col gap-6">
-      {/* Sessioni attive */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Sessioni attive</CardTitle>
-          <CardDescription>
-            Dispositivi/accessi collegati al tuo account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {loadingSessions ? (
-            <div className="text-muted-foreground flex items-center gap-2 text-sm">
-              <Spinner /> Caricamento…
-            </div>
-          ) : (
-            <>
+    <div className="flex flex-col gap-6">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Sicurezza</h2>
+        <p className="text-sm text-muted-foreground">
+          Gestisci email, accessi attivi ed eliminazione dell&apos;account.
+        </p>
+      </div>
+
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        {/* Sessioni attive */}
+        <Card className="lg:row-span-2">
+          <CardHeader>
+            <CardTitle>Dispositivi e accessi</CardTitle>
+            <CardDescription>
+              Sessioni attualmente collegate al tuo account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {loadingSessions ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Spinner /> Caricamento…
+              </div>
+            ) : sessions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nessuna sessione attiva.
+              </p>
+            ) : (
               <ul className="flex flex-col gap-2">
                 {sessions.map((s) => {
                   const isCurrent = s.token === currentToken
                   return (
                     <li
                       key={s.id}
-                      className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm"
+                      className="flex items-center gap-3 rounded-lg border p-3 text-sm"
                     >
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                        <LaptopIcon className="size-4" />
+                      </span>
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate">
-                          {s.userAgent || "Client sconosciuto"}
+                        <span className="flex items-center gap-2 truncate font-medium">
+                          <span className="truncate">
+                            {s.userAgent || "Client sconosciuto"}
+                          </span>
                           {isCurrent && (
-                            <span className="text-muted-foreground">
-                              {" "}
-                              · questa sessione
-                            </span>
+                            <Badge variant="secondary">Questa sessione</Badge>
                           )}
                         </span>
-                        <span className="text-muted-foreground text-xs">
+                        <span className="text-xs text-muted-foreground">
                           {s.ipAddress || "—"} ·{" "}
                           {new Date(s.createdAt).toLocaleString("it-IT")}
                         </span>
@@ -173,100 +198,133 @@ export function AccountSecurity({ currentEmail }: { currentEmail: string }) {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="ml-auto"
                         disabled={isCurrent || busyToken === s.token}
                         onClick={() => revokeOne(s.token)}
                       >
+                        {busyToken === s.token && <Spinner />}
                         Revoca
                       </Button>
                     </li>
                   )
                 })}
               </ul>
-              <div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busyToken === "__others__"}
-                  onClick={revokeOthers}
-                >
-                  {busyToken === "__others__" && <Spinner />}
-                  Disconnetti le altre sessioni
-                </Button>
-              </div>
-            </>
+            )}
+          </CardContent>
+          {otherSessions.length > 0 && (
+            <CardFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busyToken === "__others__"}
+                onClick={revokeOthers}
+              >
+                {busyToken === "__others__" && <Spinner />}
+                Disconnetti le altre sessioni
+              </Button>
+            </CardFooter>
           )}
-        </CardContent>
-      </Card>
+        </Card>
 
-      {/* Cambio email */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Cambia email</CardTitle>
-          <CardDescription>
-            Email attuale: {currentEmail}. Riceverai un link di conferma sulla
-            nuova email.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleChangeEmail}>
-          <CardContent>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="new-email">Nuova email</FieldLabel>
-                <Input
-                  id="new-email"
-                  type="email"
-                  required
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  disabled={changingEmail}
-                />
-              </Field>
+        {/* Cambio email */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Cambia email</CardTitle>
+            <CardDescription>
+              Email attuale: <span className="font-medium">{currentEmail}</span>.
+              Riceverai un link di conferma sulla nuova email.
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleChangeEmail} className="contents">
+            <CardContent>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="new-email">Nuova email</FieldLabel>
+                  <Input
+                    id="new-email"
+                    type="email"
+                    autoComplete="email"
+                    spellCheck={false}
+                    required
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    disabled={changingEmail}
+                  />
+                </Field>
+              </FieldGroup>
+            </CardContent>
+            <CardFooter>
               <Button type="submit" disabled={changingEmail}>
                 {changingEmail && <Spinner />}
                 Invia conferma
               </Button>
-            </FieldGroup>
-          </CardContent>
-        </form>
-      </Card>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
 
       {/* Eliminazione account */}
-      <Card className="border-destructive/40">
+      <Card className="border-destructive/30 ring-destructive/20">
         <CardHeader>
-          <CardTitle className="text-destructive">Elimina account</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <ShieldAlertIcon className="size-4" />
+            Elimina account
+          </CardTitle>
           <CardDescription>
-            Operazione irreversibile. Per confermare digita la tua email e invia:
-            riceverai un link di conferma finale.
+            Operazione irreversibile: vengono rimossi profilo, note e sessioni.
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleDelete}>
-          <CardContent>
-            <FieldGroup>
+        <CardFooter className="justify-between gap-4 border-t-0 bg-transparent">
+          <p className="text-sm text-muted-foreground">
+            Riceverai un&apos;ultima email di conferma prima dell&apos;eliminazione.
+          </p>
+          <AlertDialog
+            onOpenChange={(open) => {
+              if (!open) setConfirmEmail("")
+            }}
+          >
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">Elimina il mio account</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Eliminare l&apos;account?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Per confermare digita la tua email{" "}
+                  <span className="font-medium text-foreground">
+                    {currentEmail}
+                  </span>
+                  . L&apos;azione è definitiva.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
               <Field>
-                <FieldLabel htmlFor="confirm-email">
-                  Conferma email ({currentEmail})
-                </FieldLabel>
+                <FieldLabel htmlFor="confirm-email">Conferma email</FieldLabel>
                 <Input
                   id="confirm-email"
                   type="email"
                   autoComplete="off"
-                  required
+                  spellCheck={false}
                   value={confirmEmail}
                   onChange={(e) => setConfirmEmail(e.target.value)}
                   disabled={deleting}
                 />
               </Field>
-              <Button
-                type="submit"
-                variant="destructive"
-                disabled={deleting || confirmEmail !== currentEmail}
-              >
-                {deleting && <Spinner />}
-                Elimina il mio account
-              </Button>
-            </FieldGroup>
-          </CardContent>
-        </form>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>
+                  Annulla
+                </AlertDialogCancel>
+                <Button
+                  variant="destructive"
+                  disabled={deleting || confirmEmail !== currentEmail}
+                  onClick={handleDelete}
+                >
+                  {deleting && <Spinner />}
+                  Elimina definitivamente
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </CardFooter>
       </Card>
     </div>
   )
