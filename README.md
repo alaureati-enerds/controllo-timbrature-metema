@@ -21,21 +21,32 @@ esempio (le "note") che attraversa tutti i livelli, dalla UI al database e ritor
 ## Avvio rapido
 
 ```bash
-# 1. Variabili d'ambiente
+# 1. Installa le dipendenze (FALLO PRIMA di qualunque comando prisma)
+npm install
+
+# 2. Variabili d'ambiente
 cp .env.example .env
 
-# 2. Avvia PostgreSQL (espone la porta host 5433 -> 5432 del container)
+# 3. Avvia PostgreSQL (espone la porta host 5433 -> 5432 del container)
 docker compose up -d
 
-# 3. Applica le migration e genera il Prisma Client
+# 4. Applica le migration (crea le tabelle nel DB)
 npx prisma migrate dev
 
-# 4. Crea l'utente amministratore iniziale (idempotente)
+# 5. Genera il Prisma Client in lib/generated/prisma
+#    (migrate dev di solito lo fa già: questo passo è una garanzia)
+npx prisma generate
+
+# 6. Crea gli account iniziali, admin e utente (idempotente)
 npm run db:seed
 
-# 5. Avvia l'app
+# 7. Avvia l'app
 npm run dev
 ```
+
+> **Ordine importante:** `npm install` va eseguito **prima** dei comandi `prisma`.
+> Se lanci `migrate dev` senza dipendenze installate, la generazione automatica del
+> client non avviene e il seed fallisce con `Cannot find package '@/lib'`.
 
 > Prima del seed imposta `BETTER_AUTH_SECRET` in `.env` (genera con
 > `openssl rand -base64 32`). Credenziali admin di default: vedi `SEED_ADMIN_*`
@@ -82,7 +93,8 @@ docker-compose.yml      # servizio PostgreSQL
 
 Vedi `.env.example`. Necessarie: `DATABASE_URL` (database) e `BETTER_AUTH_SECRET` +
 `BETTER_AUTH_URL` (autenticazione). Le `POSTGRES_*` configurano il container di
-`docker-compose.yml`; le `SEED_ADMIN_*` definiscono l'admin creato da `npm run db:seed`.
+`docker-compose.yml`; le `SEED_ADMIN_*` e `SEED_USER_*` definiscono gli account creati
+da `npm run db:seed`.
 
 ## Comandi utili
 
@@ -96,7 +108,7 @@ Vedi `.env.example`. Necessarie: `DATABASE_URL` (database) e `BETTER_AUTH_SECRET
 | `npm run typecheck` | Controllo dei tipi TypeScript (veloce, utile prima di committare)           |
 | `npm run lint`      | ESLint                                                                      |
 | `npm run format`    | Prettier (riformatta i file)                                                |
-| `npm run db:seed`   | Crea l'utente amministratore iniziale (idempotente)                        |
+| `npm run db:seed`   | Crea gli account iniziali, admin e utente (idempotente)                    |
 
 Per fermare il dev server: `Ctrl-C`, oppure `pkill -f "next dev"`.
 
