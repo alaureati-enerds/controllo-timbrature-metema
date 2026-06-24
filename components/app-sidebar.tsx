@@ -4,13 +4,20 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   BoxIcon,
+  ChevronRightIcon,
   ChevronsUpDownIcon,
   LogOutIcon,
+  PuzzleIcon,
   SettingsIcon,
   UserIcon,
 } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,14 +38,88 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { navItems } from "@/lib/navigation"
+
+// Sotto-voci della voce dimostrativa "Esempio".
+const exampleSubItems = [
+  { title: "Sotto-voce 1", url: "/notes" },
+  { title: "Sotto-voce 2", url: "/demo" },
+]
+
+// Voce di menu con sotto-menu che resta navigabile in entrambi gli stati della
+// sidebar. Espansa: fisarmonica inline (Collapsible + SidebarMenuSub). Collassata
+// a icone: dropdown ancorato all'icona, perché in modalità "icon" il sotto-menu
+// inline viene nascosto dal componente.
+function NavExample() {
+  const pathname = usePathname()
+  const { state, isMobile } = useSidebar()
+
+  // Apri la fisarmonica se la rotta corrente è una delle sotto-voci, così
+  // l'utente vede subito dove si trova.
+  const hasActiveChild = exampleSubItems.some((sub) => sub.url === pathname)
+
+  if (state === "collapsed" && !isMobile) {
+    return (
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton tooltip="Esempio">
+              <PuzzleIcon />
+              <span>Esempio</span>
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="start" className="min-w-48">
+            <DropdownMenuLabel>Esempio</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              {exampleSubItems.map((sub) => (
+                <DropdownMenuItem key={sub.url} asChild>
+                  <Link href={sub.url}>{sub.title}</Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    )
+  }
+
+  return (
+    <Collapsible asChild defaultOpen={hasActiveChild} className="group/collapsible">
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton tooltip="Esempio">
+            <PuzzleIcon />
+            <span>Esempio</span>
+            <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {exampleSubItems.map((sub) => (
+              <SidebarMenuSubItem key={sub.url}>
+                <SidebarMenuSubButton asChild isActive={pathname === sub.url}>
+                  <Link href={sub.url}>{sub.title}</Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  )
+}
 
 export function AppSidebar() {
   const pathname = usePathname()
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -76,6 +157,12 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* Voce dimostrativa con sotto-menu. Da espansa si apre a
+                  fisarmonica; da collassata (icon) diventa un dropdown ancorato
+                  all'icona così le sotto-voci restano navigabili. Rimuovibile
+                  quando non serve più. */}
+              <NavExample />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -86,7 +173,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg">
+                <SidebarMenuButton size="lg" tooltip="Account">
                   <Avatar className="size-8 rounded-lg">
                     <AvatarFallback className="rounded-lg">UT</AvatarFallback>
                   </Avatar>
@@ -125,6 +212,8 @@ export function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+
+      <SidebarRail />
     </Sidebar>
   )
 }
