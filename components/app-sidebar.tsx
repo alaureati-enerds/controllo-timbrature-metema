@@ -45,7 +45,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { navItems } from "@/lib/navigation"
-import { cn } from "@/lib/utils"
 
 // Sotto-voci della voce dimostrativa "Esempio".
 const exampleSubItems = [
@@ -157,13 +156,6 @@ export function AppSidebar() {
                       asChild
                       isActive={isActive}
                       tooltip={item.title}
-                      // Indicatore di voce attiva: una barretta a sinistra che
-                      // distingue lo stato attivo dall'hover (che condividono lo
-                      // stesso sfondo). Nascosta quando la sidebar è a icone.
-                      className={cn(
-                        isActive &&
-                          "relative before:absolute before:top-1/2 before:left-0 before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary group-data-[collapsible=icon]:before:hidden"
-                      )}
                     >
                       <Link
                         href={item.url}
