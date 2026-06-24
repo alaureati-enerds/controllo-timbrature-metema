@@ -18,24 +18,23 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { listNotes } from "@/lib/notes"
 
-// Server Component: legge le note direttamente dal layer di dominio (Prisma -> Postgres).
-export default async function Page() {
+// Pagina "Note": esempio end-to-end (UI -> route handler -> Prisma -> Postgres).
+export default async function NotesPage() {
   const notes = await listNotes()
 
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-2xl flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">shadcn starter</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Note</h1>
         <p className="text-sm text-muted-foreground">
-          Scaffold Next.js + shadcn/ui + Prisma + PostgreSQL. Le note sotto sono un
-          esempio end-to-end: dalla UI al database e ritorno.
+          Aggiungi una nota per provare il flusso completo dalla UI al database.
         </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>Note</CardTitle>
-          <CardDescription>Aggiungi una nota per provare il flusso completo.</CardDescription>
+          <CardTitle>Le tue note</CardTitle>
+          <CardDescription>Elenco delle note salvate, dalla più recente.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           <NoteForm />
