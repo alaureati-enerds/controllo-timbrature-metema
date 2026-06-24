@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card"
 
 export const metadata: Metadata = {
-  title: "Demo skeleton",
+  title: "Skeleton",
 }
 
 // Pagina dimostrativa: un ritardo artificiale fa "sospendere" il Server
@@ -19,13 +19,13 @@ export const metadata: Metadata = {
 // rimuovi questa pagina (e la voce in lib/navigation.ts) quando non serve più.
 const RITARDO_MS = 3000
 
-export default async function DemoPage() {
+export default async function SkeletonTestPage() {
   await new Promise((resolve) => setTimeout(resolve, RITARDO_MS))
 
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Demo skeleton</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Test: Skeleton</h1>
         <p className="text-sm text-muted-foreground">
           Questa pagina attende {RITARDO_MS / 1000} secondi lato server: durante
           l&apos;attesa vedi lo skeleton di caricamento, poi compare questo contenuto.
