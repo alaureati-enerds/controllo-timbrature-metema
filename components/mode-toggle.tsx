@@ -1,20 +1,22 @@
 "use client"
 
-import { MoonIcon, SunIcon } from "lucide-react"
+import { PaletteIcon } from "lucide-react"
 import { useTheme } from "next-themes"
 
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-// Controllo del tema: chiaro / scuro / sistema. Sfrutta next-themes già
-// configurato nel ThemeProvider. Il sole/luna si scambiano via classi `dark:`
-// (solo trasformazioni, nessun colore forzato) per evitare mismatch di idratazione.
+// Selettore del tema. Lista piatta: i temi standard (chiaro / scuro / sistema)
+// più le palette aggiuntive registrate nel ThemeProvider. Ogni voce corrisponde
+// a una classe applicata su <html> da next-themes (vedi app/globals.css).
 export function ModeToggle() {
   const { theme, setTheme } = useTheme()
 
@@ -22,8 +24,7 @@ export function ModeToggle() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon">
-          <SunIcon className="scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-          <MoonIcon className="absolute scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+          <PaletteIcon />
           <span className="sr-only">Cambia tema</span>
         </Button>
       </DropdownMenuTrigger>
@@ -32,6 +33,14 @@ export function ModeToggle() {
           <DropdownMenuRadioItem value="light">Chiaro</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="dark">Scuro</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="system">Sistema</DropdownMenuRadioItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Catppuccin</DropdownMenuLabel>
+          <DropdownMenuRadioItem value="catppuccin-latte">
+            Latte
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="catppuccin-mocha">
+            Mocha
+          </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
