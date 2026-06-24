@@ -1,3 +1,5 @@
+import { cookies } from "next/headers"
+
 import { AppBreadcrumb } from "@/components/app-breadcrumb"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ModeToggle } from "@/components/mode-toggle"
@@ -11,14 +13,19 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 
 // Shell della dashboard: sidebar a sinistra + header con trigger e breadcrumb.
 // Tutte le pagine sotto (dashboard) ne ereditano la struttura.
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Ripristina lo stato aperto/chiuso della sidebar dal cookie scritto dal
+  // componente, così al reload non riparte sempre aperta (niente flash).
+  const cookieStore = await cookies()
+  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false"
+
   return (
     <TooltipProvider>
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={defaultOpen}>
         <AppSidebar />
         <SidebarInset>
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
