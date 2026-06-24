@@ -45,6 +45,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { navItems } from "@/lib/navigation"
+import { cn } from "@/lib/utils"
 
 // Sotto-voci della voce dimostrativa "Esempio".
 const exampleSubItems = [
@@ -70,7 +71,7 @@ function NavExample() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton tooltip="Esempio">
-              <PuzzleIcon />
+              <PuzzleIcon aria-hidden="true" />
               <span>Esempio</span>
             </SidebarMenuButton>
           </DropdownMenuTrigger>
@@ -94,9 +95,12 @@ function NavExample() {
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton tooltip="Esempio">
-            <PuzzleIcon />
+            <PuzzleIcon aria-hidden="true" />
             <span>Esempio</span>
-            <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+            <ChevronRightIcon
+              aria-hidden="true"
+              className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+            />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -126,11 +130,13 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" asChild>
               <Link href="/">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <BoxIcon />
+                  <BoxIcon aria-hidden="true" />
                 </div>
-                <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">shadcn starter</span>
-                  <span className="text-xs text-muted-foreground">Dashboard</span>
+                <div className="flex min-w-0 flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-semibold">shadcn starter</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    Dashboard
+                  </span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -143,20 +149,33 @@ export function AppSidebar() {
           <SidebarGroupLabel>Piattaforma</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.url}
-                    tooltip={item.title}
-                  >
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {navItems.map((item) => {
+                const isActive = pathname === item.url
+                return (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.title}
+                      // Indicatore di voce attiva: una barretta a sinistra che
+                      // distingue lo stato attivo dall'hover (che condividono lo
+                      // stesso sfondo). Nascosta quando la sidebar è a icone.
+                      className={cn(
+                        isActive &&
+                          "relative before:absolute before:top-1/2 before:left-0 before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary group-data-[collapsible=icon]:before:hidden"
+                      )}
+                    >
+                      <Link
+                        href={item.url}
+                        aria-current={isActive ? "page" : undefined}
+                      >
+                        <item.icon aria-hidden="true" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
 
               {/* Voce dimostrativa con sotto-menu. Da espansa si apre a
                   fisarmonica; da collassata (icon) diventa un dropdown ancorato
@@ -177,13 +196,16 @@ export function AppSidebar() {
                   <Avatar className="size-8 rounded-lg">
                     <AvatarFallback className="rounded-lg">UT</AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-medium">Utente</span>
-                    <span className="text-xs text-muted-foreground">
+                  <div className="flex min-w-0 flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
+                    <span className="truncate font-medium">Utente</span>
+                    <span className="truncate text-xs text-muted-foreground">
                       utente@example.com
                     </span>
                   </div>
-                  <ChevronsUpDownIcon className="ml-auto" />
+                  <ChevronsUpDownIcon
+                    aria-hidden="true"
+                    className="ml-auto group-data-[collapsible=icon]:hidden"
+                  />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -194,17 +216,17 @@ export function AppSidebar() {
                 <DropdownMenuLabel>Account</DropdownMenuLabel>
                 <DropdownMenuGroup>
                   <DropdownMenuItem>
-                    <UserIcon />
+                    <UserIcon aria-hidden="true" />
                     Profilo
                   </DropdownMenuItem>
                   <DropdownMenuItem>
-                    <SettingsIcon />
+                    <SettingsIcon aria-hidden="true" />
                     Impostazioni
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
-                  <LogOutIcon />
+                  <LogOutIcon aria-hidden="true" />
                   Esci
                 </DropdownMenuItem>
               </DropdownMenuContent>
