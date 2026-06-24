@@ -11,6 +11,8 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
 
 - [Come creare un nuovo tema](docs/creare-un-tema.md) — aggiungere una palette
   selezionabile dall'utente (token CSS, `next-themes`, selettore).
+- [Come creare una voce di menu della sidebar](docs/creare-voce-menu-sidebar.md) —
+  aggiungere voci semplici o con sotto-voci, funzionanti anche da collassata.
 
 ---
 
