@@ -5,6 +5,15 @@ Code sia agli altri sviluppatori del team.
 
 ---
 
+## Documentazione
+
+Guide di riferimento del progetto (cartella [`docs/`](docs/)):
+
+- [Come creare un nuovo tema](docs/creare-un-tema.md) — aggiungere una palette
+  selezionabile dall'utente (token CSS, `next-themes`, selettore).
+
+---
+
 ## Linee guida per il versionamento
 
 Il progetto usa **Git Flow** come strategia di branching e
