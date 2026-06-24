@@ -2,6 +2,7 @@ import {
   HourglassIcon,
   LayoutDashboardIcon,
   NotebookPenIcon,
+  UsersIcon,
   type LucideIcon,
 } from "lucide-react"
 
@@ -18,4 +19,11 @@ export const navItems: NavItem[] = [
   { title: "Note", url: "/notes", icon: NotebookPenIcon },
   // Pagina dimostrativa del loading skeleton. Rimuovibile quando non serve più.
   { title: "Demo skeleton", url: "/demo", icon: HourglassIcon },
+]
+
+// Voci riservate agli amministratori: mostrate nella sidebar solo se l'utente
+// ha ruolo `admin` (vedi components/app-sidebar.tsx). La protezione reale resta
+// comunque server-side nelle pagine (requireRole).
+export const adminNavItems: NavItem[] = [
+  { title: "Gestione utenti", url: "/admin/users", icon: UsersIcon },
 ]

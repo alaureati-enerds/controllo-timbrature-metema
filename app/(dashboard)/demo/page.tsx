@@ -28,7 +28,8 @@ export default async function DemoPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Demo skeleton</h1>
         <p className="text-sm text-muted-foreground">
           Questa pagina attende {RITARDO_MS / 1000} secondi lato server: durante
-          l&apos;attesa vedi lo skeleton di caricamento, poi compare questo contenuto.
+          l&apos;attesa vedi lo skeleton di caricamento, poi compare questo
+          contenuto.
         </p>
       </header>
 
@@ -40,7 +41,9 @@ export default async function DemoPage() {
                 <CheckCircle2Icon className="size-4 text-muted-foreground" />
                 Contenuto {i}
               </CardTitle>
-              <CardDescription>Caricato dopo il ritardo simulato.</CardDescription>
+              <CardDescription>
+                Caricato dopo il ritardo simulato.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">

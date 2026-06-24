@@ -12,10 +12,99 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Modello di esempio: una semplice nota testuale.
-/// Serve a dimostrare il flusso end-to-end (UI -> route handler -> Prisma -> Postgres).
+// ============================================================================
+// Autenticazione (Better Auth)
+// Questi modelli sono gestiti da Better Auth (vedi lib/auth.ts). I campi extra
+// `role`, `banned`, `banReason`, `banExpires`, `impersonatedBy` provengono dal
+// plugin admin (RBAC + gestione utenti). Le password sono salvate hashate nel
+// modello Account, non nel modello User.
+// ============================================================================
+
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Plugin admin (RBAC + moderazione)
+  role       String?   @default("user")
+  banned     Boolean?  @default(false)
+  banReason  String?
+  banExpires DateTime?
+
+  sessions Session[]
+  accounts Account[]
+  notes    Note[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Plugin admin: id dell'admin che sta impersonando l'utente
+  impersonatedBy String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  // Hash della password per il provider email+password
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
+
+// ============================================================================
+// Dominio applicativo
+// ============================================================================
+
+/// Modello di esempio: una semplice nota testuale, ora di proprietà di un utente.
+/// Dimostra il flusso end-to-end protetto (UI -> route handler autenticato ->
+/// service -> Prisma -> Postgres) con autorizzazione per-utente (ownership).
 model Note {
   id        String   @id @default(cuid())
   text      String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

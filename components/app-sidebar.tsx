@@ -2,17 +2,10 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  BoxIcon,
-  ChevronRightIcon,
-  ChevronsUpDownIcon,
-  LogOutIcon,
-  PuzzleIcon,
-  SettingsIcon,
-  UserIcon,
-} from "lucide-react"
+import { BoxIcon, ChevronRightIcon, PuzzleIcon } from "lucide-react"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { authClient } from "@/lib/auth-client"
+import { NavUser } from "@/components/nav-user"
 import {
   Collapsible,
   CollapsibleContent,
@@ -24,7 +17,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -44,7 +36,15 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { navItems } from "@/lib/navigation"
+import { adminNavItems, navItems } from "@/lib/navigation"
+
+// `user.role` può contenere più ruoli separati da virgola.
+function hasRole(role: string | null | undefined, target: string) {
+  return (role ?? "")
+    .split(",")
+    .map((r) => r.trim())
+    .includes(target)
+}
 
 // Sotto-voci della voce dimostrativa "Esempio".
 const exampleSubItems = [
@@ -90,7 +90,11 @@ function NavExample() {
   }
 
   return (
-    <Collapsible asChild defaultOpen={hasActiveChild} className="group/collapsible">
+    <Collapsible
+      asChild
+      defaultOpen={hasActiveChild}
+      className="group/collapsible"
+    >
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton tooltip="Esempio">
@@ -120,6 +124,8 @@ function NavExample() {
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { data: session } = authClient.useSession()
+  const isAdmin = hasRole(session?.user.role, "admin")
 
   return (
     <Sidebar collapsible="icon">
@@ -177,54 +183,42 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Sezione visibile solo agli amministratori. La protezione effettiva è
+            comunque server-side nelle pagine (requireRole). */}
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Amministrazione</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminNavItems.map((item) => {
+                  const isActive = pathname === item.url
+                  return (
+                    <SidebarMenuItem key={item.url}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.title}
+                      >
+                        <Link
+                          href={item.url}
+                          aria-current={isActive ? "page" : undefined}
+                        >
+                          <item.icon aria-hidden="true" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" tooltip="Account">
-                  <Avatar className="size-8 rounded-lg">
-                    <AvatarFallback className="rounded-lg">UT</AvatarFallback>
-                  </Avatar>
-                  <div className="flex min-w-0 flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-                    <span className="truncate font-medium">Utente</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      utente@example.com
-                    </span>
-                  </div>
-                  <ChevronsUpDownIcon
-                    aria-hidden="true"
-                    className="ml-auto group-data-[collapsible=icon]:hidden"
-                  />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="top"
-                align="start"
-                className="w-(--radix-dropdown-menu-trigger-width)"
-              >
-                <DropdownMenuLabel>Account</DropdownMenuLabel>
-                <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <UserIcon aria-hidden="true" />
-                    Profilo
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <SettingsIcon aria-hidden="true" />
-                    Impostazioni
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <LogOutIcon aria-hidden="true" />
-                  Esci
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <NavUser />
       </SidebarFooter>
 
       <SidebarRail />

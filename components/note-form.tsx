@@ -28,7 +28,9 @@ export function NoteForm() {
       })
 
       if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as { error?: string } | null
+        const data = (await res.json().catch(() => null)) as {
+          error?: string
+        } | null
         throw new Error(data?.error ?? "Errore durante il salvataggio")
       }
 

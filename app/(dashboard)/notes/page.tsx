@@ -18,6 +18,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import type { Metadata } from "next"
 
+import { requireUser } from "@/lib/auth-helpers"
 import { listNotes } from "@/lib/notes"
 
 export const metadata: Metadata = {
@@ -26,7 +27,8 @@ export const metadata: Metadata = {
 
 // Pagina "Note": esempio end-to-end (UI -> route handler -> Prisma -> Postgres).
 export default async function NotesPage() {
-  const notes = await listNotes()
+  const session = await requireUser()
+  const notes = await listNotes(session.user.id)
 
   return (
     <div className="flex flex-col gap-6">
@@ -40,7 +42,9 @@ export default async function NotesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Le tue note</CardTitle>
-          <CardDescription>Elenco delle note salvate, dalla più recente.</CardDescription>
+          <CardDescription>
+            Elenco delle note salvate, dalla più recente.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           <NoteForm />
