@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import type { Metadata } from "next"
 
+import { requireUser } from "@/lib/auth-helpers"
 import { listNotes } from "@/lib/notes"
 
 export const metadata: Metadata = {
@@ -21,7 +22,8 @@ export const metadata: Metadata = {
 
 // Pagina di overview della dashboard (rotta "/").
 export default async function DashboardPage() {
-  const notes = await listNotes()
+  const session = await requireUser()
+  const notes = await listNotes(session.user.id)
 
   return (
     <div className="flex flex-col gap-6">
@@ -42,7 +44,9 @@ export default async function DashboardPage() {
             </CardAction>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold tabular-nums">{notes.length}</p>
+            <p className="text-3xl font-semibold tabular-nums">
+              {notes.length}
+            </p>
           </CardContent>
           <CardFooter>
             <Button variant="outline" size="sm" asChild>

@@ -30,9 +30,17 @@ docker compose up -d
 # 3. Applica le migration e genera il Prisma Client
 npx prisma migrate dev
 
-# 4. Avvia l'app
+# 4. Crea l'utente amministratore iniziale (idempotente)
+npm run db:seed
+
+# 5. Avvia l'app
 npm run dev
 ```
+
+> Prima del seed imposta `BETTER_AUTH_SECRET` in `.env` (genera con
+> `openssl rand -base64 32`). Credenziali admin di default: vedi `SEED_ADMIN_*`
+> in `.env.example`. In sviluppo i link di verifica/reset email sono stampati nei
+> log del server. Dettagli: [docs/autenticazione-e-ruoli.md](docs/autenticazione-e-ruoli.md).
 
 App su [http://localhost:3000](http://localhost:3000) (se la 3000 è occupata, Next sceglie
 automaticamente la porta successiva, es. 3001).
@@ -72,8 +80,9 @@ docker-compose.yml      # servizio PostgreSQL
 
 ## Variabili d'ambiente
 
-Vedi `.env.example`. La sola variabile necessaria è `DATABASE_URL`; le `POSTGRES_*`
-configurano il container di `docker-compose.yml`.
+Vedi `.env.example`. Necessarie: `DATABASE_URL` (database) e `BETTER_AUTH_SECRET` +
+`BETTER_AUTH_URL` (autenticazione). Le `POSTGRES_*` configurano il container di
+`docker-compose.yml`; le `SEED_ADMIN_*` definiscono l'admin creato da `npm run db:seed`.
 
 ## Comandi utili
 
@@ -87,6 +96,7 @@ configurano il container di `docker-compose.yml`.
 | `npm run typecheck` | Controllo dei tipi TypeScript (veloce, utile prima di committare)           |
 | `npm run lint`      | ESLint                                                                      |
 | `npm run format`    | Prettier (riformatta i file)                                                |
+| `npm run db:seed`   | Crea l'utente amministratore iniziale (idempotente)                        |
 
 Per fermare il dev server: `Ctrl-C`, oppure `pkill -f "next dev"`.
 
@@ -152,7 +162,10 @@ git branch -d feature/<descrizione>
 ## Non incluso (di proposito)
 
 Lo scaffold resta minimale. Sono volutamente esclusi e si potranno aggiungere quando
-serviranno: git hooks (Husky), commitlint, CI, framework di test, autenticazione, deploy.
+serviranno: git hooks (Husky), commitlint, CI, framework di test, deploy.
+
+L'**autenticazione** (email+password, sessioni, RBAC, gestione utenti) è inclusa
+tramite Better Auth: vedi [docs/autenticazione-e-ruoli.md](docs/autenticazione-e-ruoli.md).
 
 ## Convenzioni
 

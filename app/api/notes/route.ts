@@ -1,29 +1,28 @@
+import { z } from "zod"
+
+import { ok, parseJson, safeHandler, unauthorized } from "@/lib/api"
+import { getSession } from "@/lib/auth-helpers"
 import { createNote, listNotes } from "@/lib/notes"
 
-// GET /api/notes — elenco delle note
-export async function GET() {
-  const notes = await listNotes()
-  return Response.json(notes)
-}
+const createNoteSchema = z.object({
+  text: z.string().trim().min(1, "Il campo 'text' è obbligatorio"),
+})
 
-// POST /api/notes — crea una nota a partire da { text }
-export async function POST(request: Request) {
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return Response.json({ error: "Corpo JSON non valido" }, { status: 400 })
-  }
+// GET /api/notes — elenco delle note dell'utente autenticato
+export const GET = safeHandler(async () => {
+  const session = await getSession()
+  if (!session) throw unauthorized()
 
-  const text =
-    typeof body === "object" && body !== null && "text" in body
-      ? String((body as { text: unknown }).text ?? "").trim()
-      : ""
+  const notes = await listNotes(session.user.id)
+  return ok(notes)
+})
 
-  if (!text) {
-    return Response.json({ error: "Il campo 'text' è obbligatorio" }, { status: 400 })
-  }
+// POST /api/notes — crea una nota per l'utente autenticato a partire da { text }
+export const POST = safeHandler(async (request) => {
+  const session = await getSession()
+  if (!session) throw unauthorized()
 
-  const note = await createNote(text)
-  return Response.json(note, { status: 201 })
-}
+  const { text } = await parseJson(request, createNoteSchema)
+  const note = await createNote(session.user.id, text)
+  return ok(note, { status: 201 })
+})
