@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
@@ -15,7 +16,7 @@ import {
 // configurato nel ThemeProvider. Il sole/luna si scambiano via classi `dark:`
 // (solo trasformazioni, nessun colore forzato) per evitare mismatch di idratazione.
 export function ModeToggle() {
-  const { setTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
 
   return (
     <DropdownMenu>
@@ -27,9 +28,11 @@ export function ModeToggle() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>Chiaro</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>Scuro</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>Sistema</DropdownMenuItem>
+        <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+          <DropdownMenuRadioItem value="light">Chiaro</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark">Scuro</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="system">Sistema</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )
