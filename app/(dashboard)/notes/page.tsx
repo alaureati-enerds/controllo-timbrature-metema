@@ -16,7 +16,13 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Separator } from "@/components/ui/separator"
+import type { Metadata } from "next"
+
 import { listNotes } from "@/lib/notes"
+
+export const metadata: Metadata = {
+  title: "Note",
+}
 
 // Pagina "Note": esempio end-to-end (UI -> route handler -> Prisma -> Postgres).
 export default async function NotesPage() {

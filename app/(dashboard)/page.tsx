@@ -11,7 +11,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import type { Metadata } from "next"
+
 import { listNotes } from "@/lib/notes"
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+}
 
 // Pagina di overview della dashboard (rotta "/").
 export default async function DashboardPage() {
