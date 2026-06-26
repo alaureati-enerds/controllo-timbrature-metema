@@ -3,8 +3,13 @@ import { prismaAdapter } from "better-auth/adapters/prisma"
 import { nextCookies } from "better-auth/next-js"
 import { admin, twoFactor } from "better-auth/plugins"
 
+import {
+  sendChangeEmailConfirmation,
+  sendDeleteAccountVerification,
+  sendResetPasswordEmail,
+  sendVerificationEmail,
+} from "@/lib/email/auth-emails"
 import { env } from "@/lib/env"
-import { logger } from "@/lib/logger"
 import { ac, roles } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
 
@@ -32,40 +37,41 @@ export const auth = betterAuth({
     enabled: true,
     // L'utente deve verificare l'email prima di poter accedere.
     requireEmailVerification: true,
-    // Invio email reale rinviato: per ora il link di reset finisce nei log.
-    sendResetPassword: async ({ user, url }) => {
-      logger.info(
-        `[email:reset-password] destinatario=${user.email} link=${url}`
-      )
-    },
+    // Link di reset password inviato via il driver email attivo (lib/email/).
+    sendResetPassword: ({ user, url }) =>
+      sendResetPasswordEmail({ to: user.email, userName: user.name, url }),
   },
 
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
-    // Per ora il link di verifica finisce nei log (vedi piano: provider dopo).
-    sendVerificationEmail: async ({ user, url }) => {
-      logger.info(`[email:verify] destinatario=${user.email} link=${url}`)
-    },
+    // Link di verifica inviato via il driver email attivo (lib/email/).
+    sendVerificationEmail: ({ user, url }) =>
+      sendVerificationEmail({ to: user.email, userName: user.name, url }),
   },
 
   // Flussi self-service legati all'account utente.
   user: {
-    // Cambio email: la conferma viene inviata alla NUOVA email (in dev: log).
+    // Cambio email: la conferma viene inviata alla NUOVA email.
     changeEmail: {
       enabled: true,
-      sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
-        logger.info(
-          `[email:change] ${user.email} -> ${newEmail} link=${url}`
-        )
-      },
+      sendChangeEmailConfirmation: ({ user, newEmail, url }) =>
+        sendChangeEmailConfirmation({
+          to: newEmail,
+          userName: user.name,
+          newEmail,
+          url,
+        }),
     },
-    // Eliminazione account: richiede conferma via link (in dev: log).
+    // Eliminazione account: richiede conferma via link.
     deleteUser: {
       enabled: true,
-      sendDeleteAccountVerification: async ({ user, url }) => {
-        logger.info(`[email:delete-account] ${user.email} link=${url}`)
-      },
+      sendDeleteAccountVerification: ({ user, url }) =>
+        sendDeleteAccountVerification({
+          to: user.email,
+          userName: user.name,
+          url,
+        }),
     },
   },
 

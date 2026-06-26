@@ -33,6 +33,26 @@ const envSchema = z.object({
   // renderla persistente. Default relativo alla working dir del processo.
   STORAGE_DIR: z.string().min(1).default("storage"),
 
+  // --- Invio email (vedi lib/email/) ---
+  // Driver attivo. Se non impostato, lib/email/index.ts sceglie in base a
+  // NODE_ENV: "console" in sviluppo (logga il messaggio), "smtp" in produzione.
+  EMAIL_DRIVER: z.enum(["console", "smtp"]).optional(),
+  // Mittente di default, formato RFC 5322: "Nome <indirizzo@dominio>" oppure
+  // solo l'indirizzo. Obbligatorio quando il driver è "smtp" (validato lì).
+  EMAIL_FROM: z.string().min(1).optional(),
+  // Credenziali del server SMTP. Sono SEGRETI: stanno solo qui, mai nel blob
+  // delle impostazioni di sistema (vedi lib/settings/schema.ts). Necessarie solo
+  // quando il driver è "smtp"; la loro presenza è verificata in lib/email/smtp.ts.
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASSWORD: z.string().min(1).optional(),
+  // true per connessione TLS implicita (porta 465); false per STARTTLS (587).
+  SMTP_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
