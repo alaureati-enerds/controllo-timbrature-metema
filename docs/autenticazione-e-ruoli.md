@@ -12,7 +12,7 @@ verifica email e reset password.
 
 | File | Ruolo |
 | ---- | ----- |
-| [lib/auth.ts](../lib/auth.ts) | Istanza server di Better Auth (punto di verità). Configura email+password, verifica/reset, rate limiting, plugin admin. |
+| [lib/auth.ts](../lib/auth.ts) | Istanza server di Better Auth (punto di verità). Configura email+password, verifica/reset, rate limiting, plugin admin e 2FA. |
 | [lib/auth-client.ts](../lib/auth-client.ts) | Client per i Client Component: `signIn`, `signUp`, `signOut`, `useSession`, azioni admin. |
 | [lib/auth-helpers.ts](../lib/auth-helpers.ts) | Helper server: `getSession`, `requireUser`, `requireRole`, `isAdmin`. |
 | [lib/permissions.ts](../lib/permissions.ts) | Definizione RBAC (risorse, azioni, ruoli `admin`/`user`). |
@@ -162,6 +162,45 @@ oltre a nome e password l'utente gestisce, via
 - **Eliminazione account** — `authClient.deleteUser({ callbackURL })` dietro
   conferma (digitare la propria email). Invia un link di conferma finale (in dev:
   log, tag `[email:delete-account]`). Richiede `user.deleteUser.enabled`.
+- **Autenticazione a due fattori (2FA)** — opt-in da
+  [components/profile/two-factor-card.tsx](../components/profile/two-factor-card.tsx),
+  basata sul plugin `twoFactor` di Better Auth (solo TOTP + codici di backup).
+
+## Autenticazione a due fattori (2FA)
+
+Secondo fattore **opzionale e self-service** via app authenticator (TOTP), con
+codici di backup per il recupero. Configurata in [lib/auth.ts](../lib/auth.ts)
+(`twoFactor({ issuer })`) e [lib/auth-client.ts](../lib/auth-client.ts)
+(`twoFactorClient()`). I dati stanno nel modello `TwoFactor`
+([prisma/schema.prisma](../prisma/schema.prisma)) e nel flag
+`user.twoFactorEnabled`.
+
+**Attivazione** (wizard in 3 passi dal profilo): conferma password →
+`authClient.twoFactor.enable({ password })` (restituisce `totpURI` +
+`backupCodes`) → scansione del QR e verifica del primo codice con
+`authClient.twoFactor.verifyTotp({ code })` → salvataggio dei codici di backup.
+Better Auth attiva davvero la 2FA **solo dopo** la verifica del primo codice,
+quindi un wizard interrotto non lascia l'account bloccato.
+
+**Login** ([app/(auth)/two-factor/page.tsx](<../app/(auth)/two-factor/page.tsx>)):
+quando un utente con 2FA fa login, `signIn.email` restituisce
+`twoFactorRedirect: true` senza creare la sessione; il
+[login-form](../components/auth/login-form.tsx) reindirizza a `/two-factor`
+(rotta esclusa dal [proxy.ts](../proxy.ts)). Lì si verifica con
+`verifyTotp({ code, trustDevice })` oppure `verifyBackupCode({ code })`.
+`trustDevice` ricorda il dispositivo per 30 giorni.
+
+**Gestione**: `twoFactor.disable({ password })` per disattivare,
+`twoFactor.generateBackupCodes({ password })` per rigenerare i codici (i
+precedenti vengono invalidati).
+
+**Recupero da lockout (admin)**: se un utente perde telefono **e** codici di
+backup, un amministratore può azzerare la 2FA dal dettaglio utente
+([components/admin/user-detail.tsx](../components/admin/user-detail.tsx)),
+azione "Reimposta 2FA". Chiama l'endpoint riservato
+[app/api/admin/users/[id]/reset-2fa/route.ts](<../app/api/admin/users/[id]/reset-2fa/route.ts>)
+che rimuove la riga `TwoFactor` e azzera `twoFactorEnabled`; l'utente potrà poi
+riconfigurarla dal profilo.
 
 ## Gestione utenti (admin)
 
@@ -184,6 +223,9 @@ rapido ed eliminazione. Le **azioni avanzate** sono nel dettaglio utente
   [components/impersonation-banner.tsx](../components/impersonation-banner.tsx)
   (montato nel layout dashboard) mostra "stai impersonando X" con Stop
 - `admin.removeUser({ userId })` — eliminazione
+- **Reimposta 2FA** — `POST /api/admin/users/[id]/reset-2fa` (endpoint custom,
+  solo admin): sblocca un utente rimasto fuori avendo perso telefono e codici di
+  backup (vedi *Autenticazione a due fattori*)
 
 **Guardrail**: un admin non può bannare/eliminare/impersonare sé stesso (controllo
 in UI confrontando con `authClient.useSession()`; Better Auth blocca comunque il
@@ -191,6 +233,6 @@ self-ban lato server).
 
 ## Non incluso (per ora)
 
-Predisposto ma rinviato: invio email reale, login social/OAuth, magic link, 2FA,
+Predisposto ma rinviato: invio email reale, login social/OAuth, magic link,
 organizzazioni/multi-tenant, audit log persistente. Si aggiungono come plugin o
 configurazione senza riscrivere le fondamenta.

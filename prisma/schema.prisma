@@ -16,8 +16,9 @@ datasource db {
 // Autenticazione (Better Auth)
 // Questi modelli sono gestiti da Better Auth (vedi lib/auth.ts). I campi extra
 // `role`, `banned`, `banReason`, `banExpires`, `impersonatedBy` provengono dal
-// plugin admin (RBAC + gestione utenti). Le password sono salvate hashate nel
-// modello Account, non nel modello User.
+// plugin admin (RBAC + gestione utenti). Il campo `twoFactorEnabled` e il
+// modello TwoFactor provengono dal plugin twoFactor (2FA via TOTP). Le password
+// sono salvate hashate nel modello Account, non nel modello User.
 // ============================================================================
 
 model User {
@@ -35,9 +36,13 @@ model User {
   banReason  String?
   banExpires DateTime?
 
-  sessions Session[]
-  accounts Account[]
-  notes    Note[]
+  // Plugin twoFactor (2FA): true quando l'utente ha attivato e verificato la 2FA
+  twoFactorEnabled Boolean? @default(false)
+
+  sessions   Session[]
+  accounts   Account[]
+  twoFactors TwoFactor[]
+  notes      Note[]
 
   @@map("user")
 }
@@ -90,6 +95,23 @@ model Verification {
   updatedAt  DateTime? @updatedAt
 
   @@map("verification")
+}
+
+// Plugin twoFactor: conserva il segreto TOTP e i codici di backup dell'utente
+// (cifrati da Better Auth). `verified` indica che il segreto è stato confermato
+// con un primo codice valido durante l'attivazione.
+model TwoFactor {
+  id          String   @id
+  secret      String
+  backupCodes String
+  verified    Boolean? @default(true)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("two_factor")
 }
 
 // ============================================================================

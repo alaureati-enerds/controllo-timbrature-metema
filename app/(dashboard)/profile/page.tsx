@@ -13,6 +13,9 @@ export const metadata: Metadata = { title: "Profilo" }
 export default async function ProfilePage() {
   const session = await requireUser()
   const { name, email, role, emailVerified } = session.user
+  const twoFactorEnabled = Boolean(
+    (session.user as { twoFactorEnabled?: boolean | null }).twoFactorEnabled
+  )
   const roles = (role ?? "user").split(",").map((r) => r.trim())
 
   return (
@@ -52,7 +55,7 @@ export default async function ProfilePage() {
       </header>
 
       <ProfileForm initialName={name} email={email} />
-      <AccountSecurity currentEmail={email} />
+      <AccountSecurity currentEmail={email} twoFactorEnabled={twoFactorEnabled} />
     </div>
   )
 }

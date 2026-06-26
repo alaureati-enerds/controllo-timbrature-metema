@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { ArrowLeftIcon, LaptopIcon } from "lucide-react"
+import { ArrowLeftIcon, LaptopIcon, ShieldCheckIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
@@ -49,6 +49,7 @@ type DetailUser = {
   banned?: boolean | null
   banReason?: string | null
   banExpires?: Date | string | null
+  twoFactorEnabled?: boolean | null
 }
 
 type SessionRow = {
@@ -185,6 +186,22 @@ export function UserDetail({
     setBusy(false)
     if (error) return toast.error(error.message ?? "Operazione non riuscita")
     toast.success("Tutte le sessioni revocate")
+    refresh()
+  }
+
+  async function resetTwoFactor() {
+    setBusy(true)
+    const res = await fetch(`/api/admin/users/${userId}/reset-2fa`, {
+      method: "POST",
+    })
+    setBusy(false)
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        error?: string
+      } | null
+      return toast.error(body?.error ?? "Operazione non riuscita")
+    }
+    toast.success("2FA reimpostata; l'utente potrà riconfigurarla")
     refresh()
   }
 
@@ -456,6 +473,64 @@ export function UserDetail({
               </AlertDialogContent>
             </AlertDialog>
           </CardContent>
+        </Card>
+
+        {/* Autenticazione a due fattori (recupero da lockout) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheckIcon className="size-4 text-muted-foreground" />
+              Autenticazione a due fattori
+              {user.twoFactorEnabled ? (
+                <Badge variant="secondary">Attiva</Badge>
+              ) : (
+                <Badge variant="outline" className="text-muted-foreground">
+                  Non attiva
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Reimposta la 2FA se l&apos;utente ha perso telefono e codici di
+              backup. Dovrà riconfigurarla dal proprio profilo.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={busy || isSelf || !user.twoFactorEnabled}
+                  title={
+                    isSelf
+                      ? "Gestisci la tua 2FA dal profilo"
+                      : !user.twoFactorEnabled
+                        ? "L'utente non ha la 2FA attiva"
+                        : undefined
+                  }
+                >
+                  Reimposta 2FA
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Reimpostare la 2FA di {user.name}?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    La verifica in due passaggi verrà disattivata e i codici di
+                    backup invalidati. {user.name} potrà accedere con la sola
+                    password e riconfigurare la 2FA dal profilo.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={busy}>Annulla</AlertDialogCancel>
+                  <AlertDialogAction onClick={resetTwoFactor}>
+                    Reimposta
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardFooter>
         </Card>
       </div>
 

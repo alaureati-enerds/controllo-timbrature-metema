@@ -31,10 +31,10 @@ export function LoginForm() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setPending(true)
-    const { error } = await authClient.signIn.email({ email, password })
-    setPending(false)
+    const { data, error } = await authClient.signIn.email({ email, password })
 
     if (error) {
+      setPending(false)
       if (error.code === "EMAIL_NOT_VERIFIED") {
         toast.error(
           "Email non verificata: controlla la posta (o i log in dev)."
@@ -45,6 +45,16 @@ export function LoginForm() {
       return
     }
 
+    // 2FA attiva: nessuna sessione ancora. Vai al secondo fattore preservando
+    // la destinazione, senza segnalare un accesso già avvenuto. `twoFactorRedirect`
+    // è aggiunto a runtime dal plugin 2FA ma non sempre presente nel tipo.
+    if ((data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+      const params = new URLSearchParams({ redirect: redirectTo })
+      router.push(`/two-factor?${params.toString()}`)
+      return
+    }
+
+    setPending(false)
     toast.success("Accesso effettuato")
     router.push(redirectTo)
     router.refresh()
