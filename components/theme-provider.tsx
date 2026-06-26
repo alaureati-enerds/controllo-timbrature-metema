@@ -12,7 +12,18 @@ function ThemeProvider({
       attribute="class"
       defaultTheme="system"
       enableSystem
-      themes={["light", "dark", "catppuccin-latte", "catppuccin-mocha"]}
+      themes={[
+        "light",
+        "dark",
+        "catppuccin-latte",
+        "catppuccin-mocha",
+        "monokai",
+        "dracula",
+        "nord",
+        "gruvbox-dark",
+        "solarized-light",
+        "solarized-dark",
+      ]}
       disableTransitionOnChange
       {...props}
     >
