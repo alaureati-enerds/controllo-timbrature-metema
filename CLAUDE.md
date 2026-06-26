@@ -13,6 +13,8 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
   selezionabile dall'utente (token CSS, `next-themes`, selettore).
 - [Come creare una voce di menu della sidebar](docs/creare-voce-menu-sidebar.md) —
   aggiungere voci semplici o con sotto-voci, funzionanti anche da collassata.
+- [Ricerca globale (topbar)](docs/ricerca-globale.md) — la palette ⌘K con
+  scorciatoie ai menu e ai record; come registrare una nuova fonte di ricerca.
 - [Autenticazione, ruoli e gestione utenti](docs/autenticazione-e-ruoli.md) —
   Better Auth: proteggere pagine/API, aggiungere ruoli e permessi (RBAC), admin.
 - [Impostazioni di sistema e preferenze per-utente](docs/impostazioni-di-sistema.md) —
