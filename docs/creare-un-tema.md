@@ -1,7 +1,8 @@
 # Come creare un nuovo tema
 
 Guida di riferimento per aggiungere un tema (palette) selezionabile dall'utente,
-sul modello di quelli già presenti (Chiaro, Scuro, Catppuccin Latte/Mocha).
+sul modello di quelli già presenti (Chiaro, Scuro, Catppuccin Latte/Mocha,
+Solarized Light/Dark, Monokai, Dracula, Nord, Gruvbox).
 
 ## Come funziona il theming
 
@@ -41,15 +42,15 @@ HEX (`--primary: #8839ef`), ma conviene convertire (vedi sotto).
 
 ## Aggiungere un nuovo tema — passo per passo
 
-Esempio: aggiungiamo un tema chiamato `nord` (scuro).
+Esempio: aggiungiamo un tema chiamato `tokyo-night` (scuro).
 
 ### 1. Definisci i token in `app/globals.css`
 
 Aggiungi un blocco con la classe del tema, sotto quelli esistenti:
 
 ```css
-/* Nord — tema scuro aggiuntivo. */
-.nord {
+/* Tokyo Night — tema scuro aggiuntivo. */
+.tokyo-night {
     --background: oklch(...);
     --foreground: oklch(...);
     /* ...tutti gli altri token... */
@@ -66,7 +67,7 @@ Le utility `dark:` si attivano solo sotto le classi elencate in questa riga
 in cima a `globals.css`. Aggiungi la nuova classe se il tema è scuro:
 
 ```css
-@custom-variant dark (&:is(.dark *, .catppuccin-mocha *, .nord *));
+@custom-variant dark (&:is(.dark *, .catppuccin-mocha *, /* ... */ .tokyo-night *));
 ```
 
 Per i temi **chiari** questo passaggio non serve.
@@ -77,7 +78,7 @@ In [components/theme-provider.tsx](../components/theme-provider.tsx) aggiungi il
 nome all'array `themes`:
 
 ```tsx
-themes={["light", "dark", "catppuccin-latte", "catppuccin-mocha", "nord"]}
+themes={["light", "dark", "catppuccin-latte", /* ... */ "tokyo-night"]}
 ```
 
 Il nome **deve combaciare** esattamente con la classe CSS del passo 1.
@@ -88,7 +89,7 @@ In [components/mode-toggle.tsx](../components/mode-toggle.tsx) aggiungi un
 `DropdownMenuRadioItem` con `value` uguale al nome del tema:
 
 ```tsx
-<DropdownMenuRadioItem value="nord">Nord</DropdownMenuRadioItem>
+<DropdownMenuRadioItem value="tokyo-night">Tokyo Night</DropdownMenuRadioItem>
 ```
 
 ### 5. Verifica

@@ -41,6 +41,22 @@ export function ModeToggle() {
           <DropdownMenuRadioItem value="catppuccin-mocha">
             Mocha
           </DropdownMenuRadioItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Solarized</DropdownMenuLabel>
+          <DropdownMenuRadioItem value="solarized-light">
+            Light
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="solarized-dark">
+            Dark
+          </DropdownMenuRadioItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Altri (scuri)</DropdownMenuLabel>
+          <DropdownMenuRadioItem value="monokai">Monokai</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dracula">Dracula</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="nord">Nord</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="gruvbox-dark">
+            Gruvbox
+          </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
