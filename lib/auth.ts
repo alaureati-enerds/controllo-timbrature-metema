@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth"
 import { prismaAdapter } from "better-auth/adapters/prisma"
 import { nextCookies } from "better-auth/next-js"
-import { admin } from "better-auth/plugins"
+import { admin, twoFactor } from "better-auth/plugins"
 
 import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
@@ -83,6 +83,13 @@ export const auth = betterAuth({
       roles,
       defaultRole: "user",
       adminRoles: ["admin"],
+    }),
+    // Autenticazione a due fattori (opt-in, self-service dal profilo). Offriamo
+    // solo TOTP (app authenticator) + codici di backup: nessun OTP via email,
+    // coerente con il fatto che in dev le email finiscono solo nei log.
+    // `issuer` è il nome mostrato nell'app authenticator dell'utente.
+    twoFactor({
+      issuer: "shadcn-starter",
     }),
     // Deve restare l'ULTIMO plugin: gestisce i cookie in ambiente Next.js.
     nextCookies(),

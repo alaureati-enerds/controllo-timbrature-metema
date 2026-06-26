@@ -22,6 +22,6 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Applica a tutto TRANNE le pagine di auth, le API, gli asset statici.
   matcher: [
-    "/((?!login|register|reset-password|verify-email|api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|register|reset-password|verify-email|two-factor|api|_next/static|_next/image|favicon.ico).*)",
   ],
 }

@@ -6,6 +6,7 @@ import { LaptopIcon, ShieldAlertIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
+import { TwoFactorCard } from "@/components/profile/two-factor-card"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -38,7 +39,13 @@ type SessionRow = {
   createdAt: Date | string
 }
 
-export function AccountSecurity({ currentEmail }: { currentEmail: string }) {
+export function AccountSecurity({
+  currentEmail,
+  twoFactorEnabled,
+}: {
+  currentEmail: string
+  twoFactorEnabled: boolean
+}) {
   const router = useRouter()
   const { data: current } = authClient.useSession()
   const currentToken = current?.session.token
@@ -261,6 +268,9 @@ export function AccountSecurity({ currentEmail }: { currentEmail: string }) {
             </CardFooter>
           </form>
         </Card>
+
+        {/* Autenticazione a due fattori */}
+        <TwoFactorCard initialEnabled={twoFactorEnabled} />
       </div>
 
       {/* Eliminazione account */}
