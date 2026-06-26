@@ -392,7 +392,7 @@ export function UserDetail({
                       id="ban-reason"
                       value={banReason}
                       onChange={(e) => setBanReason(e.target.value)}
-                      placeholder="Es. violazione termini"
+                      placeholder="Es. violazione dei termini…"
                       disabled={busy}
                     />
                   </Field>

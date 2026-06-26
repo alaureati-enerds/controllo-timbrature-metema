@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import QRCode from "qrcode"
 import {
   CheckIcon,
+  ChevronDownIcon,
   CopyIcon,
   DownloadIcon,
   KeyRoundIcon,
@@ -71,6 +72,11 @@ function secretFromTotpUri(uri: string): string {
   }
 }
 
+// Raggruppa il segreto in blocchi da 4 caratteri: più leggibile e digitabile.
+function groupSecret(secret: string): string {
+  return secret.replace(/(.{4})/g, "$1 ").trim()
+}
+
 // --- Riquadro riutilizzabile per mostrare/salvare i codici di backup ---
 function BackupCodes({ codes }: { codes: string[] }) {
   const [copied, setCopied] = useState(false)
@@ -99,13 +105,19 @@ function BackupCodes({ codes }: { codes: string[] }) {
     <div className="flex flex-col gap-3">
       <ul className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-4 font-mono text-sm">
         {codes.map((c) => (
-          <li key={c} className="text-center tracking-widest">
+          <li key={c} className="text-center tracking-wide">
             {c}
           </li>
         ))}
       </ul>
       <div className="flex gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={copy}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={copy}
+        >
           {copied ? (
             <CheckIcon data-icon="inline-start" />
           ) : (
@@ -113,7 +125,13 @@ function BackupCodes({ codes }: { codes: string[] }) {
           )}
           {copied ? "Copiati" : "Copia"}
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={download}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={download}
+        >
           <DownloadIcon data-icon="inline-start" />
           Scarica .txt
         </Button>
@@ -453,6 +471,8 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
                       <img
                         src={qrDataUrl}
                         alt="Codice QR per configurare l'app authenticator"
+                        width={176}
+                        height={176}
                         className="size-44 rounded-lg border bg-white p-2"
                       />
                     ) : (
@@ -461,23 +481,48 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
                       </div>
                     )}
 
-                    <Collapsible className="w-full">
+                    <Collapsible className="group/manual flex w-full flex-col items-center">
                       <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 text-muted-foreground"
+                        >
+                          <ChevronDownIcon
+                            aria-hidden="true"
+                            className="transition-transform duration-200 group-data-[state=open]/manual:rotate-180"
+                          />
                           Non puoi scansionare? Inserisci la chiave
                         </Button>
                       </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <p className="mt-2 rounded-md border bg-muted/40 p-3 text-center font-mono text-xs break-all">
-                          {secretFromTotpUri(totpUri)}
-                        </p>
+                      <CollapsibleContent className="w-full">
+                        <div className="mt-2 flex items-center gap-2 rounded-md border bg-muted/40 p-2 ps-3">
+                          <code
+                            translate="no"
+                            className="flex-1 text-center font-mono text-sm tracking-wider break-words select-all"
+                          >
+                            {groupSecret(secretFromTotpUri(totpUri))}
+                          </code>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 shrink-0"
+                            aria-label="Copia la chiave"
+                            onClick={() => {
+                              navigator.clipboard
+                                .writeText(secretFromTotpUri(totpUri))
+                                .then(() => toast.success("Chiave copiata"))
+                                .catch(() => toast.error("Copia non riuscita"))
+                            }}
+                          >
+                            <CopyIcon aria-hidden="true" />
+                          </Button>
+                        </div>
                       </CollapsibleContent>
                     </Collapsible>
 
-                    <Field
-                      data-invalid={error ? true : undefined}
-                      className="items-center"
-                    >
+                    <Field data-invalid={error ? true : undefined}>
                       <FieldLabel htmlFor="enable-code" className="sr-only">
                         Codice a 6 cifre
                       </FieldLabel>
@@ -487,6 +532,7 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
                         value={code}
                         disabled={busy}
                         aria-invalid={error ? true : undefined}
+                        containerClassName="justify-center"
                         onChange={(value) => {
                           setCode(value)
                           if (error) setError(null)
@@ -507,7 +553,7 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
                       </InputOTP>
                       <FieldError className="text-center">{error}</FieldError>
                       {busy && (
-                        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                           <Spinner /> Verifica…
                         </span>
                       )}
