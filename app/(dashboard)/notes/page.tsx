@@ -1,4 +1,5 @@
 import { NotebookPenIcon } from "lucide-react"
+import Link from "next/link"
 
 import { NoteForm } from "@/components/note-form"
 import {
@@ -64,14 +65,16 @@ export default async function NotesPage() {
           ) : (
             <ul className="flex flex-col gap-3">
               {notes.map((note) => (
-                <li
-                  key={note.id}
-                  className="flex flex-col gap-1 rounded-md border p-3"
-                >
-                  <span className="text-sm">{note.text}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {note.createdAt.toLocaleString("it-IT")}
-                  </span>
+                <li key={note.id}>
+                  <Link
+                    href={`/notes/${note.id}`}
+                    className="flex flex-col gap-1 rounded-md border p-3 transition-colors hover:bg-accent"
+                  >
+                    <span className="truncate text-sm">{note.text}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {note.createdAt.toLocaleString("it-IT")}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>
