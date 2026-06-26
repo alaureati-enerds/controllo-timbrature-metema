@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+import { BRANDING_ICON_NAMES, DEFAULT_BRANDING_ICON } from "@/lib/settings/icons"
+
 // Registro delle impostazioni di SISTEMA (globali). È la fonte di verità: ogni
 // impostazione è un campo di questo schema Zod, con il suo `.default()`. Lo
 // stesso approccio di lib/env.ts — quello che sta a DB (il blob `data` di
@@ -18,19 +20,34 @@ import { z } from "zod"
 export const systemSettingsSchema = z.object({
   // Nome del software, mostrato nell'header della sidebar e nel <title>.
   appName: z.string().trim().min(1).default("shadcn starter"),
-  // URL del logo (assoluto o relativo a /public). Null = usa l'icona di default.
-  logoUrl: z.string().url().nullable().default(null),
+  // Sottotitolo sotto il nome (modalità "icona"). Vuoto = riga nascosta.
+  appSubtitle: z.string().trim().default("Dashboard"),
+  // Modalità di branding dell'header della sidebar:
+  //  - "icon": icona scelta + nome + sottotitolo
+  //  - "logo": logo personalizzato a tutta larghezza (da collassata torna l'icona)
+  brandingMode: z.enum(["icon", "logo"]).default("icon"),
+  // Icona scelta in modalità "icon" (vedi lib/settings/icons.ts).
+  iconName: z.enum(BRANDING_ICON_NAMES).default(DEFAULT_BRANDING_ICON),
+  // Id del File (ownerType "system") usato come logo in modalità "logo".
+  // Null = nessun logo caricato (ricade sull'icona). Vedi lib/files.ts.
+  logoFileId: z.string().nullable().default(null),
 })
 
 export type SystemSettings = z.infer<typeof systemSettingsSchema>
 
-// Sottoinsieme di impostazioni sicuro da inviare al client. Per ora coincide con
-// tutto (nome e logo sono pubblici), ma è il punto in cui filtrare i campi
-// server-only quando ne aggiungeremo (es. configurazione SMTP).
-export type PublicSystemSettings = Pick<SystemSettings, "appName" | "logoUrl">
+// Sottoinsieme di impostazioni sicuro da inviare al client. Oggi tutti i campi
+// sono pubblici (servono a renderizzare l'header); quando aggiungeremo campi
+// server-only (es. configurazione SMTP) questo tipo li escluderà.
+export type PublicSystemSettings = SystemSettings
 
 export function toPublicSettings(s: SystemSettings): PublicSystemSettings {
-  return { appName: s.appName, logoUrl: s.logoUrl }
+  return {
+    appName: s.appName,
+    appSubtitle: s.appSubtitle,
+    brandingMode: s.brandingMode,
+    iconName: s.iconName,
+    logoFileId: s.logoFileId,
+  }
 }
 
 // Schema per gli aggiornamenti dal form admin: tutti i campi opzionali (patch

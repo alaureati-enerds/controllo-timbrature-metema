@@ -26,9 +26,10 @@ globali. Quando l'admin regola le *sue* notifiche non lo fa "da admin": lo fa da
 utente come tutti gli altri, e l'autorizzazione è per ownership — esattamente
 come per le note (vedi [`lib/notes.ts`](../lib/notes.ts)).
 
-> **Stato attuale:** è implementato solo l'asse **di sistema** (nome e logo). Le
-> preferenze per-utente non esistono ancora come codice; questa pagina descrive
-> il pattern con cui andranno aggiunte, così l'architettura resta coerente.
+> **Stato attuale:** l'asse **di sistema** copre il branding (nome, sottotitolo,
+> icona o logo). Le *preferenze per-utente* non esistono ancora come impostazioni
+> (questa pagina descrive il pattern con cui andranno aggiunte); l'asse ownership
+> è però già dimostrato dai file utente — vedi [`gestione-file.md`](gestione-file.md).
 
 ---
 
@@ -99,7 +100,10 @@ Esempio: aggiungere un tema di default.
    ```ts
    export const systemSettingsSchema = z.object({
      appName: z.string().trim().min(1).default("shadcn starter"),
-     logoUrl: z.string().url().nullable().default(null),
+     appSubtitle: z.string().trim().default("Dashboard"),
+     brandingMode: z.enum(["icon", "logo"]).default("icon"),
+     iconName: z.enum(BRANDING_ICON_NAMES).default(DEFAULT_BRANDING_ICON),
+     logoFileId: z.string().nullable().default(null),
      defaultTheme: z.enum(["light", "dark", "system"]).default("system"), // nuovo
    })
    ```
@@ -121,6 +125,29 @@ l'endpoint admin di lettura lo restituisce. Tienile in `.env` (come fa oggi
 l'invio email, che in sviluppo finisce nei log — vedi
 [`lib/auth.ts`](../lib/auth.ts)) oppure in un campo cifrato dedicato, mai in
 chiaro nel `data` del singleton.
+
+---
+
+## Branding: icona oppure logo
+
+L'header della sidebar ha due modalità, controllate da `brandingMode`:
+
+- **`icon`** — un'icona scelta da un set curato e ricercabile
+  ([`lib/settings/icons.ts`](../lib/settings/icons.ts)) + `appName` + `appSubtitle`
+  (il sottotitolo si nasconde se vuoto). Per ampliare le icone: aggiungi il nome
+  in `icons.ts` e la coppia nome→componente in
+  [`components/branding-icon.tsx`](../components/branding-icon.tsx) — la mappa è
+  tipata, quindi una delle due senza l'altra è un errore a compile time.
+- **`logo`** — un logo personalizzato a tutta larghezza quando la sidebar è
+  aperta; quando si collassa torna l'icona di default (un logo orizzontale non
+  entrerebbe nella rail stretta).
+
+Il **logo non è un URL** ma un **file caricato**, gestito come *file di sistema*
+dal sottosistema file (admin scrive, tutti leggono). Nelle impostazioni vive solo
+il riferimento `logoFileId`; i byte stanno nel modello `File`. L'upload/rimozione
+passa da [`app/api/admin/settings/logo/route.ts`](../app/api/admin/settings/logo/route.ts),
+separato dal `PUT` JSON perché è multipart. Dettagli del sottosistema:
+[`gestione-file.md`](gestione-file.md).
 
 ---
 

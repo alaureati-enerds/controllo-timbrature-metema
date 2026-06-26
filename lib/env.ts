@@ -27,6 +27,12 @@ const envSchema = z.object({
   SEED_USER_PASSWORD: z.string().min(8).default("changeme123"),
   SEED_USER_NAME: z.string().min(1).default("Utente"),
 
+  // Cartella base dove il driver filesystem salva i file caricati (logo, file
+  // utente). Sta FUORI da public/: i file passano sempre dalle route autorizzate
+  // (vedi lib/storage/ e lib/files.ts). In Docker montala come volume per
+  // renderla persistente. Default relativo alla working dir del processo.
+  STORAGE_DIR: z.string().min(1).default("storage"),
+
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

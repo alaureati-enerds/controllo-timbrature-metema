@@ -1,4 +1,5 @@
 import {
+  FolderIcon,
   HourglassIcon,
   LayoutDashboardIcon,
   NotebookPenIcon,
@@ -18,6 +19,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboardIcon },
   { title: "Note", url: "/notes", icon: NotebookPenIcon },
+  { title: "I miei file", url: "/files", icon: FolderIcon },
   // Pagina dimostrativa del loading skeleton. Rimuovibile quando non serve più.
   { title: "Demo skeleton", url: "/demo", icon: HourglassIcon },
 ]

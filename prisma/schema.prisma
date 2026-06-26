@@ -43,6 +43,7 @@ model User {
   accounts   Account[]
   twoFactors TwoFactor[]
   notes      Note[]
+  files      File[]
 
   @@map("user")
 }
@@ -150,4 +151,36 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 
   @@map("system_setting")
+}
+
+// ============================================================================
+// File caricati
+// ============================================================================
+
+/// Metadati di un file caricato. I BYTE non stanno qui: vivono nello storage
+/// (lib/storage/, oggi filesystem) sotto `storageKey`; questa riga è la fonte di
+/// verità per lookup e autorizzazione. L'accesso passa sempre da route
+/// autorizzate (app/api/files/), mai da link diretti.
+///
+/// Due tipi di proprietà, gli stessi due assi delle impostazioni:
+///  - `ownerType = "system"` (ownerId null): file globali (es. il logo). Solo
+///    gli admin li scrivono, tutti li leggono → autorizzazione per RBAC.
+///  - `ownerType = "user"`  (ownerId = userId): file dell'utente. Solo il
+///    proprietario li legge/scrive → autorizzazione per ownership (come Note).
+model File {
+  id           String   @id @default(cuid())
+  // Percorso opaco dell'oggetto nello storage (gestito da lib/files.ts).
+  storageKey   String   @unique
+  mimeType     String
+  size         Int
+  originalName String?
+  ownerType    String // "system" | "user"
+  ownerId      String? // userId per i file utente; null per i file di sistema
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner User? @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerType, ownerId])
+  @@map("file")
 }
