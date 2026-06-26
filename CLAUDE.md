@@ -16,7 +16,7 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
 - [Autenticazione, ruoli e gestione utenti](docs/autenticazione-e-ruoli.md) —
   Better Auth: proteggere pagine/API, aggiungere ruoli e permessi (RBAC), admin.
 - [Impostazioni di sistema e preferenze per-utente](docs/impostazioni-di-sistema.md) —
-  configurazione globale (nome, logo) vs preferenze personali; come aggiungerne.
+  configurazione globale (nome, icona) vs preferenze personali; come aggiungerne.
 - [Gestione dei file (storage e accesso)](docs/gestione-file.md) — come si
   salvano/servono i file (driver intercambiabile), file di sistema vs utente.
 

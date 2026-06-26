@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BoxIcon, ChevronRightIcon, PuzzleIcon } from "lucide-react"
+import { ChevronRightIcon, PuzzleIcon } from "lucide-react"
 
 import { authClient } from "@/lib/auth-client"
 import { BrandingIcon } from "@/components/branding-icon"
@@ -124,17 +124,13 @@ function NavExample() {
   )
 }
 
-// Il branding (nome, sottotitolo, modalità, icona, logo) arriva dalle
-// impostazioni di sistema, lette server-side nel layout della dashboard e
-// passate come prop (questo è un client component).
+// Il branding (nome, sottotitolo, icona) arriva dalle impostazioni di sistema,
+// lette server-side nel layout della dashboard e passate come prop (questo è un
+// client component).
 export function AppSidebar({ branding }: { branding: PublicSystemSettings }) {
   const pathname = usePathname()
   const { data: session } = authClient.useSession()
   const isAdmin = hasRole(session?.user.role, "admin")
-
-  // Logo personalizzato solo se la modalità è "logo" e un logo è stato caricato;
-  // altrimenti si ricade sull'icona scelta + nome/sottotitolo.
-  const useLogo = branding.brandingMode === "logo" && branding.logoFileId
 
   return (
     <Sidebar collapsible="icon">
@@ -143,40 +139,19 @@ export function AppSidebar({ branding }: { branding: PublicSystemSettings }) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/">
-                {useLogo ? (
-                  <>
-                    {/* Sidebar aperta: logo a tutta larghezza. */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/files/${branding.logoFileId}`}
-                      alt={branding.appName}
-                      className="h-8 w-full object-contain group-data-[collapsible=icon]:hidden"
-                    />
-                    {/* Sidebar collassata: icona di default quadrata. */}
-                    <div className="hidden aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground group-data-[collapsible=icon]:flex">
-                      <BoxIcon aria-hidden="true" />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                      <BrandingIcon
-                        name={branding.iconName}
-                        className="size-4"
-                      />
-                    </div>
-                    <div className="flex min-w-0 flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-                      <span className="truncate font-semibold">
-                        {branding.appName}
-                      </span>
-                      {branding.appSubtitle && (
-                        <span className="truncate text-xs text-muted-foreground">
-                          {branding.appSubtitle}
-                        </span>
-                      )}
-                    </div>
-                  </>
-                )}
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <BrandingIcon name={branding.iconName} className="size-4" />
+                </div>
+                <div className="flex min-w-0 flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-semibold">
+                    {branding.appName}
+                  </span>
+                  {branding.appSubtitle && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {branding.appSubtitle}
+                    </span>
+                  )}
+                </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

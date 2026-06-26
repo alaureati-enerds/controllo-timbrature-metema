@@ -9,7 +9,7 @@ import { storage } from "@/lib/storage"
 // è esplicitata qui ma applicata dalle route (app/api/files/).
 //
 // Due assi di proprietà (vedi schema.prisma):
-//  - "system": file globali (logo). Scrittura solo admin, lettura per tutti.
+//  - "system": file globali. Scrittura solo admin, lettura per tutti.
 //  - "user":   file dell'utente. Lettura/scrittura solo del proprietario.
 
 export type OwnerType = "system" | "user"

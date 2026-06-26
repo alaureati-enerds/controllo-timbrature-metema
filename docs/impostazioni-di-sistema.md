@@ -14,7 +14,7 @@ impostazione, sono **due concetti separati**.
 
 |                     | Impostazioni di **sistema**                  | Preferenze **per-utente**                       |
 | ------------------- | -------------------------------------------- | ----------------------------------------------- |
-| Esempi              | nome del software, logo, tema di default      | notifiche on/off, lingua, tema scelto           |
+| Esempi              | nome del software, sottotitolo, tema di default | notifiche on/off, lingua, tema scelto         |
 | Ambito              | una sola riga globale (singleton)            | una riga per ciascun utente                     |
 | Chi le modifica     | **solo gli admin**                           | **ogni utente le proprie** (admin compreso)     |
 | Autorizzazione      | **RBAC** — permesso `settings` (admin)       | **ownership** — `userId === session.user.id`    |
@@ -27,7 +27,7 @@ utente come tutti gli altri, e l'autorizzazione è per ownership — esattamente
 come per le note (vedi [`lib/notes.ts`](../lib/notes.ts)).
 
 > **Stato attuale:** l'asse **di sistema** copre il branding (nome, sottotitolo,
-> icona o logo). Le *preferenze per-utente* non esistono ancora come impostazioni
+> icona). Le *preferenze per-utente* non esistono ancora come impostazioni
 > (questa pagina descrive il pattern con cui andranno aggiunte); l'asse ownership
 > è però già dimostrato dai file utente — vedi [`gestione-file.md`](gestione-file.md).
 
@@ -68,13 +68,13 @@ stato salvato solo un sottoinsieme dei campi.
 
 ### Lettura, dedup e propagazione globale
 
-Nome e logo si leggono in più punti dello stesso render (header della sidebar e
+Nome e icona si leggono in più punti dello stesso render (header della sidebar e
 `generateMetadata` per il `<title>`). `getSystemSettings()` è avvolta in
 `cache()` di React: nello **stesso render** la lettura avviene una sola volta,
 non N — la query al DB è deduplicata per-richiesta.
 
 Tra richieste diverse **non si conserva nulla**: ogni richiesta rilegge dal DB.
-Questo è voluto e risolve in radice il requisito «se cambio il logo deve valere
+Questo è voluto e risolve in radice il requisito «se cambio il nome deve valere
 per tutti»: non esistendo una cache stale da invalidare, una modifica è subito
 visibile a chiunque, **lato server e in modo globale** (non c'entra il browser
 del singolo utente). Il costo è un `SELECT` su una singola riga indicizzata a
@@ -101,14 +101,12 @@ Esempio: aggiungere un tema di default.
    export const systemSettingsSchema = z.object({
      appName: z.string().trim().min(1).default("shadcn starter"),
      appSubtitle: z.string().trim().default("Dashboard"),
-     brandingMode: z.enum(["icon", "logo"]).default("icon"),
      iconName: z.enum(BRANDING_ICON_NAMES).default(DEFAULT_BRANDING_ICON),
-     logoFileId: z.string().nullable().default(null),
      defaultTheme: z.enum(["light", "dark", "system"]).default("system"), // nuovo
    })
    ```
 
-2. **Se è un dato pubblico** (visibile al client, come nome/logo/tema),
+2. **Se è un dato pubblico** (visibile al client, come nome/icona/tema),
    aggiungilo a `PublicSystemSettings` e a `toPublicSettings()` nello stesso
    file. Se è un dato server-only, lascialo fuori dalla parte pubblica.
 
@@ -128,26 +126,16 @@ chiaro nel `data` del singleton.
 
 ---
 
-## Branding: icona oppure logo
+## Branding della sidebar
 
-L'header della sidebar ha due modalità, controllate da `brandingMode`:
+L'header della sidebar mostra un'**icona** + `appName` + `appSubtitle` (il
+sottotitolo si nasconde se vuoto). L'icona si sceglie da un set curato e
+ricercabile ([`lib/settings/icons.ts`](../lib/settings/icons.ts)).
 
-- **`icon`** — un'icona scelta da un set curato e ricercabile
-  ([`lib/settings/icons.ts`](../lib/settings/icons.ts)) + `appName` + `appSubtitle`
-  (il sottotitolo si nasconde se vuoto). Per ampliare le icone: aggiungi il nome
-  in `icons.ts` e la coppia nome→componente in
-  [`components/branding-icon.tsx`](../components/branding-icon.tsx) — la mappa è
-  tipata, quindi una delle due senza l'altra è un errore a compile time.
-- **`logo`** — un logo personalizzato a tutta larghezza quando la sidebar è
-  aperta; quando si collassa torna l'icona di default (un logo orizzontale non
-  entrerebbe nella rail stretta).
-
-Il **logo non è un URL** ma un **file caricato**, gestito come *file di sistema*
-dal sottosistema file (admin scrive, tutti leggono). Nelle impostazioni vive solo
-il riferimento `logoFileId`; i byte stanno nel modello `File`. L'upload/rimozione
-passa da [`app/api/admin/settings/logo/route.ts`](../app/api/admin/settings/logo/route.ts),
-separato dal `PUT` JSON perché è multipart. Dettagli del sottosistema:
-[`gestione-file.md`](gestione-file.md).
+Per ampliare le icone disponibili: aggiungi il nome in `icons.ts` e la coppia
+nome→componente in [`components/branding-icon.tsx`](../components/branding-icon.tsx).
+La mappa è tipata su quei nomi, quindi aggiungerne uno senza l'altra (o viceversa)
+è un errore a compile time.
 
 ---
 

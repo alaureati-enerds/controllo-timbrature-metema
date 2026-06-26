@@ -34,7 +34,7 @@ export const GET = safeHandler(async (_request, context) => {
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'; sandbox",
     // L'URL è per-id e il contenuto è immutabile: un nuovo file = nuovo id.
-    // I file di sistema (logo) sono cacheabili pubblicamente; quelli utente no.
+    // I file di sistema sono cacheabili pubblicamente; quelli utente no.
     "Cache-Control":
       file.ownerType === "system"
         ? "public, max-age=31536000, immutable"

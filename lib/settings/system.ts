@@ -16,7 +16,7 @@ import {
 // In un singolo render le impostazioni si leggono in più punti (header della
 // sidebar e generateMetadata per il <title>): `cache()` fa sì che ciò comporti
 // una sola query, non N. Tra richieste diverse NON si conserva nulla, quindi una
-// modifica (es. il logo) è subito visibile a tutti senza invalidazioni: è un
+// modifica (es. il nome) è subito visibile a tutti senza invalidazioni: è un
 // SELECT su singola riga indicizzata, trascurabile sul percorso di ogni render.
 //
 // Se in futuro il volume di letture lo giustificasse, si può passare a una cache

@@ -9,7 +9,7 @@ import { BRANDING_ICON_NAMES, DEFAULT_BRANDING_ICON } from "@/lib/settings/icons
 //
 // AGGIUNGERE UNA NUOVA IMPOSTAZIONE DI SISTEMA:
 //   1. aggiungi un campo qui sotto, sempre con un `.default()` sensato;
-//   2. se è un dato visibile al client (come nome/logo), aggiungilo anche a
+//   2. se è un dato visibile al client (come il nome), aggiungilo anche a
 //      `toPublicSettings()` più in basso;
 //   3. esponi il campo nel form admin (components/admin/system-settings-form.tsx).
 // Nessuna migrazione necessaria: il blob `data` è schemaless lato DB.
@@ -20,17 +20,10 @@ import { BRANDING_ICON_NAMES, DEFAULT_BRANDING_ICON } from "@/lib/settings/icons
 export const systemSettingsSchema = z.object({
   // Nome del software, mostrato nell'header della sidebar e nel <title>.
   appName: z.string().trim().min(1).default("shadcn starter"),
-  // Sottotitolo sotto il nome (modalità "icona"). Vuoto = riga nascosta.
+  // Sottotitolo sotto il nome. Vuoto = riga nascosta.
   appSubtitle: z.string().trim().default("Dashboard"),
-  // Modalità di branding dell'header della sidebar:
-  //  - "icon": icona scelta + nome + sottotitolo
-  //  - "logo": logo personalizzato a tutta larghezza (da collassata torna l'icona)
-  brandingMode: z.enum(["icon", "logo"]).default("icon"),
-  // Icona scelta in modalità "icon" (vedi lib/settings/icons.ts).
+  // Icona dell'header della sidebar (vedi lib/settings/icons.ts).
   iconName: z.enum(BRANDING_ICON_NAMES).default(DEFAULT_BRANDING_ICON),
-  // Id del File (ownerType "system") usato come logo in modalità "logo".
-  // Null = nessun logo caricato (ricade sull'icona). Vedi lib/files.ts.
-  logoFileId: z.string().nullable().default(null),
 })
 
 export type SystemSettings = z.infer<typeof systemSettingsSchema>
@@ -44,9 +37,7 @@ export function toPublicSettings(s: SystemSettings): PublicSystemSettings {
   return {
     appName: s.appName,
     appSubtitle: s.appSubtitle,
-    brandingMode: s.brandingMode,
     iconName: s.iconName,
-    logoFileId: s.logoFileId,
   }
 }
 

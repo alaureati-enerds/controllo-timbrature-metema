@@ -1,7 +1,7 @@
 # Gestione dei file (storage e accesso)
 
-Questa guida spiega come il progetto **salva e serve i file** caricati (il logo,
-i file degli utenti) e come aggiungere nuove funzionalità di upload. Il
+Questa guida spiega come il progetto **salva e serve i file** caricati (es. i
+file degli utenti) e come aggiungere nuove funzionalità di upload. Il
 sottosistema è pensato come **base da forkare**: oggi salva su filesystem, ma è
 costruito per scalare a tanti file (anche grandi, foto/video) e per cambiare
 backend senza riscrivere l'applicazione.
@@ -34,7 +34,7 @@ autorizzazione diversi** — gli stessi due assi descritti in
 
 |                | File di **sistema** (`ownerType = "system"`) | File **utente** (`ownerType = "user"`) |
 | -------------- | -------------------------------------------- | -------------------------------------- |
-| Esempio        | il logo                                      | i file di uno scraper / di un archivio |
+| Esempio        | asset globali condivisi                      | i file di uno scraper / di un archivio |
 | Chi scrive     | solo admin                                   | solo il proprietario                   |
 | Chi legge      | tutti                                        | solo il proprietario                   |
 | Autorizzazione | **RBAC** (permesso `settings`)               | **ownership** (`ownerId === userId`)   |
@@ -42,7 +42,11 @@ autorizzazione diversi** — gli stessi due assi descritti in
 
 L'autorizzazione di lettura è in [`lib/files.ts`](../lib/files.ts) (`canRead`):
 i file di sistema sono pubblici, quelli utente solo del proprietario. La scrittura
-dei file di sistema è regolata a monte dal permesso RBAC `settings`.
+dei file di sistema va regolata a monte da un permesso RBAC nel relativo endpoint.
+
+> L'asse **sistema** è infrastruttura pronta (`createSystemFile`,
+> `ownerType = "system"`) ma al momento **nessuna funzionalità lo usa**: è lì per
+> quando servirà un file globale gestito dagli admin.
 
 ---
 
@@ -59,9 +63,6 @@ disco:
 - `GET /api/files` — elenco dei file dell'utente autenticato.
 - `POST /api/files` — upload di un file dell'utente (multipart, campo `file`).
 - `DELETE /api/files/:id` — elimina un file dell'utente (ownership).
-
-Il logo (file di sistema) ha un endpoint admin dedicato:
-[`app/api/admin/settings/logo/route.ts`](../app/api/admin/settings/logo/route.ts).
 
 La demo end-to-end dell'asse ownership è la pagina **«I miei file»**
 ([`app/(dashboard)/files/page.tsx`](<../app/(dashboard)/files/page.tsx>)): upload,
@@ -93,8 +94,8 @@ Esempio: allegati a una risorsa dell'utente.
 1. **Salva il file** con il service: `createUserFile(userId, { buffer, mimeType,
    originalName })` (o `createSystemFile(...)` per un file globale, dopo un check
    RBAC). Restituisce i metadati, incluso l'`id`.
-2. **Conserva il riferimento**: salva l'`id` del file dove ti serve (una colonna,
-   un campo del blob impostazioni come fa il logo, ecc.).
+2. **Conserva il riferimento**: salva l'`id` del file dove ti serve (una colonna
+   della risorsa collegata, un campo del blob impostazioni, ecc.).
 3. **Mostralo/scaricalo** puntando a `/api/files/<id>` (es. `src` di un `<img>` o
    `href` di un link con `download`).
 4. **Validazione**: usa [`readUpload`](../lib/upload.ts) per leggere il multipart

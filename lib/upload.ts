@@ -1,9 +1,10 @@
 import { ApiError } from "@/lib/api"
 
-// Lettura e validazione di un upload multipart (campo file di un FormData),
-// condivisa tra l'upload del logo (admin) e quello dei file utente. Centralizza
-// i limiti e i controlli così le route restano sottili.
+// Lettura e validazione di un upload multipart (campo file di un FormData).
+// Centralizza limiti e controlli così le route di upload restano sottili.
 
+// Whitelist pronta all'uso per chi voglia accettare solo immagini (vedi
+// l'opzione `allowedTypes`).
 export const IMAGE_MIME_TYPES = [
   "image/png",
   "image/jpeg",
@@ -12,8 +13,8 @@ export const IMAGE_MIME_TYPES = [
   "image/gif",
 ]
 
-// Limiti di default. Valori prudenti per uno starter; alzali se serve.
-export const MAX_LOGO_SIZE = 2 * 1024 * 1024 // 2 MB
+// Limite di default per i file utente. Valore prudente per uno starter; alzalo
+// se serve.
 export const MAX_USER_FILE_SIZE = 25 * 1024 * 1024 // 25 MB
 
 export type ParsedUpload = {

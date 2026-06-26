@@ -136,8 +136,8 @@ model Note {
 // Impostazioni
 // ============================================================================
 
-/// Impostazioni di SISTEMA (globali): nome del software, logo, ecc. Configurate
-/// solo dagli admin e lette da tutti. È un singleton: esiste al più una riga,
+/// Impostazioni di SISTEMA (globali): nome del software, sottotitolo, ecc.
+/// Configurate solo dagli admin e lette da tutti. È un singleton: una sola riga,
 /// identificata da `id = 1`. Il contenuto vive in un unico blob `data` (Json)
 /// validato in app da uno schema Zod (vedi lib/settings/), così aggiungere una
 /// nuova impostazione non richiede una migrazione.
@@ -163,8 +163,8 @@ model SystemSetting {
 /// autorizzate (app/api/files/), mai da link diretti.
 ///
 /// Due tipi di proprietà, gli stessi due assi delle impostazioni:
-///  - `ownerType = "system"` (ownerId null): file globali (es. il logo). Solo
-///    gli admin li scrivono, tutti li leggono → autorizzazione per RBAC.
+///  - `ownerType = "system"` (ownerId null): file globali condivisi. Solo gli
+///    admin li scrivono, tutti li leggono → autorizzazione per RBAC.
 ///  - `ownerType = "user"`  (ownerId = userId): file dell'utente. Solo il
 ///    proprietario li legge/scrive → autorizzazione per ownership (come Note).
 model File {

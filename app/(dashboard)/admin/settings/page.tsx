@@ -14,8 +14,8 @@ import { getSystemSettings } from "@/lib/settings/system"
 export const metadata: Metadata = { title: "Impostazioni di sistema" }
 
 // Pagina riservata agli admin: configurazione GLOBALE dell'applicazione (nome,
-// logo, ...). La protezione server (requireRole) reindirizza chi non è admin;
-// l'endpoint sottostante ricontrolla comunque il permesso `settings`.
+// sottotitolo, icona). La protezione server (requireRole) reindirizza chi non è
+// admin; l'endpoint sottostante ricontrolla comunque il permesso `settings`.
 export default async function AdminSettingsPage() {
   await requireRole("admin")
   const settings = await getSystemSettings()
@@ -35,7 +35,7 @@ export default async function AdminSettingsPage() {
         <CardHeader>
           <CardTitle>Identità</CardTitle>
           <CardDescription>
-            Nome e logo mostrati nell&apos;interfaccia.
+            Nome, sottotitolo e icona mostrati nell&apos;interfaccia.
           </CardDescription>
         </CardHeader>
         <CardContent>
