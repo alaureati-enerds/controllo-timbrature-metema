@@ -100,7 +100,8 @@ docker-compose.yml      # servizio PostgreSQL
 Vedi `.env.example`. Necessarie: `DATABASE_URL` (database) e `BETTER_AUTH_SECRET` +
 `BETTER_AUTH_URL` (autenticazione). Le `POSTGRES_*` configurano il container di
 `docker-compose.yml`; le `SEED_ADMIN_*` e `SEED_USER_*` definiscono gli account creati
-da `npm run db:seed`.
+da `npm run db:seed`. Le `EMAIL_*` / `SMTP_*` configurano l'invio email (in dev
+opzionali: senza, le email finiscono nei log — vedi [docs/email.md](docs/email.md)).
 
 ## Comandi utili
 

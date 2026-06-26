@@ -19,6 +19,8 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
   configurazione globale (nome, icona) vs preferenze personali; come aggiungerne.
 - [Gestione dei file (storage e accesso)](docs/gestione-file.md) — come si
   salvano/servono i file (driver intercambiabile), file di sistema vs utente.
+- [Invio email (driver e template)](docs/email.md) — backend email
+  intercambiabile (console/SMTP), template come stringhe editor-ready.
 
 ---
 

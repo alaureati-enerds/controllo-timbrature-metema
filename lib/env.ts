@@ -33,6 +33,40 @@ const envSchema = z.object({
   // renderla persistente. Default relativo alla working dir del processo.
   STORAGE_DIR: z.string().min(1).default("storage"),
 
+  // Segreto per cifrare i SEGRETI salvati nel DB (oggi: la password SMTP delle
+  // impostazioni di sistema, vedi lib/crypto.ts). Una passphrase qualsiasi:
+  // generala con `openssl rand -base64 32`. Opzionale qui, ma OBBLIGATORIA per
+  // configurare l'SMTP da GUI con autenticazione (l'assenza è segnalata da
+  // lib/crypto.ts al primo uso). Non serve se configuri l'SMTP solo via .env.
+  SETTINGS_SECRET: z.string().min(1).optional(),
+
+  // --- Invio email (vedi lib/email/) ---
+  // Le EMAIL_*/SMTP_* qui sotto sono il FALLBACK: la configurazione da GUI
+  // (Impostazioni di sistema → Email) ha la precedenza campo per campo, e questi
+  // valori coprono solo ciò che non è stato impostato dall'interfaccia. Vedi
+  // lib/settings/email.ts.
+  //
+  // Driver attivo. Se non impostato (né qui né da GUI), lib/settings/email.ts
+  // sceglie in base a NODE_ENV: "console" in sviluppo (logga il messaggio),
+  // "smtp" in produzione.
+  EMAIL_DRIVER: z.enum(["console", "smtp"]).optional(),
+  // Mittente di default, formato RFC 5322: "Nome <indirizzo@dominio>" oppure
+  // solo l'indirizzo. Obbligatorio quando il driver è "smtp" (validato lì).
+  EMAIL_FROM: z.string().min(1).optional(),
+  // Credenziali del server SMTP (fallback di quelle configurabili da GUI).
+  // SMTP_PASSWORD è un segreto: via GUI viene cifrata (lib/crypto.ts), qui sta
+  // in chiaro nel .env. Necessarie solo quando il driver è "smtp"; la loro
+  // presenza è verificata in lib/email/smtp.ts sulla config già risolta.
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASSWORD: z.string().min(1).optional(),
+  // true per connessione TLS implicita (porta 465); false per STARTTLS (587).
+  SMTP_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
