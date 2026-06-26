@@ -98,6 +98,20 @@ In [components/mode-toggle.tsx](../components/mode-toggle.tsx) aggiungi un
 npm run build
 ```
 
+> **Importante — svuota la cache prima di provare in `dev`.** Tailwind v4 elabora
+> `@custom-variant` (passo 2) e i blocchi di token di primo livello (passo 1) una
+> sola volta all'avvio e li mette in cache (Turbopack, in `.next/`). L'HMR
+> aggiorna le modifiche JS (provider, selettore) ma **non** rielabora quelle
+> direttive CSS: il dev server continua a servire il CSS vecchio, senza il nuovo
+> blocco. Sintomo tipico: selezioni il nuovo tema, la classe viene applicata su
+> `<html>`, ma i token ricadono su `:root` e vedi tutto in Chiaro. Non è cache del
+> browser (cambiare browser non aiuta). Riavvia il dev server svuotando la cache:
+>
+> ```bash
+> rm -rf .next
+> npm run dev
+> ```
+
 ## Convertire i colori in `oklch()`
 
 Le palette pubbliche sono spesso in HEX. Per convertirle in `oklch()` con valori
