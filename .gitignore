@@ -21,6 +21,9 @@
 .env
 .env*.local
 
+# Storage dei file caricati (vedi STORAGE_DIR)
+/storage/
+
 # Log
 npm-debug.log*
 yarn-debug.log*

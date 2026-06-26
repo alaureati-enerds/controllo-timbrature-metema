@@ -1,7 +1,9 @@
 import {
+  FolderIcon,
   HourglassIcon,
   LayoutDashboardIcon,
   NotebookPenIcon,
+  SettingsIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -17,6 +19,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboardIcon },
   { title: "Note", url: "/notes", icon: NotebookPenIcon },
+  { title: "I miei file", url: "/files", icon: FolderIcon },
   // Pagina dimostrativa del loading skeleton. Rimuovibile quando non serve più.
   { title: "Demo skeleton", url: "/demo", icon: HourglassIcon },
 ]
@@ -26,4 +29,5 @@ export const navItems: NavItem[] = [
 // comunque server-side nelle pagine (requireRole).
 export const adminNavItems: NavItem[] = [
   { title: "Gestione utenti", url: "/admin/users", icon: UsersIcon },
+  { title: "Impostazioni di sistema", url: "/admin/settings", icon: SettingsIcon },
 ]

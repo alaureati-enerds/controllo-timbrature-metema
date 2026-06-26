@@ -2,9 +2,10 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BoxIcon, ChevronRightIcon, PuzzleIcon } from "lucide-react"
+import { ChevronRightIcon, PuzzleIcon } from "lucide-react"
 
 import { authClient } from "@/lib/auth-client"
+import { BrandingIcon } from "@/components/branding-icon"
 import { NavUser } from "@/components/nav-user"
 import {
   Collapsible,
@@ -37,6 +38,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { adminNavItems, navItems } from "@/lib/navigation"
+import type { PublicSystemSettings } from "@/lib/settings/schema"
 
 // `user.role` può contenere più ruoli separati da virgola.
 function hasRole(role: string | null | undefined, target: string) {
@@ -122,7 +124,10 @@ function NavExample() {
   )
 }
 
-export function AppSidebar() {
+// Il branding (nome, sottotitolo, icona) arriva dalle impostazioni di sistema,
+// lette server-side nel layout della dashboard e passate come prop (questo è un
+// client component).
+export function AppSidebar({ branding }: { branding: PublicSystemSettings }) {
   const pathname = usePathname()
   const { data: session } = authClient.useSession()
   const isAdmin = hasRole(session?.user.role, "admin")
@@ -135,13 +140,17 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" asChild>
               <Link href="/">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <BoxIcon aria-hidden="true" />
+                  <BrandingIcon name={branding.iconName} className="size-4" />
                 </div>
                 <div className="flex min-w-0 flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-                  <span className="truncate font-semibold">shadcn starter</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    Dashboard
+                  <span className="truncate font-semibold">
+                    {branding.appName}
                   </span>
+                  {branding.appSubtitle && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {branding.appSubtitle}
+                    </span>
+                  )}
                 </div>
               </Link>
             </SidebarMenuButton>

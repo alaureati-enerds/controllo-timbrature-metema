@@ -16,6 +16,22 @@ export async function getSession(): Promise<Session | null> {
   return auth.api.getSession({ headers: await headers() })
 }
 
+/**
+ * Verifica un permesso RBAC dell'utente corrente sulle risorse di
+ * lib/permissions.ts (es. `{ settings: ["update"] }`). Ritorna false anche se
+ * non c'è sessione. Per i Route Handler: combina con un check di sessione se
+ * vuoi distinguere 401 (non autenticato) da 403 (autenticato ma senza permesso).
+ */
+export async function hasPermission(
+  permissions: Record<string, string[]>
+): Promise<boolean> {
+  const { success } = await auth.api.userHasPermission({
+    headers: await headers(),
+    body: { permissions },
+  })
+  return success
+}
+
 /** Garantisce un utente autenticato, altrimenti reindirizza al login. */
 export async function requireUser(): Promise<Session> {
   const session = await getSession()
