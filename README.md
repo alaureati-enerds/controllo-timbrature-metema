@@ -31,11 +31,11 @@ cp .env.example .env
 docker compose up -d
 
 # 4. Applica le migration (crea le tabelle nel DB)
-npx prisma migrate dev
+npm run db:migrate
 
 # 5. Genera il Prisma Client in lib/generated/prisma
 #    (migrate dev di solito lo fa già: questo passo è una garanzia)
-npx prisma generate
+npm run db:generate
 
 # 6. Crea gli account iniziali, admin e utente (idempotente)
 npm run db:seed
@@ -62,11 +62,17 @@ Dopo il primo setup, una sessione tipica è:
 
 ```bash
 docker compose up -d        # 1. avvia PostgreSQL (in background)
-npx prisma migrate dev      # 2. allinea il DB allo schema (se ci sono migration nuove)
+npm run db:migrate          # 2. allinea il DB allo schema (se ci sono migration nuove)
 npm run dev                 # 3. avvia l'app
 ```
 
-Le tre che userai quasi sempre: `npm run dev`, `docker compose up -d`, `npx prisma migrate dev`.
+Le tre che userai quasi sempre: `npm run dev`, `docker compose up -d`, `npm run db:migrate`.
+
+> **Hai scartato una feature?** Per tornare a uno stato pulito su `develop` dopo aver
+> installato pacchetti o applicato migration su un branch poi abbandonato:
+> `git switch develop && npm ci && npm run db:reset`. `npm ci` riallinea
+> `node_modules` esattamente al lockfile (rimuove i pacchetti "fantasma");
+> `npm run db:reset` azzera il DB, riapplica le migration, rigenera il client e riseeda.
 
 ## Struttura
 
@@ -108,7 +114,6 @@ da `npm run db:seed`.
 | `npm run typecheck` | Controllo dei tipi TypeScript (veloce, utile prima di committare)           |
 | `npm run lint`      | ESLint                                                                      |
 | `npm run format`    | Prettier (riformatta i file)                                                |
-| `npm run db:seed`   | Crea gli account iniziali, admin e utente (idempotente)                    |
 
 Per fermare il dev server: `Ctrl-C`, oppure `pkill -f "next dev"`.
 
@@ -125,17 +130,31 @@ docker compose down -v            # ferma E cancella i dati (reset totale)
 > Il DB è esposto sulla porta **5433** dell'host (non 5432, per non collidere con altri
 > Postgres locali). La stringa di connessione è in `.env`.
 
-### Prisma (ORM)
+### Database (Prisma)
 
-```bash
-npx prisma migrate dev --name <nome>   # dopo aver modificato schema.prisma: crea e applica una migration
-npx prisma migrate dev                 # applica le migration esistenti / allinea il DB
-npx prisma generate                    # rigenera il client (di solito automatico dopo migrate)
-npx prisma studio                      # UI web per sfogliare e modificare i dati
-npx prisma migrate reset               # azzera il DB e riapplica tutte le migration (cancella i dati)
-```
+Gli script `db:*` incapsulano i comandi Prisma più usati. Il seed è configurato in
+[`prisma.config.ts`](prisma.config.ts) (`migrations.seed`), quindi è richiamabile sia
+con `npm run db:seed` sia direttamente con `prisma db seed`.
 
-Regola pratica: **ogni volta che tocchi `schema.prisma` → `npx prisma migrate dev`**.
+| Comando                              | Descrizione                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------- |
+| `npm run db:migrate -- --name <nome>` | dopo aver modificato `schema.prisma`: crea e applica una migration (rigenera il client) |
+| `npm run db:migrate`                 | applica le migration esistenti / allinea il DB                                     |
+| `npm run db:deploy`                  | applica solo le migration pendenti senza crearne (per migration già scritte / CI) |
+| `npm run db:generate`                | rigenera il client in `lib/generated/prisma` (di solito automatico dopo migrate)  |
+| `npm run db:seed`                    | crea gli account iniziali, admin e utente (idempotente)                           |
+| `npm run db:studio`                  | UI web per sfogliare e modificare i dati                                          |
+| `npm run db:reset`                   | azzera il DB, riapplica le migration, rigenera il client e riseeda (**cancella i dati**) |
+
+Regola pratica: **ogni volta che tocchi `schema.prisma` → `npm run db:migrate`**.
+
+> **Nota su Prisma 7:** `migrate reset` da solo **non** rigenera il client né esegue il
+> seed (a differenza delle versioni precedenti). Per questo `db:reset` concatena
+> `prisma migrate reset --force && prisma generate && prisma db seed`.
+
+> **Nota agenti AI:** Prisma blocca `migrate reset` quando rileva di essere invocato
+> da un agente AI; serve consenso esplicito dell'utente via la variabile
+> `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION`. In esecuzione manuale non cambia nulla.
 
 ### Componenti shadcn/ui
 
