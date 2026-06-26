@@ -2,6 +2,7 @@ import { cookies } from "next/headers"
 
 import { AppBreadcrumb } from "@/components/app-breadcrumb"
 import { AppSidebar } from "@/components/app-sidebar"
+import { GlobalSearch } from "@/components/global-search"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Separator } from "@/components/ui/separator"
@@ -50,7 +51,8 @@ export default async function DashboardLayout({
               className="mr-2 data-[orientation=vertical]:h-4"
             />
             <AppBreadcrumb />
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <GlobalSearch />
               <ModeToggle />
             </div>
           </header>
