@@ -115,14 +115,28 @@ Esempio: aggiungere un tema di default.
 
 Nessuna migrazione: il blob `data` accoglie il nuovo campo così com'è.
 
-### Segreti: non metterli nel blob
+### Segreti: cifrati e server-only, mai nel blob pubblico
 
-Le credenziali (es. password SMTP) **non** vanno nello schema delle
-impostazioni: lo schema, nella sua parte pubblica, viene inviato al browser e
-l'endpoint admin di lettura lo restituisce. Tienile in `.env` (come fa oggi
-l'invio email, che in sviluppo finisce nei log — vedi
-[`lib/auth.ts`](../lib/auth.ts)) oppure in un campo cifrato dedicato, mai in
-chiaro nel `data` del singleton.
+Il rischio coi segreti è che la parte **pubblica** dello schema viene inviata al
+browser. La regola quindi è: un segreto non deve **mai** finire né in
+`toPublicSettings()` né, in chiaro, nel `data` del singleton.
+
+Il pattern, dimostrato dalla **config email** (la password SMTP), è:
+
+1. **server-only** — il campo (`email`) sta nello schema ma **fuori** da
+   `toPublicSettings()`, così non raggiunge il client;
+2. **cifratura a riposo** — il segreto è salvato cifrato
+   (`passwordEnc`, AES-256-GCM in [`lib/crypto.ts`](../lib/crypto.ts), chiave
+   derivata da `SETTINGS_SECRET`), mai in chiaro nel blob;
+3. **write-only verso il client** — l'endpoint admin non restituisce mai il
+   segreto, solo un flag «impostato sì/no»; in scrittura lo aggiorna solo se ne
+   arriva uno nuovo. Serve perciò un **endpoint dedicato**
+   ([`/api/admin/settings/email`](<../app/api/admin/settings/email/route.ts>)),
+   distinto da quello generico del branding.
+
+In alternativa (o come fallback) i segreti possono stare in `.env`: la config
+email accetta entrambe le sorgenti, con la GUI che prevale — vedi
+[`lib/settings/email.ts`](../lib/settings/email.ts) e [email.md](email.md).
 
 ---
 

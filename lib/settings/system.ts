@@ -1,11 +1,7 @@
 import { cache } from "react"
 
 import { prisma } from "@/lib/prisma"
-import {
-  systemSettingsSchema,
-  type SystemSettings,
-  type SystemSettingsPatch,
-} from "@/lib/settings/schema"
+import { systemSettingsSchema, type SystemSettings } from "@/lib/settings/schema"
 
 // Service delle impostazioni di SISTEMA (globali, singleton id=1). Tiene fuori
 // dalle pagine e dai route handler la logica di lettura/scrittura, come fa
@@ -33,8 +29,13 @@ export const getSystemSettings = cache(async (): Promise<SystemSettings> => {
 // e ri-validato dallo schema completo, così il blob salvato è sempre coerente e
 // tipato. La modifica è immediatamente visibile a tutti (nessuna cache da
 // invalidare, vedi sopra).
+//
+// Il merge è SHALLOW: chi aggiorna la config email (lib/settings/email.ts) passa
+// l'oggetto `email` già completo, così non rischia di azzerarne dei campi; il
+// form branding non tocca `email` e viceversa. Il tipo è `Partial<SystemSettings>`
+// (non lo schema branding-only) proprio per accettare anche la chiave `email`.
 export async function updateSystemSettings(
-  patch: SystemSettingsPatch
+  patch: Partial<SystemSettings>
 ): Promise<SystemSettings> {
   const current = await getSystemSettings()
   const next = systemSettingsSchema.parse({ ...current, ...patch })

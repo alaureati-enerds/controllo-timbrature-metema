@@ -12,7 +12,7 @@ lib/email/
   driver.ts            interfaccia EmailDriver { send(message) } + tipo EmailMessage
   console.ts           driver di sviluppo: NON spedisce, logga il messaggio
   smtp.ts              driver di produzione: spedisce via SMTP (Nodemailer)
-  index.ts             sceglie il driver attivo e lo espone come `email`
+  index.ts             costruisce il driver dalla config risolta e lo espone come `email`
   render.ts            interpolazione dei segnaposto {{var}} + escape HTML
   auth-emails.ts       ponte tra i flussi di Better Auth e l'invio
   templates/
@@ -22,6 +22,10 @@ lib/email/
     verify-email.ts, reset-password.ts, change-email.ts, delete-account.ts
 ```
 
+La **configurazione** (driver e credenziali) sta invece fuori da `lib/email/`,
+nelle impostazioni di sistema: [`lib/settings/email.ts`](../lib/settings/email.ts)
+risolve GUI + `.env` e [`lib/crypto.ts`](../lib/crypto.ts) cifra la password.
+
 Per spedire si usa sempre l'istanza unica:
 
 ```ts
@@ -30,20 +34,30 @@ import { email } from "@/lib/email"
 await email.send({ to, subject, html, text })
 ```
 
-## Scelta del driver
+## Da dove arriva la configurazione
 
-Il driver attivo lo decide [`lib/email/index.ts`](../lib/email/index.ts):
+La config email ha **due sorgenti**, con una regola di precedenza chiara:
+**la GUI (Impostazioni di sistema → Email) prevale, `.env` fa da fallback** —
+campo per campo. La risoluzione vive in
+[`lib/settings/email.ts`](../lib/settings/email.ts) (`getResolvedEmailConfig`):
+per ogni valore «quello salvato da GUI ?? quello in `.env`».
 
-1. se `EMAIL_DRIVER` è impostato (`console` | `smtp`), vince quello;
-2. altrimenti il default per ambiente: **`console` in sviluppo**, **`smtp` in
+Il **driver attivo** si decide così:
+
+1. se è impostato da GUI (`console` | `smtp`), vince quello;
+2. altrimenti se è impostato `EMAIL_DRIVER` in `.env`, vince quello;
+3. altrimenti il default per ambiente: **`console` in sviluppo**, **`smtp` in
    produzione**.
 
-In sviluppo, quindi, le email **non partono**: il loro contenuto (e i link di
-verifica/reset) finisce nei log del server, come prima. Per provare l'invio reale
-anche in locale imposta `EMAIL_DRIVER="smtp"` e le variabili SMTP in `.env`.
+In sviluppo, di default, le email **non partono**: il loro contenuto (e i link
+di verifica/reset) finisce nei log del server. Per l'invio reale imposta il
+driver su `smtp` (da GUI o via `EMAIL_DRIVER`) e fornisci host/mittente.
 
-L'istanza è creata in modo **pigro**: il driver SMTP valida le credenziali e apre
-il transporter alla prima vera spedizione, non al solo import del modulo.
+[`lib/email/index.ts`](../lib/email/index.ts) costruisce il driver in modo pigro
+e lo **memorizza legandolo a una fingerprint della config**: se la config cambia
+(anche da GUI, senza riavvio) il driver viene ricostruito al primo invio
+successivo. Niente singleton stale: una modifica delle credenziali si applica
+subito.
 
 ## Verificare i flussi in locale (Mailpit)
 
@@ -69,21 +83,43 @@ sviluppo: cattura le email senza spedirle e le mostra in una UI web. Per usarlo:
 
 ## Configurazione SMTP
 
-Le credenziali SMTP sono **segreti**: stanno solo in `.env`, mai nelle
-[impostazioni di sistema](impostazioni-di-sistema.md) (il loro blob viene in
-parte inviato al browser). Variabili (vedi `.env.example`):
+### Dalla GUI (consigliato)
 
-| Variabile       | Note                                                       |
-| --------------- | ---------------------------------------------------------- |
-| `EMAIL_FROM`    | mittente, es. `App <no-reply@dominio.it>` — obbligatorio   |
-| `SMTP_HOST`     | host del server SMTP                                        |
-| `SMTP_PORT`     | porta (default `587`)                                      |
-| `SMTP_USER`     | utente                                                      |
-| `SMTP_PASSWORD` | password / API key                                         |
-| `SMTP_SECURE`   | `true` = TLS implicito (465); `false` = STARTTLS (587)     |
+La pagina **Impostazioni di sistema → Email** (`/admin/settings`, solo admin)
+configura driver, mittente, host, porta, TLS, utente e password senza toccare il
+deploy. La config si salva nel blob del singleton `SystemSetting` (campo
+`email`), che è **server-only**: non finisce mai in `toPublicSettings()` e quindi
+non viene inviato al browser.
 
-Se il driver è `smtp` ma manca una di queste, l'invio fallisce con un errore
-chiaro che elenca cosa manca.
+La **password è un segreto**: viene salvata **cifrata** (AES-256-GCM,
+[`lib/crypto.ts`](../lib/crypto.ts)) con una chiave derivata da `SETTINGS_SECRET`.
+Non viene mai restituita al client: il form riceve solo un flag `passwordSet` e in
+scrittura la password si aggiorna **solo se** ne digiti una nuova (oppure la
+rimuovi esplicitamente). Per usarla devi avere `SETTINGS_SECRET` nel `.env`
+(genera con `openssl rand -base64 32`).
+
+Il pulsante **«Invia email di prova»** spedisce una mail alla tua casella usando
+la config **salvata**: serve a validare le credenziali subito. A differenza
+dell'invio normale, qui l'eventuale errore SMTP viene mostrato per intero, così
+sai cosa correggere.
+
+### Da `.env` (fallback)
+
+Le stesse variabili restano disponibili come fallback (utili in CI/Docker o per
+il bootstrap). I campi non impostati da GUI ricadono qui:
+
+| Variabile        | Note                                                       |
+| ---------------- | ---------------------------------------------------------- |
+| `SETTINGS_SECRET`| chiave per cifrare la password SMTP salvata da GUI         |
+| `EMAIL_FROM`     | mittente, es. `App <no-reply@dominio.it>` — obbligatorio   |
+| `SMTP_HOST`      | host del server SMTP                                        |
+| `SMTP_PORT`      | porta (default `587`)                                      |
+| `SMTP_USER`      | utente (opzionale)                                          |
+| `SMTP_PASSWORD`  | password / API key (in chiaro nel `.env`; opzionale)       |
+| `SMTP_SECURE`    | `true` = TLS implicito (465); `false` = STARTTLS (587)     |
+
+Se il driver è `smtp` ma, una volta risolta la config (GUI + `.env`), manca
+l'essenziale (host o mittente), l'invio fallisce con un errore chiaro.
 
 ## Template: stringhe con segnaposto (editor-ready)
 

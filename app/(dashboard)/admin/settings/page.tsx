@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { EmailSettingsForm } from "@/components/admin/email-settings-form"
 import { SystemSettingsForm } from "@/components/admin/system-settings-form"
 import {
   Card,
@@ -9,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { requireRole } from "@/lib/auth-helpers"
+import { getEmailSettingsForAdmin } from "@/lib/settings/email"
 import { getSystemSettings } from "@/lib/settings/system"
 
 export const metadata: Metadata = { title: "Impostazioni di sistema" }
@@ -19,6 +21,7 @@ export const metadata: Metadata = { title: "Impostazioni di sistema" }
 export default async function AdminSettingsPage() {
   await requireRole("admin")
   const settings = await getSystemSettings()
+  const emailSettings = await getEmailSettingsForAdmin()
 
   return (
     <div className="flex flex-col gap-6">
@@ -40,6 +43,19 @@ export default async function AdminSettingsPage() {
         </CardHeader>
         <CardContent>
           <SystemSettingsForm initial={settings} />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Email</CardTitle>
+          <CardDescription>
+            Server SMTP per l&apos;invio delle email (verifica account, reset
+            password, ecc.). La password viene salvata cifrata.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EmailSettingsForm initial={emailSettings} />
         </CardContent>
       </Card>
     </div>

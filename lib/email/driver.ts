@@ -20,3 +20,20 @@ export interface EmailDriver {
   /** Spedisce il messaggio; lancia se l'invio fallisce. */
   send(message: EmailMessage): Promise<void>
 }
+
+// Config email già RISOLTA (GUI sopra .env) e in chiaro, prodotta da
+// lib/settings/email.ts e consumata da lib/email/index.ts per costruire il
+// driver. I campi opzionali possono mancare: il driver SMTP valida l'essenziale.
+export interface ResolvedEmailConfig {
+  /** Driver da usare per spedire. */
+  driver: "console" | "smtp"
+  /** Mittente di default ("Nome <indirizzo>" o solo l'indirizzo). */
+  from?: string
+  host?: string
+  port: number
+  /** TLS implicito (465) se true; STARTTLS (587) se false. */
+  secure: boolean
+  user?: string
+  /** Password in chiaro (già decifrata). Mai loggata. */
+  password?: string
+}

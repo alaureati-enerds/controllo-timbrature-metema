@@ -1,58 +1,65 @@
 import nodemailer, { type Transporter } from "nodemailer"
 
-import type { EmailDriver, EmailMessage } from "@/lib/email/driver"
-import { env } from "@/lib/env"
+import type {
+  EmailDriver,
+  EmailMessage,
+  ResolvedEmailConfig,
+} from "@/lib/email/driver"
 import { logger } from "@/lib/logger"
 
-// Driver di PRODUZIONE: spedisce via SMTP con Nodemailer. Le credenziali sono
-// segreti e vivono solo in .env (vedi lib/env.ts), mai nelle impostazioni di
-// sistema. Il transporter è creato una sola volta e riusato (pooling implicito
-// di Nodemailer sulla connessione).
+// Driver di PRODUZIONE: spedisce via SMTP con Nodemailer. La config arriva già
+// RISOLTA (GUI sopra .env, vedi lib/settings/email.ts): qui si valida solo che
+// l'essenziale ci sia e si costruisce il transporter (riusato per più invii,
+// pooling implicito di Nodemailer sulla connessione). La password è un segreto
+// già in chiaro in memoria: non viene mai loggata.
+
+type SmtpTransport = { transporter: Transporter; from: string }
 
 /**
- * Verifica che le variabili SMTP necessarie siano presenti e ritorna una
- * configurazione tipata. Lancia un errore chiaro se manca l'essenziale: l'invio
- * "smtp" senza host o mittente è un errore di configurazione, non un caso da
- * gestire. L'autenticazione è OPZIONALE: alcuni server non la richiedono (es. un
- * relay interno o Mailpit in sviluppo). Se SMTP_USER e SMTP_PASSWORD ci sono
- * entrambe le usiamo, altrimenti si connette senza auth.
+ * Valida la config risolta per l'SMTP e costruisce il transporter. Lancia un
+ * errore chiaro se manca l'essenziale (host o mittente): un invio "smtp" senza
+ * è un errore di configurazione, non un caso da gestire. L'autenticazione è
+ * OPZIONALE: alcuni server non la richiedono (relay interno, Mailpit in dev). Se
+ * `user` e `password` ci sono entrambe le usiamo, altrimenti niente auth.
+ *
+ * Esportata perché serve anche all'endpoint "email di prova"
+ * (app/api/admin/settings/email/test): lì il transporter viene riusato per
+ * fare `verify()` e mostrare all'admin l'eventuale errore reale.
  */
-function requireSmtpConfig() {
+export function buildSmtpTransport(config: ResolvedEmailConfig): SmtpTransport {
   const missing: string[] = []
-  if (!env.SMTP_HOST) missing.push("SMTP_HOST")
-  if (!env.EMAIL_FROM) missing.push("EMAIL_FROM")
+  if (!config.host) missing.push("host SMTP")
+  if (!config.from) missing.push("mittente (from)")
   if (missing.length) {
     throw new Error(
-      `Driver email "smtp" attivo ma mancano: ${missing.join(", ")}. ` +
-        `Configurale in .env (vedi .env.example) o usa EMAIL_DRIVER="console".`
+      `Configurazione SMTP incompleta: mancano ${missing.join(", ")}. ` +
+        `Impostali in Impostazioni di sistema → Email oppure in .env.`
     )
   }
+
   const auth =
-    env.SMTP_USER && env.SMTP_PASSWORD
-      ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD }
+    config.user && config.password
+      ? { user: config.user, pass: config.password }
       : undefined
-  return {
-    host: env.SMTP_HOST!,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_SECURE,
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
     auth,
-    from: env.EMAIL_FROM!,
-  }
+  })
+
+  return { transporter, from: config.from! }
 }
 
 export class SmtpDriver implements EmailDriver {
   private readonly from: string
   private readonly transporter: Transporter
 
-  constructor() {
-    const config = requireSmtpConfig()
-    this.from = config.from
-    this.transporter = nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      auth: config.auth,
-    })
+  constructor(config: ResolvedEmailConfig) {
+    const { transporter, from } = buildSmtpTransport(config)
+    this.transporter = transporter
+    this.from = from
   }
 
   async send(message: EmailMessage): Promise<void> {

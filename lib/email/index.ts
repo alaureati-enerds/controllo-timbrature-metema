@@ -1,32 +1,39 @@
 import { ConsoleDriver } from "@/lib/email/console"
-import type { EmailDriver } from "@/lib/email/driver"
+import type { EmailDriver, ResolvedEmailConfig } from "@/lib/email/driver"
 import { SmtpDriver } from "@/lib/email/smtp"
-import { env } from "@/lib/env"
+import { getResolvedEmailConfig } from "@/lib/settings/email"
 
-// Punto unico in cui si sceglie il driver email attivo, gemello di
-// lib/storage/index.ts. La scelta segue EMAIL_DRIVER se impostato, altrimenti
-// il default per ambiente: "console" in sviluppo (le email finiscono nei log),
-// "smtp" in produzione. Per passare a un altro provider (Resend/SES/...) basta
-// implementare EmailDriver e aggiungerlo qui: nient'altro nel codebase cambia.
-function selectDriver(): EmailDriver {
-  const driver =
-    env.EMAIL_DRIVER ?? (env.NODE_ENV === "production" ? "smtp" : "console")
-
-  switch (driver) {
+// Punto unico in cui si sceglie e si costruisce il driver email attivo. La
+// config è RISOLTA da lib/settings/email.ts (GUI sopra .env): "console" logga il
+// messaggio, "smtp" spedisce davvero. Per aggiungere un provider (Resend/SES/...)
+// basta implementare EmailDriver e aggiungerlo a questo switch.
+function createDriver(config: ResolvedEmailConfig): EmailDriver {
+  switch (config.driver) {
     case "smtp":
-      return new SmtpDriver()
+      return new SmtpDriver(config)
     case "console":
       return new ConsoleDriver()
   }
 }
 
-// Istanza creata in modo pigro: il driver SMTP costruisce il transporter e
-// valida le credenziali nel costruttore, e non vogliamo che ciò accada (né
-// fallisca) al solo import del modulo, ma alla prima vera spedizione.
-let instance: EmailDriver | undefined
+// Il driver è costruito in modo pigro e memorizzato, ma legato a una
+// "fingerprint" della config: se la config cambia (anche da GUI, senza riavvio)
+// la fingerprint cambia e il driver viene ricostruito al primo invio successivo.
+// Così una modifica delle credenziali si applica subito senza un singleton
+// stale. La chiave resta in memoria di processo e non viene mai loggata.
+let cached: { key: string; driver: EmailDriver } | undefined
+
+async function getDriver(): Promise<EmailDriver> {
+  const config = await getResolvedEmailConfig()
+  const key = JSON.stringify(config)
+  if (cached?.key !== key) {
+    cached = { key, driver: createDriver(config) }
+  }
+  return cached.driver
+}
 
 export const email: EmailDriver = {
-  send: (message) => (instance ??= selectDriver()).send(message),
+  send: async (message) => (await getDriver()).send(message),
 }
 
 export type { EmailDriver, EmailMessage } from "@/lib/email/driver"
