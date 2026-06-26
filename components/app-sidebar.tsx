@@ -122,7 +122,15 @@ function NavExample() {
   )
 }
 
-export function AppSidebar() {
+// Nome e logo arrivano dalle impostazioni di sistema, lette server-side nel
+// layout della dashboard e passate come prop (questo è un client component).
+export function AppSidebar({
+  appName,
+  logoUrl,
+}: {
+  appName: string
+  logoUrl: string | null
+}) {
   const pathname = usePathname()
   const { data: session } = authClient.useSession()
   const isAdmin = hasRole(session?.user.role, "admin")
@@ -134,11 +142,20 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <BoxIcon aria-hidden="true" />
+                <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  {logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={logoUrl}
+                      alt=""
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <BoxIcon aria-hidden="true" />
+                  )}
                 </div>
                 <div className="flex min-w-0 flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-                  <span className="truncate font-semibold">shadcn starter</span>
+                  <span className="truncate font-semibold">{appName}</span>
                   <span className="truncate text-xs text-muted-foreground">
                     Dashboard
                   </span>

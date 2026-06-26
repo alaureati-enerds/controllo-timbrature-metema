@@ -1,0 +1,156 @@
+# Impostazioni del sistema (e preferenze per-utente)
+
+Questa guida spiega come funzionano le impostazioni nel progetto, come
+aggiungerne di nuove e — punto importante — la **distinzione tra impostazioni
+di sistema e preferenze per-utente**, che sono due concetti diversi con due
+modelli di autorizzazione diversi.
+
+---
+
+## I due assi: sistema vs utente
+
+Non confondere queste due cose: non sono due livelli della stessa
+impostazione, sono **due concetti separati**.
+
+|                     | Impostazioni di **sistema**                  | Preferenze **per-utente**                       |
+| ------------------- | -------------------------------------------- | ----------------------------------------------- |
+| Esempi              | nome del software, logo, tema di default      | notifiche on/off, lingua, tema scelto           |
+| Ambito              | una sola riga globale (singleton)            | una riga per ciascun utente                     |
+| Chi le modifica     | **solo gli admin**                           | **ogni utente le proprie** (admin compreso)     |
+| Autorizzazione      | **RBAC** — permesso `settings` (admin)       | **ownership** — `userId === session.user.id`    |
+| Dove nella UI       | `/admin/settings`                            | `/settings` o `/profile`                        |
+
+La conseguenza pratica: il permesso RBAC `settings` (vedi
+[`lib/permissions.ts`](../lib/permissions.ts)) vale **solo** per le impostazioni
+globali. Quando l'admin regola le *sue* notifiche non lo fa "da admin": lo fa da
+utente come tutti gli altri, e l'autorizzazione è per ownership — esattamente
+come per le note (vedi [`lib/notes.ts`](../lib/notes.ts)).
+
+> **Stato attuale:** è implementato solo l'asse **di sistema** (nome e logo). Le
+> preferenze per-utente non esistono ancora come codice; questa pagina descrive
+> il pattern con cui andranno aggiunte, così l'architettura resta coerente.
+
+---
+
+## Come sono fatte le impostazioni di sistema
+
+L'idea centrale è la stessa di [`lib/env.ts`](../lib/env.ts): **uno schema Zod è
+la fonte di verità**, con un `.default()` per ogni campo. Quello che sta nel
+database è solo un override parziale che viene **fuso sopra i default**.
+
+Pezzi coinvolti:
+
+- **Database** — modello `SystemSetting` in
+  [`prisma/schema.prisma`](../prisma/schema.prisma): un *singleton* (al più una
+  riga, `id = 1`) con un unico campo `data` di tipo `Json`. Il blob è
+  *schemaless* lato DB: aggiungere un'impostazione **non richiede una
+  migrazione**.
+- **Schema** — [`lib/settings/schema.ts`](../lib/settings/schema.ts): il
+  `systemSettingsSchema` Zod con i campi e i loro default, più la distinzione
+  tra dati pubblici (inviabili al client) e privati.
+- **Service** — [`lib/settings/system.ts`](../lib/settings/system.ts):
+  `getSystemSettings()` (lettura) e `updateSystemSettings()` (scrittura).
+  L'autorizzazione **non** sta qui: il service si fida, il controllo è a monte.
+- **API** — [`app/api/admin/settings/route.ts`](../app/api/admin/settings/route.ts):
+  `GET`/`PUT` protette dal permesso `settings`.
+- **UI admin** — pagina
+  [`app/(dashboard)/admin/settings/page.tsx`](<../app/(dashboard)/admin/settings/page.tsx>)
+  + form client
+  [`components/admin/system-settings-form.tsx`](../components/admin/system-settings-form.tsx).
+
+### Lettura: default sempre completi
+
+`getSystemSettings()` legge la riga e fa
+`systemSettingsSchema.parse(row?.data ?? {})`. Grazie ai `.default()` ottieni
+sempre un oggetto **completo e tipizzato**, anche se la riga non esiste o se è
+stato salvato solo un sottoinsieme dei campi.
+
+### Lettura, dedup e propagazione globale
+
+Nome e logo si leggono in più punti dello stesso render (header della sidebar e
+`generateMetadata` per il `<title>`). `getSystemSettings()` è avvolta in
+`cache()` di React: nello **stesso render** la lettura avviene una sola volta,
+non N — la query al DB è deduplicata per-richiesta.
+
+Tra richieste diverse **non si conserva nulla**: ogni richiesta rilegge dal DB.
+Questo è voluto e risolve in radice il requisito «se cambio il logo deve valere
+per tutti»: non esistendo una cache stale da invalidare, una modifica è subito
+visibile a chiunque, **lato server e in modo globale** (non c'entra il browser
+del singolo utente). Il costo è un `SELECT` su una singola riga indicizzata a
+ogni render: trascurabile.
+
+> **Se un giorno servisse una cache cross-request** (volumi di lettura molto
+> alti), si abilita `cacheComponents` in `next.config` e si passa al direttivo
+> `"use cache"` con `cacheTag("system-settings")` + `updateTag(...)` nello
+> `updateSystemSettings()`. In Next 16 `revalidateTag` richiede un secondo
+> argomento (profilo) e l'API è ancora in evoluzione: meglio non introdurla
+> finché non serve davvero.
+
+---
+
+## Aggiungere una nuova impostazione di sistema
+
+Esempio: aggiungere un tema di default.
+
+1. **Aggiungi il campo allo schema** in
+   [`lib/settings/schema.ts`](../lib/settings/schema.ts), **sempre con un
+   `.default()`**:
+
+   ```ts
+   export const systemSettingsSchema = z.object({
+     appName: z.string().trim().min(1).default("shadcn starter"),
+     logoUrl: z.string().url().nullable().default(null),
+     defaultTheme: z.enum(["light", "dark", "system"]).default("system"), // nuovo
+   })
+   ```
+
+2. **Se è un dato pubblico** (visibile al client, come nome/logo/tema),
+   aggiungilo a `PublicSystemSettings` e a `toPublicSettings()` nello stesso
+   file. Se è un dato server-only, lascialo fuori dalla parte pubblica.
+
+3. **Esponilo nel form** in
+   [`components/admin/system-settings-form.tsx`](../components/admin/system-settings-form.tsx).
+
+Nessuna migrazione: il blob `data` accoglie il nuovo campo così com'è.
+
+### Segreti: non metterli nel blob
+
+Le credenziali (es. password SMTP) **non** vanno nello schema delle
+impostazioni: lo schema, nella sua parte pubblica, viene inviato al browser e
+l'endpoint admin di lettura lo restituisce. Tienile in `.env` (come fa oggi
+l'invio email, che in sviluppo finisce nei log — vedi
+[`lib/auth.ts`](../lib/auth.ts)) oppure in un campo cifrato dedicato, mai in
+chiaro nel `data` del singleton.
+
+---
+
+## Quando servirà: preferenze per-utente
+
+Riusa lo **stesso pattern** (blob `Json` + registro Zod), ma con un modello e un
+service distinti, e autorizzazione per **ownership**:
+
+```prisma
+model UserPreference {
+  userId String @id
+  data   Json   @default("{}")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("user_preference")
+}
+```
+
+- `lib/settings/user.ts`: `getUserPreferences(userId)` /
+  `updateUserPreferences(userId, patch)` — ogni funzione riceve lo `userId` e
+  opera **solo** su quella riga, come [`lib/notes.ts`](../lib/notes.ts).
+- Niente RBAC `settings`: il controllo è `userId === session.user.id`.
+- La UI sta sotto `/settings` (o `/profile`), non sotto `/admin`.
+
+Per la precedenza del tema: la preferenza dell'utente, quando esisterà, batte il
+`defaultTheme` di sistema; `next-themes` legge comunque il `localStorage` del
+browser, quindi il default di sistema è il fallback al primo accesso.
+
+---
+
+## Riferimenti
+
+- Autenticazione, ruoli e RBAC: [`autenticazione-e-ruoli.md`](autenticazione-e-ruoli.md)
+- Creare un tema: [`creare-un-tema.md`](creare-un-tema.md)

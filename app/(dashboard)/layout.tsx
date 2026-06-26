@@ -11,6 +11,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { getSystemSettings } from "@/lib/settings/system"
 
 // Shell della dashboard: sidebar a sinistra + header con trigger e breadcrumb.
 // Tutte le pagine sotto (dashboard) ne ereditano la struttura.
@@ -24,6 +25,9 @@ export default async function DashboardLayout({
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false"
 
+  // Nome e logo globali per l'header della sidebar (cachati server-side).
+  const settings = await getSystemSettings()
+
   return (
     <TooltipProvider>
       <SidebarProvider defaultOpen={defaultOpen}>
@@ -35,7 +39,7 @@ export default async function DashboardLayout({
         >
           Vai al contenuto
         </a>
-        <AppSidebar />
+        <AppSidebar appName={settings.appName} logoUrl={settings.logoUrl} />
         <SidebarInset id="main-content">
           <ImpersonationBanner />
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">

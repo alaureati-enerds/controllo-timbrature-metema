@@ -2,6 +2,7 @@ import {
   HourglassIcon,
   LayoutDashboardIcon,
   NotebookPenIcon,
+  SettingsIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -26,4 +27,5 @@ export const navItems: NavItem[] = [
 // comunque server-side nelle pagine (requireRole).
 export const adminNavItems: NavItem[] = [
   { title: "Gestione utenti", url: "/admin/users", icon: UsersIcon },
+  { title: "Impostazioni di sistema", url: "/admin/settings", icon: SettingsIcon },
 ]

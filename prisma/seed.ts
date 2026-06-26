@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth"
 import { env } from "@/lib/env"
 import { prisma } from "@/lib/prisma"
+import { systemSettingsSchema } from "@/lib/settings/schema"
 
 // Seed idempotente: garantisce l'esistenza di alcuni account iniziali, così al
 // primo avvio c'è sempre un admin (per le aree riservate) e un utente normale
@@ -34,7 +35,25 @@ async function seedUser(opts: {
   console.log(`✔ Creato ${opts.role}: ${opts.email}`)
 }
 
+// Garantisce la riga singleton delle impostazioni di sistema con i valori di
+// default. Non sovrascrive una configurazione già presente (idempotente): se la
+// riga manca usa i default dello schema Zod.
+async function seedSystemSettings() {
+  const existing = await prisma.systemSetting.findUnique({ where: { id: 1 } })
+  if (existing) {
+    console.log("✔ Impostazioni di sistema già presenti, nessuna azione.")
+    return
+  }
+
+  await prisma.systemSetting.create({
+    data: { id: 1, data: systemSettingsSchema.parse({}) },
+  })
+  console.log("✔ Create impostazioni di sistema con i valori di default.")
+}
+
 async function main() {
+  await seedSystemSettings()
+
   await seedUser({
     email: env.SEED_ADMIN_EMAIL,
     password: env.SEED_ADMIN_PASSWORD,

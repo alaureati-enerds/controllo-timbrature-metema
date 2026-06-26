@@ -130,3 +130,24 @@ model Note {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// ============================================================================
+// Impostazioni
+// ============================================================================
+
+/// Impostazioni di SISTEMA (globali): nome del software, logo, ecc. Configurate
+/// solo dagli admin e lette da tutti. È un singleton: esiste al più una riga,
+/// identificata da `id = 1`. Il contenuto vive in un unico blob `data` (Json)
+/// validato in app da uno schema Zod (vedi lib/settings/), così aggiungere una
+/// nuova impostazione non richiede una migrazione.
+///
+/// Le PREFERENZE PER-UTENTE (notifiche, lingua, ...) sono un concetto distinto,
+/// con autorizzazione per ownership e non per ruolo: vivranno in un modello
+/// gemello dedicato (es. UserPreference), non qui. Vedi docs/impostazioni-di-sistema.md.
+model SystemSetting {
+  id        Int      @id @default(1)
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  @@map("system_setting")
+}

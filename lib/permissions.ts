@@ -14,6 +14,10 @@ const statement = {
   ...defaultStatements,
   // Risorsa di dominio d'esempio.
   note: ["create", "read", "update", "delete"],
+  // Impostazioni di sistema (globali): solo gli admin le leggono/modificano dal
+  // pannello. NB: vale solo per le impostazioni GLOBALI; le preferenze
+  // per-utente useranno l'ownership, non questo permesso.
+  settings: ["read", "update"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -23,10 +27,12 @@ export const user = ac.newRole({
   note: ["create", "read", "update", "delete"],
 })
 
-// Ruolo amministratore: tutti i permessi di gestione utenti/sessioni + note.
+// Ruolo amministratore: tutti i permessi di gestione utenti/sessioni + note +
+// configurazione delle impostazioni di sistema.
 export const admin = ac.newRole({
   ...adminAc.statements,
   note: ["create", "read", "update", "delete"],
+  settings: ["read", "update"],
 })
 
 // Ruoli esposti all'app. La chiave è il valore salvato in `user.role`.
