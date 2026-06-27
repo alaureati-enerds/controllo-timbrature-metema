@@ -18,6 +18,9 @@ const statement = {
   // pannello. NB: vale solo per le impostazioni GLOBALI; le preferenze
   // per-utente useranno l'ownership, non questo permesso.
   settings: ["read", "update"],
+  // Operazioni in background (job): chi le vede, le avvia e le ferma dal pannello
+  // admin. Vedi lib/jobs/ e docs/operazioni-in-background.md.
+  jobs: ["read", "create", "cancel"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -33,6 +36,7 @@ export const admin = ac.newRole({
   ...adminAc.statements,
   note: ["create", "read", "update", "delete"],
   settings: ["read", "update"],
+  jobs: ["read", "create", "cancel"],
 })
 
 // Ruoli esposti all'app. La chiave è il valore salvato in `user.role`.
