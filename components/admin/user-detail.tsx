@@ -52,6 +52,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 type DetailUser = {
   id: string
@@ -307,7 +312,7 @@ export function UserDetail({
         </div>
       </header>
 
-      <div className="grid items-start gap-6 lg:grid-cols-2">
+      <div className="flex flex-col gap-6">
         {/* Ruolo */}
         <Card>
           <CardHeader>
@@ -316,28 +321,35 @@ export function UserDetail({
               Determina i permessi e l&apos;accesso alle aree riservate.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex items-end gap-2">
-            <Select
-              value={role}
-              disabled={busy}
-              onValueChange={(v) => setRole(v as (typeof ROLES)[number])}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLES.map((r) => (
-                  <SelectItem key={r} value={r} className="capitalize">
-                    {r}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <CardContent>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="role">Ruolo</FieldLabel>
+                <Select
+                  value={role}
+                  disabled={busy}
+                  onValueChange={(v) => setRole(v as (typeof ROLES)[number])}
+                >
+                  <SelectTrigger id="role" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((r) => (
+                      <SelectItem key={r} value={r} className="capitalize">
+                        {r}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldGroup>
+          </CardContent>
+          <CardFooter className="justify-end">
             <Button onClick={saveRole} disabled={busy || role === user.role}>
-              <SaveIcon data-icon="inline-start" />
+              {busy ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
               Salva
             </Button>
-          </CardContent>
+          </CardFooter>
         </Card>
 
         {/* Reset password */}
@@ -367,9 +379,9 @@ export function UserDetail({
                 </Field>
               </FieldGroup>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="justify-end">
               <Button type="submit" disabled={busy}>
-                <KeyRoundIcon data-icon="inline-start" />
+                {busy ? <Spinner /> : <KeyRoundIcon data-icon="inline-start" />}
                 Reimposta
               </Button>
             </CardFooter>
@@ -385,9 +397,9 @@ export function UserDetail({
             </CardDescription>
           </CardHeader>
           {user.banned ? (
-            <CardFooter>
+            <CardFooter className="justify-end">
               <Button variant="outline" onClick={unban} disabled={busy}>
-                <UserCheckIcon data-icon="inline-start" />
+                {busy ? <Spinner /> : <UserCheckIcon data-icon="inline-start" />}
                 Riabilita utente
               </Button>
             </CardFooter>
@@ -432,9 +444,9 @@ export function UserDetail({
                   </Field>
                 </FieldGroup>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="justify-end">
                 <Button type="submit" variant="destructive" disabled={busy}>
-                  <BanIcon data-icon="inline-start" />
+                  {busy ? <Spinner /> : <BanIcon data-icon="inline-start" />}
                   Banna utente
                 </Button>
               </CardFooter>
@@ -450,22 +462,41 @@ export function UserDetail({
               Accedi come l&apos;utente o eliminane l&apos;account.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-wrap items-start gap-2">
-            <Button
-              variant="outline"
-              onClick={impersonate}
-              disabled={busy || isSelf}
-              title={isSelf ? "Non puoi impersonare te stesso" : undefined}
-            >
-              <LogInIcon data-icon="inline-start" />
-              Accedi come questo utente
-            </Button>
+          <CardFooter className="justify-end gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={busy || isSelf}
+                >
+                  {busy ? <Spinner /> : <LogInIcon data-icon="inline-start" />}
+                  Accedi come questo utente
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Accedere come {user.name}?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Assumerai temporaneamente l&apos;identità di questo utente.
+                    La sessione corrente verrà sostituita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
+                  <AlertDialogAction onClick={impersonate}>
+                    <LogInIcon data-icon="inline-start" />
+                    Accedi
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
                   variant="destructive"
                   disabled={busy || isSelf}
-                  title={isSelf ? "Non puoi eliminare te stesso" : undefined}
                 >
                   <Trash2Icon data-icon="inline-start" />
                   Elimina utente
@@ -482,12 +513,13 @@ export function UserDetail({
                 <AlertDialogFooter>
                   <AlertDialogCancel>Annulla</AlertDialogCancel>
                   <AlertDialogAction variant="destructive" onClick={remove}>
+                    <Trash2Icon data-icon="inline-start" />
                     Elimina
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </CardContent>
+          </CardFooter>
         </Card>
 
         {/* Autenticazione a due fattori (recupero da lockout) */}
@@ -509,7 +541,7 @@ export function UserDetail({
               backup. Dovrà riconfigurarla dal proprio profilo.
             </CardDescription>
           </CardHeader>
-          <CardFooter>
+          <CardFooter className="justify-end">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -571,46 +603,84 @@ export function UserDetail({
                   className="flex items-center gap-3 rounded-lg border p-3 text-sm"
                 >
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                    <LaptopIcon className="size-4" />
+                    <LaptopIcon aria-hidden="true" className="size-4" />
                   </span>
                   <div className="flex min-w-0 flex-col">
                     <span className="truncate font-medium">
                       {s.userAgent || "Client sconosciuto"}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground tabular-nums">
                       {s.ipAddress || "—"} ·{" "}
                       {new Date(s.createdAt).toLocaleString("it-IT")}
                     </span>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="ml-auto"
-                    disabled={busy}
-                    onClick={() => revokeSession(s.token)}
-                  >
-                    <LogOutIcon data-icon="inline-start" />
-                    Revoca
-                  </Button>
+                  <RevokeSessionButton
+                    busy={busy}
+                    onConfirm={() => revokeSession(s.token)}
+                  />
                 </li>
               ))}
             </ul>
           )}
         </CardContent>
         {sessions.length > 0 && (
-          <CardFooter>
+          <CardFooter className="justify-end">
             <Button
               variant="outline"
               size="sm"
               onClick={revokeAll}
               disabled={busy}
             >
-              <LogOutIcon data-icon="inline-start" />
+              {busy ? <Spinner /> : <LogOutIcon data-icon="inline-start" />}
               Revoca tutte le sessioni
             </Button>
           </CardFooter>
         )}
       </Card>
     </>
+  )
+}
+
+function RevokeSessionButton({
+  busy,
+  onConfirm,
+}: {
+  busy: boolean
+  onConfirm: () => void
+}) {
+  return (
+    <AlertDialog>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+              aria-label="Revoca questa sessione"
+              disabled={busy}
+            >
+              {busy ? <Spinner /> : <LogOutIcon />}
+            </Button>
+          </AlertDialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Revoca sessione</TooltipContent>
+      </Tooltip>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Revocare questa sessione?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Il dispositivo collegato dovrà accedere di nuovo per continuare.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Annulla</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+            <LogOutIcon data-icon="inline-start" />
+            Revoca
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
