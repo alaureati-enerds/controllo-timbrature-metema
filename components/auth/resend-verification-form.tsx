@@ -4,6 +4,8 @@ import Link from "next/link"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { MailIcon } from "lucide-react"
+
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import {
@@ -62,7 +64,7 @@ export function ResendVerificationForm() {
               />
             </Field>
             <Button type="submit" disabled={pending}>
-              {pending && <Spinner />}
+              {pending ? <Spinner /> : <MailIcon data-icon="inline-start" />}
               Reinvia link
             </Button>
           </FieldGroup>

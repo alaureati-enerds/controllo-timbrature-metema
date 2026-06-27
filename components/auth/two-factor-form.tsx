@@ -220,25 +220,31 @@ export function TwoFactorForm() {
 
       <CardFooter className="flex-col items-start gap-2 text-sm">
         {mode === "totp" ? (
-          <button
+          <Button
             type="button"
-            className="text-muted-foreground hover:underline"
+            variant="link"
+            className="h-auto p-0 text-muted-foreground"
             onClick={() => switchMode("backup")}
           >
             Non hai accesso all&apos;app? Usa un codice di backup
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             type="button"
-            className="text-muted-foreground hover:underline"
+            variant="link"
+            className="h-auto p-0 text-muted-foreground"
             onClick={() => switchMode("totp")}
           >
             Usa l&apos;app authenticator
-          </button>
+          </Button>
         )}
-        <Link href="/login" className="text-muted-foreground hover:underline">
-          Torna al login
-        </Link>
+        <Button
+          asChild
+          variant="link"
+          className="h-auto p-0 text-muted-foreground"
+        >
+          <Link href="/login">Torna al login</Link>
+        </Button>
       </CardFooter>
     </Card>
   )

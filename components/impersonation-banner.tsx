@@ -4,8 +4,11 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { CircleStopIcon } from "lucide-react"
+
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 
 // Banner globale mostrato quando l'admin sta impersonando un altro utente
 // (session.session.impersonatedBy valorizzato). Permette di tornare al proprio
@@ -42,6 +45,7 @@ export function ImpersonationBanner() {
         onClick={stop}
         disabled={busy}
       >
+        {busy ? <Spinner /> : <CircleStopIcon data-icon="inline-start" />}
         Stop
       </Button>
     </div>

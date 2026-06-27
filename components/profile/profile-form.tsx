@@ -76,7 +76,8 @@ export function ProfileForm({
         <CardHeader>
           <CardTitle>Dati profilo</CardTitle>
           <CardDescription>
-            Il nome compare nella barra laterale e nelle attività dell&apos;account.
+            Il nome compare nella barra laterale e nelle attività
+            dell&apos;account.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleNameSubmit} className="contents">
@@ -104,11 +105,8 @@ export function ProfileForm({
             </FieldGroup>
           </CardContent>
           <CardFooter className="justify-end">
-            <Button
-              type="submit"
-              disabled={savingName || name === initialName}
-            >
-              {savingName ? <Spinner /> : <SaveIcon />}
+            <Button type="submit" disabled={savingName || name === initialName}>
+              {savingName ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
               Salva modifiche
             </Button>
           </CardFooter>
@@ -159,7 +157,11 @@ export function ProfileForm({
           </CardContent>
           <CardFooter className="justify-end">
             <Button type="submit" disabled={savingPassword}>
-              {savingPassword ? <Spinner /> : <KeyRoundIcon />}
+              {savingPassword ? (
+                <Spinner />
+              ) : (
+                <KeyRoundIcon data-icon="inline-start" />
+              )}
               Aggiorna password
             </Button>
           </CardFooter>

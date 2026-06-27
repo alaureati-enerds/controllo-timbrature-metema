@@ -3,7 +3,19 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { ArrowLeftIcon, LaptopIcon, ShieldCheckIcon } from "lucide-react"
+import {
+  ArrowLeftIcon,
+  BanIcon,
+  KeyRoundIcon,
+  LaptopIcon,
+  LogInIcon,
+  LogOutIcon,
+  SaveIcon,
+  ShieldCheckIcon,
+  ShieldXIcon,
+  Trash2Icon,
+  UserCheckIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
@@ -322,6 +334,7 @@ export function UserDetail({
               </SelectContent>
             </Select>
             <Button onClick={saveRole} disabled={busy || role === user.role}>
+              <SaveIcon data-icon="inline-start" />
               Salva
             </Button>
           </CardContent>
@@ -356,6 +369,7 @@ export function UserDetail({
             </CardContent>
             <CardFooter>
               <Button type="submit" disabled={busy}>
+                <KeyRoundIcon data-icon="inline-start" />
                 Reimposta
               </Button>
             </CardFooter>
@@ -373,6 +387,7 @@ export function UserDetail({
           {user.banned ? (
             <CardFooter>
               <Button variant="outline" onClick={unban} disabled={busy}>
+                <UserCheckIcon data-icon="inline-start" />
                 Riabilita utente
               </Button>
             </CardFooter>
@@ -419,6 +434,7 @@ export function UserDetail({
               </CardContent>
               <CardFooter>
                 <Button type="submit" variant="destructive" disabled={busy}>
+                  <BanIcon data-icon="inline-start" />
                   Banna utente
                 </Button>
               </CardFooter>
@@ -441,6 +457,7 @@ export function UserDetail({
               disabled={busy || isSelf}
               title={isSelf ? "Non puoi impersonare te stesso" : undefined}
             >
+              <LogInIcon data-icon="inline-start" />
               Accedi come questo utente
             </Button>
             <AlertDialog>
@@ -450,6 +467,7 @@ export function UserDetail({
                   disabled={busy || isSelf}
                   title={isSelf ? "Non puoi eliminare te stesso" : undefined}
                 >
+                  <Trash2Icon data-icon="inline-start" />
                   Elimina utente
                 </Button>
               </AlertDialogTrigger>
@@ -463,10 +481,7 @@ export function UserDetail({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Annulla</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={remove}
-                    className="bg-destructive text-white hover:bg-destructive/90"
-                  >
+                  <AlertDialogAction variant="destructive" onClick={remove}>
                     Elimina
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -508,6 +523,7 @@ export function UserDetail({
                         : undefined
                   }
                 >
+                  <ShieldXIcon data-icon="inline-start" />
                   Reimposta 2FA
                 </Button>
               </AlertDialogTrigger>
@@ -573,6 +589,7 @@ export function UserDetail({
                     disabled={busy}
                     onClick={() => revokeSession(s.token)}
                   >
+                    <LogOutIcon data-icon="inline-start" />
                     Revoca
                   </Button>
                 </li>
@@ -588,6 +605,7 @@ export function UserDetail({
               onClick={revokeAll}
               disabled={busy}
             >
+              <LogOutIcon data-icon="inline-start" />
               Revoca tutte le sessioni
             </Button>
           </CardFooter>

@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { KeyRoundIcon, MailIcon } from "lucide-react"
+
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import {
@@ -89,7 +91,11 @@ export function ResetPasswordForm() {
                 />
               </Field>
               <Button type="submit" disabled={pending}>
-                {pending && <Spinner />}
+                {pending ? (
+                  <Spinner />
+                ) : (
+                  <KeyRoundIcon data-icon="inline-start" />
+                )}
                 Aggiorna password
               </Button>
             </FieldGroup>
@@ -127,7 +133,7 @@ export function ResetPasswordForm() {
                 />
               </Field>
               <Button type="submit" disabled={pending}>
-                {pending && <Spinner />}
+                {pending ? <Spinner /> : <MailIcon data-icon="inline-start" />}
                 Invia link
               </Button>
             </FieldGroup>

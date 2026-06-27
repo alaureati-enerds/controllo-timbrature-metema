@@ -4,6 +4,8 @@ import Link from "next/link"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { UserPlusIcon } from "lucide-react"
+
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import {
@@ -107,7 +109,11 @@ export function RegisterForm() {
               />
             </Field>
             <Button type="submit" disabled={pending}>
-              {pending && <Spinner />}
+              {pending ? (
+                <Spinner />
+              ) : (
+                <UserPlusIcon data-icon="inline-start" />
+              )}
               Registrati
             </Button>
           </FieldGroup>

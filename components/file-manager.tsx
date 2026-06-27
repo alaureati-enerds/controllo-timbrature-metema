@@ -83,7 +83,7 @@ export function FileManager({ initialFiles }: { initialFiles: FileMeta[] }) {
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
         >
-          {uploading ? <Spinner /> : <UploadIcon />}
+          {uploading ? <Spinner /> : <UploadIcon data-icon="inline-start" />}
           Carica un file
         </Button>
         <input
@@ -113,12 +113,12 @@ export function FileManager({ initialFiles }: { initialFiles: FileMeta[] }) {
               key={file.id}
               className="flex items-center gap-3 rounded-md border p-3"
             >
-              <FileIcon className="text-muted-foreground size-5 shrink-0" />
+              <FileIcon className="size-5 shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 flex-col">
                 <span className="truncate text-sm font-medium">
                   {file.originalName ?? file.id}
                 </span>
-                <span className="text-muted-foreground text-xs">
+                <span className="text-xs text-muted-foreground">
                   {file.mimeType} · {formatSize(file.size)}
                 </span>
               </div>

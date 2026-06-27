@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import cronstrue from "cronstrue/i18n"
 import {
   CalendarClockIcon,
+  CalendarPlusIcon,
   FileTextIcon,
   PlayIcon,
   RefreshCwIcon,
@@ -498,7 +499,11 @@ export function JobsManager() {
                       </Button>
                     </DialogClose>
                     <Button type="submit" disabled={scheduling}>
-                      {scheduling && <Spinner />}
+                      {scheduling ? (
+                        <Spinner />
+                      ) : (
+                        <CalendarPlusIcon data-icon="inline-start" />
+                      )}
                       Schedula
                     </Button>
                   </DialogFooter>

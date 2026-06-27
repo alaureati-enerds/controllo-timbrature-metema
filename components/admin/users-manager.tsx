@@ -2,7 +2,15 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { SearchIcon, UserPlusIcon } from "lucide-react"
+import {
+  BanIcon,
+  EyeIcon,
+  LockOpenIcon,
+  SearchIcon,
+  Trash2Icon,
+  UserPlusIcon,
+  XIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
@@ -56,6 +64,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 type AdminUser = {
   id: string
@@ -225,6 +238,7 @@ export function UsersManager() {
               />
             </div>
             <Button type="submit" variant="outline">
+              <SearchIcon data-icon="inline-start" />
               Cerca
             </Button>
             {search && (
@@ -237,6 +251,7 @@ export function UsersManager() {
                   setPage(0)
                 }}
               >
+                <XIcon data-icon="inline-start" />
                 Azzera
               </Button>
             )}
@@ -324,7 +339,11 @@ export function UsersManager() {
                     </Button>
                   </DialogClose>
                   <Button type="submit" disabled={creating}>
-                    {creating && <Spinner />}
+                    {creating ? (
+                      <Spinner />
+                    ) : (
+                      <UserPlusIcon data-icon="inline-start" />
+                    )}
                     Crea utente
                   </Button>
                 </DialogFooter>
@@ -410,23 +429,44 @@ export function UsersManager() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" asChild>
-                              <Link href={`/admin/users/${u.id}`}>
-                                Dettaglio
-                              </Link>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={busyId === u.id || isSelf}
-                              title={
-                                isSelf ? "Non puoi bannare te stesso" : undefined
-                              }
-                              onClick={() => handleToggleBan(u)}
-                            >
-                              {u.banned ? "Sblocca" : "Banna"}
-                            </Button>
+                          <div className="flex justify-end gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Apri dettaglio"
+                                  asChild
+                                >
+                                  <Link href={`/admin/users/${u.id}`}>
+                                    <EyeIcon />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Dettaglio</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={
+                                    u.banned ? "Sblocca utente" : "Banna utente"
+                                  }
+                                  disabled={busyId === u.id || isSelf}
+                                  onClick={() => handleToggleBan(u)}
+                                >
+                                  {u.banned ? <LockOpenIcon /> : <BanIcon />}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {isSelf
+                                  ? "Non puoi bannare te stesso"
+                                  : u.banned
+                                    ? "Sblocca"
+                                    : "Banna"}
+                              </TooltipContent>
+                            </Tooltip>
                             <DeleteUserDialog
                               user={u}
                               disabled={busyId === u.id || isSelf}
@@ -445,7 +485,8 @@ export function UsersManager() {
 
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            {rangeStart}–{rangeEnd} di {total} · pagina {page + 1} di {totalPages}
+            {rangeStart}–{rangeEnd} di {total} · pagina {page + 1} di{" "}
+            {totalPages}
           </span>
           <div className="flex gap-2">
             <Button
@@ -482,11 +523,22 @@ function DeleteUserDialog({
 }) {
   return (
     <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" disabled={disabled}>
-          Elimina
-        </Button>
-      </AlertDialogTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Elimina utente"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={disabled}
+            >
+              <Trash2Icon />
+            </Button>
+          </AlertDialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Elimina</TooltipContent>
+      </Tooltip>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Eliminare {user.name}?</AlertDialogTitle>
@@ -497,10 +549,7 @@ function DeleteUserDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Annulla</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            className="bg-destructive text-white hover:bg-destructive/90"
-          >
+          <AlertDialogAction variant="destructive" onClick={onConfirm}>
             Elimina
           </AlertDialogAction>
         </AlertDialogFooter>
