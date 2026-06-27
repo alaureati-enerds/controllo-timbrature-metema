@@ -42,8 +42,25 @@ coerenza e a non ripetere errori già corretti.
 - I bottoni icona usano le size dedicate (`icon`, `icon-sm`, `icon-xs`), non un
   bottone normale con dentro solo un'icona.
 
+### Layout delle pagine
+
+- Le **pagine di impostazioni/configurazione** usano un layout **a larghezza
+  piena**: card impilate in colonna singola, ciascuna `w-full`. Niente card
+  strette (`max-w-*`) né griglie di card affiancate, che creano colonne di
+  altezze diverse e spazio vuoto sgradevole a destra.
+- Dentro una card, **raggruppa i campi correlati** invece di accodarli in una
+  lista piatta: usa `FieldSet` + `FieldLegend` per i gruppi e `FieldSeparator`
+  per separarli. Campi brevi e affini (es. host+porta, utente+password) stanno
+  su una **griglia** (`grid sm:grid-cols-2`) per sfruttare la larghezza.
+
 ### Azioni e bottoni
 
+- I bottoni con **label di testo** hanno **sempre anche un'icona** (lucide) a
+  sinistra del testo. Durante un'operazione asincrona l'icona è sostituita dallo
+  `Spinner` (`{busy ? <Spinner /> : <Icon />}`), così il bottone non «salta».
+- Le **azioni a fondo form** vanno in un `CardFooter`, **allineate a destra**
+  (`justify-end`); l'azione primaria è la più a destra. Per tenere il submit nel
+  footer ma dentro il `<form>`, avvolgi con `<form className="contents">`.
 - **Niente bottoni con label di testo dentro le righe di tabella.** Le azioni di
   riga sono **bottoni solo-icona** (`size="icon-sm"`, `variant="ghost"`) con
   `aria-label` **e** un `Tooltip` che ripete l'etichetta. Evita di ripetere la
