@@ -1,11 +1,14 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { InfoIcon, RefreshCwIcon, XIcon } from "lucide-react"
+import { endOfDay, format, startOfDay } from "date-fns"
+import { it } from "date-fns/locale"
+import { CalendarIcon, InfoIcon, RefreshCwIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Card,
   CardAction,
@@ -22,7 +25,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Select,
   SelectContent,
@@ -30,7 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Spinner } from "@/components/ui/spinner"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -88,8 +103,8 @@ export function AuditLog() {
   const [action, setAction] = useState(ALL)
   const [outcome, setOutcome] = useState(ALL)
   const [actor, setActor] = useState("")
-  const [from, setFrom] = useState("")
-  const [to, setTo] = useState("")
+  const [from, setFrom] = useState<Date>()
+  const [to, setTo] = useState<Date>()
   const [offset, setOffset] = useState(0)
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -105,8 +120,8 @@ export function AuditLog() {
     action !== ALL ||
     outcome !== ALL ||
     actor !== "" ||
-    from !== "" ||
-    to !== ""
+    from !== undefined ||
+    to !== undefined
 
   // Carica con debounce (per il campo attore di testo).
   useEffect(() => {
@@ -116,8 +131,8 @@ export function AuditLog() {
     if (action !== ALL) params.set("action", action)
     if (outcome !== ALL) params.set("outcome", outcome)
     if (actor.trim()) params.set("actor", actor.trim())
-    if (from) params.set("from", new Date(from).toISOString())
-    if (to) params.set("to", new Date(to).toISOString())
+    if (from) params.set("from", startOfDay(from).toISOString())
+    if (to) params.set("to", endOfDay(to).toISOString())
     params.set("limit", String(PAGE_SIZE))
     params.set("offset", String(offset))
 
@@ -156,8 +171,8 @@ export function AuditLog() {
     setAction(ALL)
     setOutcome(ALL)
     setActor("")
-    setFrom("")
-    setTo("")
+    setFrom(undefined)
+    setTo(undefined)
     setOffset(0)
   }
 
@@ -188,7 +203,9 @@ export function AuditLog() {
                 disabled={refreshing}
                 onClick={handleRefresh}
               >
-                <RefreshCwIcon className={refreshing ? "animate-spin" : undefined} />
+                <RefreshCwIcon
+                  className={refreshing ? "animate-spin" : undefined}
+                />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Aggiorna</TooltipContent>
@@ -267,23 +284,19 @@ export function AuditLog() {
             }}
           />
 
-          <Input
-            type="date"
-            className="w-40 tabular-nums"
-            aria-label="Da"
+          <DateFilter
+            label="Da"
             value={from}
-            onChange={(e) => {
-              setFrom(e.target.value)
+            onChange={(d) => {
+              setFrom(d)
               resetToFirstPage()
             }}
           />
-          <Input
-            type="date"
-            className="w-40 tabular-nums"
-            aria-label="A"
+          <DateFilter
+            label="A"
             value={to}
-            onChange={(e) => {
-              setTo(e.target.value)
+            onChange={(d) => {
+              setTo(d)
               resetToFirstPage()
             }}
           />
@@ -296,80 +309,92 @@ export function AuditLog() {
           )}
         </div>
 
-        {loading ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-            <Spinner /> Caricamento…
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
-              <TableHeader>
+        <div className="overflow-hidden rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-44">Quando</TableHead>
+                <TableHead>Attore</TableHead>
+                <TableHead>Evento</TableHead>
+                <TableHead className="w-28">Esito</TableHead>
+                <TableHead className="w-32">IP</TableHead>
+                <TableHead className="w-px text-right">Dettagli</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <TableCell key={j}>
+                        <Skeleton className="h-4 w-full" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : entries.length === 0 ? (
                 <TableRow>
-                  <TableHead className="w-44">Quando</TableHead>
-                  <TableHead>Attore</TableHead>
-                  <TableHead>Evento</TableHead>
-                  <TableHead className="w-28">Esito</TableHead>
-                  <TableHead className="w-32">IP</TableHead>
-                  <TableHead className="w-px text-right">Dettagli</TableHead>
+                  <TableCell colSpan={6} className="h-48 p-0">
+                    <Empty className="border-0">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <InfoIcon />
+                        </EmptyMedia>
+                        <EmptyTitle>Nessun evento</EmptyTitle>
+                        <EmptyDescription>
+                          Nessun evento corrisponde a questi filtri. Prova ad
+                          allargare l&apos;intervallo o ad azzerare i filtri.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {entries.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      Nessun evento per questi filtri.
+              ) : (
+                entries.map((e) => (
+                  <TableRow key={e.id}>
+                    <TableCell className="text-xs text-muted-foreground tabular-nums">
+                      {fmt(e.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      {e.actorEmail || e.actorId ? (
+                        <span className="text-sm">
+                          {e.actorEmail ?? e.actorId}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          anonimo
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="font-medium">{e.actionLabel}</span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {e.action}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          e.outcome === "failure" ? "destructive" : "outline"
+                        }
+                      >
+                        {e.outcome === "failure" ? "Fallito" : "OK"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground tabular-nums">
+                      {e.ip ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <AuditDetailsDialog entry={e} />
                     </TableCell>
                   </TableRow>
-                ) : (
-                  entries.map((e) => (
-                    <TableRow key={e.id}>
-                      <TableCell className="text-xs text-muted-foreground tabular-nums">
-                        {fmt(e.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        {e.actorEmail || e.actorId ? (
-                          <span className="text-sm">
-                            {e.actorEmail ?? e.actorId}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            anonimo
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex min-w-0 flex-col">
-                          <span className="font-medium">{e.actionLabel}</span>
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {e.action}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            e.outcome === "failure" ? "destructive" : "outline"
-                          }
-                        >
-                          {e.outcome === "failure" ? "Fallito" : "OK"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground tabular-nums">
-                        {e.ip ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <AuditDetailsDialog entry={e} />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
         {/* Paginazione */}
         <div className="flex items-center justify-between">
@@ -398,6 +423,47 @@ export function AuditLog() {
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+// Filtro per data: bottone-trigger con Popover + Calendar (sostituisce l'input
+// date nativo, per coerenza con la UI shadcn). Il calendario è in italiano.
+function DateFilter({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: Date | undefined
+  onChange: (date: Date | undefined) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          aria-label={label}
+          data-empty={!value}
+          className="w-40 justify-start font-normal tabular-nums data-[empty=true]:text-muted-foreground"
+        >
+          <CalendarIcon data-icon="inline-start" />
+          {value ? format(value, "dd/MM/yyyy") : label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          locale={it}
+          selected={value}
+          onSelect={(d) => {
+            onChange(d)
+            setOpen(false)
+          }}
+          autoFocus
+        />
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -436,12 +502,15 @@ function AuditDetailsDialog({ entry }: { entry: Entry }) {
               <dt className="text-muted-foreground">Target</dt>
               <dd className="break-all">
                 {entry.target.label ?? entry.target.id ?? entry.target.type}
-                <span className="text-muted-foreground"> ({entry.target.type})</span>
+                <span className="text-muted-foreground">
+                  {" "}
+                  ({entry.target.type})
+                </span>
               </dd>
             </>
           )}
           <dt className="text-muted-foreground">User-agent</dt>
-          <dd className="break-all text-xs text-muted-foreground">
+          <dd className="text-xs break-all text-muted-foreground">
             {entry.userAgent ?? "—"}
           </dd>
         </dl>
