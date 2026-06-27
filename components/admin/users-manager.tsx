@@ -4,6 +4,8 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import {
   BanIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   EyeIcon,
   LockOpenIcon,
   SearchIcon,
@@ -495,6 +497,7 @@ export function UsersManager() {
               disabled={page === 0}
               onClick={() => setPage((p) => Math.max(0, p - 1))}
             >
+              <ChevronLeftIcon data-icon="inline-start" />
               Precedente
             </Button>
             <Button
@@ -504,6 +507,7 @@ export function UsersManager() {
               onClick={() => setPage((p) => p + 1)}
             >
               Successiva
+              <ChevronRightIcon data-icon="inline-end" />
             </Button>
           </div>
         </div>
