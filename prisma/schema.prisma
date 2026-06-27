@@ -184,3 +184,57 @@ model File {
   @@index([ownerType, ownerId])
   @@map("file")
 }
+
+// ============================================================================
+// Operazioni in background (job)
+// ============================================================================
+
+/// Stato di un job. È uno STATO OSSERVATO, non richiesto: lo aggiorna solo il
+/// worker mentre esegue (vedi lib/jobs/). La richiesta di STOP da parte
+/// dell'utente vive invece nel flag `cancelRequested` (cancellazione cooperativa).
+enum JobStatus {
+  queued // in coda, non ancora preso in carico dal worker
+  running // in esecuzione
+  completed // terminato con successo
+  failed // terminato con errore (vedi `error`)
+  cancelled // interrotto su richiesta (cancelRequested)
+}
+
+/// Un'operazione eseguita in background dal worker (lib/jobs/, processo
+/// `worker.ts`). Questa riga è la FONTE DI VERITÀ per ciò che l'utente vede e
+/// controlla: tipo, avanzamento, log, esito. La CODA vera e propria (locking,
+/// retry, cron) è gestita da pg-boss nel proprio schema `pgboss.*`; qui
+/// trasportiamo solo `{ jobId }`. Cambiare engine (pg-boss → BullMQ/...) non
+/// tocca questo modello né la UI: vedi lib/jobs/boss.ts.
+///
+/// `type` è la chiave nel registry degli handler (lib/jobs/registry.ts):
+/// aggiungere un tipo di operazione = aggiungere un handler, senza migrazioni.
+model Job {
+  id   String @id @default(cuid())
+  type String // chiave nel registry (lib/jobs/registry.ts)
+  // Input dell'operazione, validato dall'handler con Zod. Forma libera per tipo.
+  payload Json @default("{}")
+
+  status   JobStatus @default(queued)
+  progress Int       @default(0) // 0..100, aggiornato dall'handler via ctx.report()
+  message  String? // breve nota di avanzamento (es. "elaboro 37/200")
+  // Righe di log accumulate durante l'esecuzione (array di stringhe in Json).
+  logs  Json    @default("[]")
+  error String? // messaggio d'errore se status = failed
+
+  // Cancellazione COOPERATIVA: la UI imposta questo flag, l'handler lo controlla
+  // a checkpoint (ctx.throwIfCancelled) e si ferma pulito → status = cancelled.
+  cancelRequested Boolean @default(false)
+
+  // Valorizzato quando il job è stato accodato da una schedulazione cron
+  // (lib/jobs, queue "schedule"): identifica la schedulazione di origine.
+  scheduleKey String?
+
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([type, createdAt])
+  @@map("job")
+}

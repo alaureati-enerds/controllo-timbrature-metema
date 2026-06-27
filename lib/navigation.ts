@@ -2,6 +2,7 @@ import {
   FolderIcon,
   HourglassIcon,
   LayoutDashboardIcon,
+  ListChecksIcon,
   NotebookPenIcon,
   SettingsIcon,
   UsersIcon,
@@ -29,5 +30,6 @@ export const navItems: NavItem[] = [
 // comunque server-side nelle pagine (requireRole).
 export const adminNavItems: NavItem[] = [
   { title: "Gestione utenti", url: "/admin/users", icon: UsersIcon },
+  { title: "Operazioni in background", url: "/admin/jobs", icon: ListChecksIcon },
   { title: "Impostazioni di sistema", url: "/admin/settings", icon: SettingsIcon },
 ]
