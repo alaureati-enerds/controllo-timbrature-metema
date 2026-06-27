@@ -40,6 +40,21 @@ export const emailSettingsSchema = z.object({
 
 export type EmailSettings = z.infer<typeof emailSettingsSchema>
 
+// Config dell'AUDIT LOG persistita nel blob del singleton. È server-only (mai in
+// toPublicSettings) e segue lo stile opt-out: di default il logging è attivo e
+// nessun evento è disabilitato, così un evento nuovo viene tracciato senza
+// dover toccare la config. Vedi lib/audit/ e docs/audit-logging.md.
+export const auditSettingsSchema = z.object({
+  // Interruttore generale: false = nessun evento viene registrato.
+  enabled: z.boolean().default(true),
+  // `action` (vedi catalogo) che l'admin ha spento esplicitamente.
+  disabledActions: z.array(z.string()).default([]),
+  // Giorni di conservazione prima del pruning automatico. 0 = conserva sempre.
+  retentionDays: z.coerce.number().int().min(0).max(3650).default(90),
+})
+
+export type AuditSettings = z.infer<typeof auditSettingsSchema>
+
 export const systemSettingsSchema = z.object({
   // Nome del software, mostrato nell'header della sidebar e nel <title>.
   appName: z.string().trim().min(1).default("shadcn starter"),
@@ -49,6 +64,9 @@ export const systemSettingsSchema = z.object({
   iconName: z.enum(BRANDING_ICON_NAMES).default(DEFAULT_BRANDING_ICON),
   // Config email (server-only, vedi sopra). Default {}: ogni campo ricade su env.
   email: emailSettingsSchema.default({}),
+  // Config audit log (server-only). Default = i default dello schema (logging
+  // attivo, nessun evento spento, retention 90gg).
+  audit: auditSettingsSchema.default(auditSettingsSchema.parse({})),
 })
 
 export type SystemSettings = z.infer<typeof systemSettingsSchema>
@@ -69,10 +87,10 @@ export function toPublicSettings(s: SystemSettings): PublicSystemSettings {
 }
 
 // Schema per gli aggiornamenti dal form admin del BRANDING: tutti i campi
-// opzionali (patch parziale). `email` è escluso di proposito — si aggiorna solo
-// dall'endpoint dedicato (gestione del segreto), mai da qui.
+// opzionali (patch parziale). `email` e `audit` sono esclusi di proposito — si
+// aggiornano solo dai rispettivi endpoint dedicati, mai da qui.
 export const systemSettingsPatchSchema = systemSettingsSchema
-  .omit({ email: true })
+  .omit({ email: true, audit: true })
   .partial()
 
 export type SystemSettingsPatch = z.infer<typeof systemSettingsPatchSchema>

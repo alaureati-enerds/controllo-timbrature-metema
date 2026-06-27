@@ -1,4 +1,6 @@
 import { ok, parseJson, safeHandler } from "@/lib/api"
+import { audit } from "@/lib/audit"
+import { getSession } from "@/lib/auth-helpers"
 import {
   getEmailSettingsForAdmin,
   updateEmailSettings,
@@ -21,5 +23,17 @@ export const GET = safeHandler(async () => {
 export const PUT = safeHandler(async (request) => {
   await requireSettingsPermission("update")
   const input = await parseJson(request, emailSettingsInputSchema)
-  return ok(await updateEmailSettings(input))
+  const result = await updateEmailSettings(input)
+
+  const session = await getSession()
+  await audit({
+    action: "system.email.update",
+    actorId: session?.user.id,
+    actorEmail: session?.user.email,
+    // Solo metadati non sensibili: driver e host. MAI la password.
+    metadata: { driver: input.driver, host: input.host || undefined },
+    request,
+  })
+
+  return ok(result)
 })

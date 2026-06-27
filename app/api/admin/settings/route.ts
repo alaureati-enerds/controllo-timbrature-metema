@@ -1,4 +1,6 @@
 import { ok, parseJson, safeHandler } from "@/lib/api"
+import { audit } from "@/lib/audit"
+import { getSession } from "@/lib/auth-helpers"
 import { systemSettingsPatchSchema } from "@/lib/settings/schema"
 import { requireSettingsPermission } from "@/lib/settings/authz"
 import { getSystemSettings, updateSystemSettings } from "@/lib/settings/system"
@@ -18,5 +20,18 @@ export const GET = safeHandler(async () => {
 export const PUT = safeHandler(async (request) => {
   await requireSettingsPermission("update")
   const patch = await parseJson(request, systemSettingsPatchSchema)
-  return ok(await updateSystemSettings(patch))
+  const next = await updateSystemSettings(patch)
+
+  const session = await getSession()
+  await audit({
+    action: "system.settings.update",
+    actorId: session?.user.id,
+    actorEmail: session?.user.email,
+    // Solo i NOMI dei campi toccati: il "cosa" basta, evitiamo di versare in
+    // chiaro i valori (qui non ci sono segreti, ma è la regola del log).
+    metadata: { fields: Object.keys(patch) },
+    request,
+  })
+
+  return ok(next)
 })
