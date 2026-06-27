@@ -4,6 +4,12 @@ import { useMemo, useState } from "react"
 import { SaveIcon } from "lucide-react"
 import { toast } from "sonner"
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -112,7 +118,7 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
             valgono dal salvataggio in poi.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-6">
           <FieldGroup>
             <Field orientation="horizontal">
               <FieldContent>
@@ -154,37 +160,51 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
                 </FieldDescription>
               </Field>
             </FieldSet>
-
-            <FieldSeparator />
-
-            {groups.map((group) => (
-              <FieldSet key={group.category} data-disabled={!enabled}>
-                <FieldLegend>{categoryLabel(group.category)}</FieldLegend>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {group.events.map((ev) => {
-                    const on = !disabled.has(ev.action)
-                    const id = `ev-${ev.action}`
-                    return (
-                      <Field key={ev.action} orientation="horizontal">
-                        <FieldContent>
-                          <FieldLabel htmlFor={id}>{ev.label}</FieldLabel>
-                          <FieldDescription className="font-mono text-xs">
-                            {ev.action}
-                          </FieldDescription>
-                        </FieldContent>
-                        <Switch
-                          id={id}
-                          checked={on}
-                          disabled={!enabled}
-                          onCheckedChange={(c) => toggleEvent(ev.action, c)}
-                        />
-                      </Field>
-                    )
-                  })}
-                </div>
-              </FieldSet>
-            ))}
           </FieldGroup>
+
+          {/* Tanti eventi: la personalizzazione dei singoli toggle sta in un
+              accordion chiuso di default. px-1 sul contenuto evita che il focus
+              ring (3px) venga tagliato dall'overflow-hidden dell'accordion. */}
+          <Accordion type="single" collapsible className="rounded-lg border px-4">
+            <AccordionItem value="azioni" className="border-b-0">
+              <AccordionTrigger>Azioni da tracciare</AccordionTrigger>
+              <AccordionContent className="px-1">
+                <FieldGroup>
+                  {groups.map((group) => (
+                    <FieldSet key={group.category} data-disabled={!enabled}>
+                      <FieldLegend>
+                        {categoryLabel(group.category)}
+                      </FieldLegend>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {group.events.map((ev) => {
+                          const on = !disabled.has(ev.action)
+                          const id = `ev-${ev.action}`
+                          return (
+                            <Field key={ev.action} orientation="horizontal">
+                              <FieldContent>
+                                <FieldLabel htmlFor={id}>
+                                  {ev.label}
+                                </FieldLabel>
+                                <FieldDescription className="font-mono text-xs">
+                                  {ev.action}
+                                </FieldDescription>
+                              </FieldContent>
+                              <Switch
+                                id={id}
+                                checked={on}
+                                disabled={!enabled}
+                                onCheckedChange={(c) => toggleEvent(ev.action, c)}
+                              />
+                            </Field>
+                          )
+                        })}
+                      </div>
+                    </FieldSet>
+                  ))}
+                </FieldGroup>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </CardContent>
         <CardFooter className="justify-end">
           <Button type="submit" disabled={saving}>
