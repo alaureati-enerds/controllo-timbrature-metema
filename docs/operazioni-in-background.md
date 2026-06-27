@@ -141,6 +141,38 @@ Il `ctx` passato a `run` offre:
 - `throwIfCancelled()` — solleva `JobCancelledError` se è stato chiesto lo stop;
 - `jobId` — id del job in corso.
 
+### La maschera dei dati (`fields`) e il form autogenerato
+
+La UI non conosce i singoli job: legge i tipi e le loro `fields` da
+`GET /api/admin/jobs` e **genera il form da sola**
+([components/admin/jobs-manager.tsx](../components/admin/jobs-manager.tsx)). Per
+questo `fields` dev'essere un dato **serializzabile** (niente funzioni). Tipi di
+campo e proprietà disponibili:
+
+| `type`     | Widget          | Proprietà specifiche            |
+| ---------- | --------------- | ------------------------------- |
+| `text`     | input testo     | `placeholder`                   |
+| `textarea` | area di testo   | `placeholder`                   |
+| `number`   | input numerico  | `min`, `max`                    |
+| `boolean`  | checkbox        | —                               |
+| `select`   | menu a tendina  | `options: { value, label }[]`   |
+
+Proprietà comuni a tutti: `name` (chiave nel payload), `label`, `required`,
+`default`, `help` (testo d'aiuto mostrato sotto il campo).
+
+Regole d'oro:
+
+- I valori `number`/`boolean` sono convertiti al tipo giusto prima dell'invio; i
+  campi non obbligatori lasciati vuoti vengono **omessi**, così agiscono i
+  `default` dichiarati in Zod.
+- `fields` descrive solo **l'aspetto**; la validazione vera resta a `parse`
+  (Zod). Vanno tenute coerenti — è il prezzo (voluto) di avere etichette/aiuti
+  che lo schema non contiene.
+- I campi **iniettati dal server** (es. `userId` preso dalla sessione, vedi
+  [crea-nota.ts](../lib/jobs/handlers/crea-nota.ts)) NON vanno in `fields`: li
+  aggiunge la route API, non l'utente.
+- Un'operazione senza parametri ha `fields: []` (nessun form mostrato).
+
 ## Schedulare con un cron
 
 Una schedulazione, allo scattare del cron, **non esegue** il lavoro: **accoda**
@@ -216,4 +248,3 @@ prossimo riavvio del worker finché resta nell'array.
 - **Concorrenza**: aumentare `batchSize`/avviare più worker in `worker.ts`.
 - **Cambiare engine** (es. BullMQ/Redis): riscrivere `lib/jobs/boss.ts`
   mantenendo invariata la firma usata dalla facade.
-```
