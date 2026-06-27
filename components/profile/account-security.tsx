@@ -15,6 +15,7 @@ import { authClient } from "@/lib/auth-client"
 import { TwoFactorCard } from "@/components/profile/two-factor-card"
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -237,7 +238,7 @@ export function AccountSecurity({
                     {busyToken === "__others__" ? (
                       <Spinner />
                     ) : (
-                      <LogOutIcon />
+                      <LogOutIcon data-icon="inline-start" />
                     )}
                     Disconnetti le altre sessioni
                   </Button>
@@ -254,10 +255,13 @@ export function AccountSecurity({
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Annulla</AlertDialogCancel>
-                    <Button variant="destructive" onClick={revokeOthers}>
-                      <LogOutIcon />
+                    <AlertDialogAction
+                      variant="destructive"
+                      onClick={revokeOthers}
+                    >
+                      <LogOutIcon data-icon="inline-start" />
                       Disconnetti
-                    </Button>
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -270,8 +274,8 @@ export function AccountSecurity({
           <CardHeader>
             <CardTitle>Cambia email</CardTitle>
             <CardDescription>
-              Email attuale: <span className="font-medium">{currentEmail}</span>.
-              Riceverai un link di conferma sulla nuova email.
+              Email attuale: <span className="font-medium">{currentEmail}</span>
+              . Riceverai un link di conferma sulla nuova email.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleChangeEmail} className="contents">
@@ -294,7 +298,11 @@ export function AccountSecurity({
             </CardContent>
             <CardFooter className="justify-end">
               <Button type="submit" disabled={changingEmail}>
-                {changingEmail ? <Spinner /> : <MailIcon />}
+                {changingEmail ? (
+                  <Spinner />
+                ) : (
+                  <MailIcon data-icon="inline-start" />
+                )}
                 Invia conferma
               </Button>
             </CardFooter>
@@ -318,7 +326,8 @@ export function AccountSecurity({
         </CardHeader>
         <CardFooter className="justify-between gap-4 border-t-0 bg-transparent">
           <p className="text-sm text-muted-foreground">
-            Riceverai un&apos;ultima email di conferma prima dell&apos;eliminazione.
+            Riceverai un&apos;ultima email di conferma prima
+            dell&apos;eliminazione.
           </p>
           <AlertDialog
             onOpenChange={(open) => {
@@ -327,7 +336,7 @@ export function AccountSecurity({
           >
             <AlertDialogTrigger asChild>
               <Button variant="destructive">
-                <Trash2Icon />
+                <Trash2Icon data-icon="inline-start" />
                 Elimina il mio account
               </Button>
             </AlertDialogTrigger>
@@ -358,14 +367,18 @@ export function AccountSecurity({
                 <AlertDialogCancel disabled={deleting}>
                   Annulla
                 </AlertDialogCancel>
-                <Button
+                <AlertDialogAction
                   variant="destructive"
                   disabled={deleting || confirmEmail !== currentEmail}
                   onClick={handleDelete}
                 >
-                  {deleting ? <Spinner /> : <Trash2Icon />}
+                  {deleting ? (
+                    <Spinner />
+                  ) : (
+                    <Trash2Icon data-icon="inline-start" />
+                  )}
                   Elimina definitivamente
-                </Button>
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -411,10 +424,10 @@ function RevokeSessionButton({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Annulla</AlertDialogCancel>
-          <Button variant="destructive" onClick={onConfirm}>
-            <LogOutIcon />
+          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+            <LogOutIcon data-icon="inline-start" />
             Revoca
-          </Button>
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

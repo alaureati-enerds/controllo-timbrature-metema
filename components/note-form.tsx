@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { PlusIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -58,7 +59,7 @@ export function NoteForm() {
           />
         </Field>
         <Button type="submit" disabled={pending || !text.trim()}>
-          {pending && <Spinner />}
+          {pending ? <Spinner /> : <PlusIcon data-icon="inline-start" />}
           Aggiungi
         </Button>
       </FieldGroup>
