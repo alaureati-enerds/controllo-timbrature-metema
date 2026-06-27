@@ -1,3 +1,6 @@
+import { CronExpressionParser } from "cron-parser"
+import cronstrue from "cronstrue/i18n"
+
 import type { Job, JobStatus, Prisma } from "@/lib/generated/prisma/client"
 import { ApiError } from "@/lib/api"
 import { getBoss, JOBS_QUEUE, SCHEDULE_QUEUE } from "@/lib/jobs/boss"
@@ -116,6 +119,32 @@ export type ScheduleView = {
   cron: string
   timezone: string
   payload: unknown
+  // Arricchimenti per la UI: descrizione leggibile del cron (it), prossima
+  // esecuzione calcolata (ISO), ultima esecuzione dallo storico Job.
+  human: string | null
+  nextRun: string | null
+  lastRun: { status: JobStatus; at: string } | null
+}
+
+// Descrizione leggibile del cron in italiano (es. "Alle 03:00"). Difensiva: se
+// il cron fosse anomalo, non rompe la lista.
+function cronHuman(cron: string): string | null {
+  try {
+    return cronstrue.toString(cron, { locale: "it", use24HourTimeFormat: true })
+  } catch {
+    return null
+  }
+}
+
+// Prossima esecuzione calcolata dal cron nel fuso indicato (ora legale e mesi
+// gestiti dal parser). UTC se il fuso è assente.
+function cronNextRun(cron: string, timezone: string): string | null {
+  try {
+    const it = CronExpressionParser.parse(cron, { tz: timezone || "UTC" })
+    return it.next().toDate().toISOString()
+  } catch {
+    return null
+  }
 }
 
 // Crea o aggiorna (per `key`) una schedulazione. Valida tipo, payload e cron
@@ -153,25 +182,55 @@ export async function listSchedules(): Promise<ScheduleView[]> {
   const boss = await getBoss()
   // NB: getSchedules(name) filtrerebbe anche per key='' (una sola riga); senza
   // argomenti torna TUTTO, poi filtriamo la nostra coda in JS.
-  const schedules = await boss.getSchedules()
-  return schedules
-    .filter((s) => s.name === SCHEDULE_QUEUE)
-    .map((s) => {
+  const all = await boss.getSchedules()
+  const mine = all.filter((s) => s.name === SCHEDULE_QUEUE)
+
+  // Ultima esecuzione: l'ultimo Job con quello scheduleKey (lo storico ce
+  // l'abbiamo già). Una query per schedulazione, in parallelo.
+  return Promise.all(
+    mine.map(async (s) => {
       const data = (s.data ?? {}) as { type?: string; payload?: unknown }
+      const last = await prisma.job.findFirst({
+        where: { scheduleKey: s.key },
+        orderBy: { createdAt: "desc" },
+        select: { status: true, finishedAt: true, createdAt: true },
+      })
       return {
         key: s.key,
         type: data.type ?? "?",
         cron: s.cron,
         timezone: s.timezone,
         payload: data.payload ?? {},
+        human: cronHuman(s.cron),
+        nextRun: cronNextRun(s.cron, s.timezone),
+        lastRun: last
+          ? {
+              status: last.status,
+              at: (last.finishedAt ?? last.createdAt).toISOString(),
+            }
+          : null,
       }
     })
+  )
 }
 
 export async function unscheduleJob(key: string): Promise<void> {
   const boss = await getBoss()
   await boss.unschedule(SCHEDULE_QUEUE, key)
   logger.info("Schedulazione rimossa", { key })
+}
+
+// "Esegui ora": accoda subito un'esecuzione di una schedulazione, senza
+// aspettare il cron. Riusa il payload salvato e marca il job con lo scheduleKey,
+// così compare come esecuzione di quella schedulazione.
+export async function runScheduleNow(key: string): Promise<JobView> {
+  const boss = await getBoss()
+  const all = await boss.getSchedules()
+  const s = all.find((x) => x.name === SCHEDULE_QUEUE && x.key === key)
+  if (!s) throw new ApiError("Schedulazione non trovata", 404)
+  const data = (s.data ?? {}) as { type?: string; payload?: unknown }
+  if (!data.type) throw new ApiError("Schedulazione senza tipo", 400)
+  return enqueue(data.type, data.payload ?? {}, { scheduleKey: key })
 }
 
 // ---------------------------------------------------------------------------

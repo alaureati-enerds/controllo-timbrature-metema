@@ -18,9 +18,13 @@ export const jobHandlers: Record<string, JobHandler> = Object.fromEntries(
   handlers.map((h) => [h.type, h])
 )
 
-// Elenco { type, label } per popolare la UI (selezione del tipo da avviare),
-// senza esporre le funzioni run/parse al client.
-export const jobTypes = handlers.map(({ type, label }) => ({ type, label }))
+// Elenco { type, label, fields } per popolare la UI: selezione del tipo e
+// generazione del form di input dalla "maschera". Non espone run/parse.
+export const jobTypes = handlers.map(({ type, label, fields }) => ({
+  type,
+  label,
+  fields,
+}))
 
 export function getHandler(type: string): JobHandler | undefined {
   return jobHandlers[type]

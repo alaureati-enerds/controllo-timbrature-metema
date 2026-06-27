@@ -12,6 +12,8 @@ const createSchema = z.object({
   type: z.string().min(1),
   payload: z.record(z.string(), z.unknown()).optional(),
   cron: z.string().min(1),
+  // Fuso orario IANA (es. "Europe/Rome") per interpretare il cron. Default UTC.
+  tz: z.string().min(1).optional(),
   // Nome univoco della schedulazione (è la `key` pg-boss): ricrearne una con lo
   // stesso nome la aggiorna. Slug semplice per evitare chiavi ambigue.
   name: z
@@ -31,13 +33,14 @@ export const GET = safeHandler(async () => {
 export const POST = safeHandler(async (request) => {
   await requireJobsPermission("create")
   const session = await getSession() // non-null: il permesso lo garantisce
-  const { type, payload, cron, name } = await parseJson(request, createSchema)
+  const { type, payload, cron, tz, name } = await parseJson(request, createSchema)
   // `userId` dalla SESSIONE (non dal client): i job schedulati che operano su
   // dati utente (es. crea-nota) opereranno per conto di chi ha schedulato.
   await scheduleJob({
     type,
     payload: { ...(payload ?? {}), userId: session!.user.id },
     cron,
+    tz,
     key: name,
   })
   return ok(await listSchedules(), { status: 201 })

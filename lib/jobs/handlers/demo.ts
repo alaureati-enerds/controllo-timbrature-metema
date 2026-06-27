@@ -26,6 +26,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export const demoHandler: JobHandler<DemoPayload> = {
   type: "demo",
   label: "Operazione dimostrativa",
+  fields: [
+    { name: "steps", label: "Numero di passi", type: "number", default: 10, min: 1, max: 100 },
+    { name: "stepMs", label: "Durata di un passo (ms)", type: "number", default: 1000, min: 50, max: 10000 },
+  ],
   parse: (raw) => payloadSchema.parse(raw),
   async run({ steps, stepMs }, ctx) {
     await ctx.log(`Avvio: ${steps} passi da ${stepMs}ms`)

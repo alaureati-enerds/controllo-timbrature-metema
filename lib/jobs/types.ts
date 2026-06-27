@@ -28,6 +28,24 @@ export interface JobContext {
   throwIfCancelled(): Promise<void>
 }
 
+// Descrittore di un campo di input del job: la "maschera" da cui la UI genera
+// il form (components/admin/jobs-manager.tsx), così l'utente non scrive JSON a
+// mano. È un dato SERIALIZZABILE (niente funzioni): viaggia fino al client. La
+// validazione VERA resta a `parse` (Zod) lato server — qui descriviamo solo
+// l'aspetto del form. NB: campi iniettati dal server (es. `userId`) NON vanno
+// elencati qui.
+export type JobField = { name: string; label: string; help?: string } & (
+  | { type: "text" | "textarea"; required?: boolean; placeholder?: string; default?: string }
+  | { type: "number"; required?: boolean; default?: number; min?: number; max?: number }
+  | { type: "boolean"; default?: boolean }
+  | {
+      type: "select"
+      required?: boolean
+      options: { value: string; label: string }[]
+      default?: string
+    }
+)
+
 // Un tipo di operazione eseguibile in background.
 export interface JobHandler<Payload = unknown> {
   // Chiave univoca del tipo: coincide con `Job.type` e con la chiave nel
@@ -35,6 +53,9 @@ export interface JobHandler<Payload = unknown> {
   type: string
   // Etichetta leggibile mostrata in UI.
   label: string
+  // Maschera dei dati di input: la UI ci genera il form. Vuoto = nessun dato da
+  // chiedere all'utente (es. operazione senza parametri).
+  fields: JobField[]
   // Valida (e tipizza) il payload grezzo prima dell'esecuzione. Tipicamente uno
   // schema Zod: `parse: (raw) => schema.parse(raw)`.
   parse(raw: unknown): Payload

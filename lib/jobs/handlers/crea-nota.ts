@@ -22,6 +22,16 @@ export type CreaNotaPayload = z.infer<typeof payloadSchema>
 export const creaNotaHandler: JobHandler<CreaNotaPayload> = {
   type: "crea-nota",
   label: "Crea una nota",
+  // `userId` NON è un campo: lo inietta il server dalla sessione.
+  fields: [
+    {
+      name: "text",
+      label: "Testo della nota",
+      type: "textarea",
+      required: true,
+      placeholder: "Contenuto della nota…",
+    },
+  ],
   parse: (raw) => payloadSchema.parse(raw),
   async run({ userId, text }, ctx) {
     await ctx.log(`Creo una nota per l'utente ${userId}`)

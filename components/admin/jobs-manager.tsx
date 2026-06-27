@@ -1,7 +1,15 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { CalendarClockIcon, PlayIcon, RefreshCwIcon, Trash2Icon } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import cronstrue from "cronstrue/i18n"
+import {
+  CalendarClockIcon,
+  ChevronsUpDownIcon,
+  PlayIcon,
+  RefreshCwIcon,
+  Trash2Icon,
+  ZapIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +22,11 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
   Dialog,
   DialogClose,
   DialogContent,
@@ -23,6 +36,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
@@ -44,8 +58,23 @@ import {
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 
-// Stati allineati a JobStatus (prisma/schema.prisma, lib/jobs).
+// --- Tipi allineati a lib/jobs ----------------------------------------------
 type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled"
+
+type JobField = {
+  name: string
+  label: string
+  help?: string
+  type: "text" | "textarea" | "number" | "boolean" | "select"
+  required?: boolean
+  placeholder?: string
+  default?: string | number | boolean
+  min?: number
+  max?: number
+  options?: { value: string; label: string }[]
+}
+
+type JobType = { type: string; label: string; fields: JobField[] }
 
 type Job = {
   id: string
@@ -58,21 +87,20 @@ type Job = {
   cancelRequested: boolean
   scheduleKey: string | null
   createdAt: string
-  startedAt: string | null
-  finishedAt: string | null
 }
 
-type JobType = { type: string; label: string }
 type Schedule = {
   key: string
   type: string
   cron: string
   timezone: string
-  payload: unknown
+  human: string | null
+  nextRun: string | null
+  lastRun: { status: JobStatus; at: string } | null
 }
 
-// Polling della lista job: l'approccio più semplice e robusto per seguire
-// l'avanzamento; le schedulazioni cambiano di rado e si ricaricano a parte.
+type FormValues = Record<string, string | number | boolean>
+
 const POLL_MS = 1500
 
 const STATUS_META: Record<
@@ -87,17 +115,46 @@ const STATUS_META: Record<
 }
 
 const isActive = (s: JobStatus) => s === "queued" || s === "running"
+const fmt = (iso: string) =>
+  new Date(iso).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })
 
-// Interpreta il payload JSON facoltativo digitato nei form. Stringa vuota →
-// nessun payload; JSON non valido → eccezione (gestita dal chiamante).
-function parsePayload(text: string): Record<string, unknown> | undefined {
-  const t = text.trim()
-  if (!t) return undefined
-  const parsed = JSON.parse(t)
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("Il payload deve essere un oggetto JSON")
+// Fusi orari offerti per le schedulazioni (default: Europe/Rome).
+const TIMEZONES = [
+  "Europe/Rome",
+  "UTC",
+  "Europe/London",
+  "Europe/Paris",
+  "America/New_York",
+  "America/Los_Angeles",
+  "Asia/Tokyo",
+]
+
+// Valore corrente di un campo (valore inserito → default → vuoto coerente col tipo).
+function fieldValue(values: FormValues, f: JobField): string | number | boolean {
+  const v = values[f.name]
+  if (v !== undefined) return v
+  if (f.default !== undefined) return f.default
+  if (f.type === "boolean") return false
+  if (f.type === "select") return f.options?.[0]?.value ?? ""
+  return ""
+}
+
+// Costruisce il payload dalla maschera: numeri convertiti, booleani sempre
+// presenti, stringhe/select vuote omesse (lascia agire i default lato Zod).
+function buildPayload(fields: JobField[], values: FormValues) {
+  const out: Record<string, unknown> = {}
+  for (const f of fields) {
+    const raw = fieldValue(values, f)
+    if (f.type === "boolean") {
+      out[f.name] = Boolean(raw)
+    } else if (f.type === "number") {
+      const n = Number(raw)
+      if (raw !== "" && !Number.isNaN(n)) out[f.name] = n
+    } else if (raw !== "") {
+      out[f.name] = raw
+    }
   }
-  return parsed as Record<string, unknown>
+  return out
 }
 
 export function JobsManager() {
@@ -105,20 +162,33 @@ export function JobsManager() {
   const [types, setTypes] = useState<JobType[]>([])
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [selectedType, setSelectedType] = useState<string>("")
-  const [payloadText, setPayloadText] = useState<string>("")
+  const [values, setValues] = useState<FormValues>({})
+  const [dataOpen, setDataOpen] = useState(true)
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [busyKey, setBusyKey] = useState<string | null>(null)
 
-  // Schedulazione: dialog e campi.
+  // Stato del cron builder (tenuto qui per evitare setState negli effetti).
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [scheduleName, setScheduleName] = useState("")
-  const [cron, setCron] = useState("0 3 * * *")
+  const [tz, setTz] = useState("Europe/Rome")
+  const [freq, setFreq] = useState<Freq>("giorno")
+  const [everyN, setEveryN] = useState(15)
+  const [atMinute, setAtMinute] = useState(0)
+  const [time, setTime] = useState("03:00")
+  const [weekday, setWeekday] = useState("1")
+  const [dom, setDom] = useState(1)
   const [scheduling, setScheduling] = useState(false)
 
-  // Carica job e schedulazioni in modo imperativo (usato da azioni e refresh).
-  // Lo stato si aggiorna solo nelle callback asincrone.
+  const cron = useMemo(
+    () => buildCron({ freq, everyN, atMinute, time, weekday, dom }),
+    [freq, everyN, atMinute, time, weekday, dom]
+  )
+
+  const currentType = types.find((t) => t.type === selectedType)
+  const fields = currentType?.fields ?? []
+
   async function reloadJobs() {
     const res = await fetch("/api/admin/jobs")
     if (!res.ok) throw new Error("Caricamento operazioni non riuscito")
@@ -134,7 +204,6 @@ export function JobsManager() {
     setSchedules((await res.json()) as Schedule[])
   }
 
-  // Carico tutto all'avvio e poi i job in polling finché la pagina è aperta.
   useEffect(() => {
     let active = true
     let inFlight = false
@@ -174,15 +243,21 @@ export function JobsManager() {
     }
   }, [])
 
+  function setField(name: string, value: string | number | boolean) {
+    setValues((prev) => ({ ...prev, [name]: value }))
+  }
+
   async function handleStart() {
     if (!selectedType) return
     setStarting(true)
     try {
-      const payload = parsePayload(payloadText)
       const res = await fetch("/api/admin/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: selectedType, payload }),
+        body: JSON.stringify({
+          type: selectedType,
+          payload: buildPayload(fields, values),
+        }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => null)
@@ -201,14 +276,14 @@ export function JobsManager() {
     event.preventDefault()
     setScheduling(true)
     try {
-      const payload = parsePayload(payloadText)
       const res = await fetch("/api/admin/jobs/schedules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: selectedType,
-          payload,
+          payload: buildPayload(fields, values),
           cron,
+          tz,
           name: scheduleName.trim(),
         }),
       })
@@ -241,6 +316,23 @@ export function JobsManager() {
     }
   }
 
+  async function handleRunNow(key: string) {
+    setBusyKey(key)
+    try {
+      const res = await fetch(
+        `/api/admin/jobs/schedules/${encodeURIComponent(key)}/run`,
+        { method: "POST" }
+      )
+      if (!res.ok) throw new Error("Avvio non riuscito")
+      toast.success("Esecuzione avviata")
+      await reloadJobs()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Avvio non riuscito")
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
   async function handleUnschedule(key: string) {
     setBusyKey(key)
     try {
@@ -267,75 +359,130 @@ export function JobsManager() {
         <CardHeader>
           <CardTitle>Operazioni</CardTitle>
           <CardDescription>
-            Avvia subito un&apos;operazione o schedulala. Le esecuzioni
-            (manuali e da cron) compaiono nella tabella in basso.
+            Scegli un&apos;operazione, compila i dati, poi avviala subito o
+            schedulala. Le esecuzioni compaiono nella tabella in basso.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Select
-                  value={selectedType}
-                  onValueChange={setSelectedType}
-                  disabled={starting || types.length === 0}
-                >
-                  <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Scegli un'operazione…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {types.map((t) => (
-                      <SelectItem key={t.type} value={t.type}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleStart} disabled={starting || !selectedType}>
-                  {starting ? <Spinner /> : <PlayIcon data-icon="inline-start" />}
-                  Avvia
-                </Button>
-                <ScheduleDialog
-                  open={scheduleOpen}
-                  onOpenChange={setScheduleOpen}
-                  disabled={!selectedType}
-                  name={scheduleName}
-                  onName={setScheduleName}
-                  cron={cron}
-                  onCron={setCron}
-                  scheduling={scheduling}
-                  onSubmit={handleSchedule}
-                  typeLabel={labelFor(selectedType)}
-                />
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  void reloadJobs()
-                  void reloadSchedules()
-                }}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Select
+                value={selectedType}
+                onValueChange={setSelectedType}
+                disabled={starting || types.length === 0}
               >
-                <RefreshCwIcon data-icon="inline-start" />
-                Aggiorna
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Scegli un'operazione…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {types.map((t) => (
+                    <SelectItem key={t.type} value={t.type}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={handleStart} disabled={starting || !selectedType}>
+                {starting ? <Spinner /> : <PlayIcon data-icon="inline-start" />}
+                Avvia
               </Button>
+              <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" disabled={!selectedType}>
+                    <CalendarClockIcon data-icon="inline-start" />
+                    Schedula…
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Schedula «{labelFor(selectedType)}»</DialogTitle>
+                    <DialogDescription>
+                      Usa i dati compilati sopra. Scegli quando ripetere
+                      l&apos;operazione.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSchedule} className="flex flex-col gap-4">
+                    <FieldGroup>
+                      <Field>
+                        <FieldLabel htmlFor="s-name">Nome</FieldLabel>
+                        <Input
+                          id="s-name"
+                          placeholder="es. nota-giornaliera"
+                          required
+                          value={scheduleName}
+                          onChange={(e) => setScheduleName(e.target.value)}
+                          disabled={scheduling}
+                        />
+                      </Field>
+                      <CronBuilder
+                        freq={freq}
+                        onFreq={setFreq}
+                        everyN={everyN}
+                        onEveryN={setEveryN}
+                        atMinute={atMinute}
+                        onAtMinute={setAtMinute}
+                        time={time}
+                        onTime={setTime}
+                        weekday={weekday}
+                        onWeekday={setWeekday}
+                        dom={dom}
+                        onDom={setDom}
+                        tz={tz}
+                        onTz={setTz}
+                        cron={cron}
+                        disabled={scheduling}
+                      />
+                    </FieldGroup>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button type="button" variant="outline" disabled={scheduling}>
+                          Annulla
+                        </Button>
+                      </DialogClose>
+                      <Button type="submit" disabled={scheduling}>
+                        {scheduling && <Spinner />}
+                        Schedula
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
-
-            {/* Payload condiviso da "Avvia" e "Schedula". Per "Crea una nota":
-                {"text": "La mia nota"} — l'utente proprietario è impostato dal
-                server. Per l'operazione demo può restare vuoto. */}
-            <Field>
-              <FieldLabel htmlFor="payload">Dati (JSON, opzionale)</FieldLabel>
-              <Textarea
-                id="payload"
-                rows={3}
-                spellCheck={false}
-                placeholder='Es. {"text": "La mia nota"}'
-                value={payloadText}
-                onChange={(e) => setPayloadText(e.target.value)}
-                className="font-mono text-xs"
-              />
-            </Field>
+            <Button
+              variant="outline"
+              onClick={() => {
+                void reloadJobs()
+                void reloadSchedules()
+              }}
+            >
+              <RefreshCwIcon data-icon="inline-start" />
+              Aggiorna
+            </Button>
           </div>
+
+          {/* Maschera dei dati generata dal tipo selezionato, sotto collapsible. */}
+          {fields.length > 0 && (
+            <Collapsible open={dataOpen} onOpenChange={setDataOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-fit px-2">
+                  <ChevronsUpDownIcon data-icon="inline-start" />
+                  Dati ({fields.length} {fields.length === 1 ? "campo" : "campi"})
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2">
+                <FieldGroup className="rounded-lg border p-4">
+                  {fields.map((f) => (
+                    <JobFieldInput
+                      key={f.name}
+                      field={f}
+                      value={fieldValue(values, f)}
+                      onChange={(v) => setField(f.name, v)}
+                    />
+                  ))}
+                </FieldGroup>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
 
           {loading ? (
             <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
@@ -373,7 +520,7 @@ export function JobsManager() {
                                 {labelFor(job.type)}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(job.createdAt).toLocaleString("it-IT")}
+                                {fmt(job.createdAt)}
                                 {job.scheduleKey ? ` · cron: ${job.scheduleKey}` : ""}
                               </span>
                             </div>
@@ -428,8 +575,8 @@ export function JobsManager() {
         <CardHeader>
           <CardTitle>Schedulazioni</CardTitle>
           <CardDescription>
-            Operazioni ricorrenti (cron). Allo scattare dell&apos;orario accodano
-            un&apos;esecuzione, visibile nella tabella qui sopra.
+            Operazioni ricorrenti. Allo scattare dell&apos;orario accodano
+            un&apos;esecuzione (visibile nella tabella qui sopra).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -439,8 +586,9 @@ export function JobsManager() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Operazione</TableHead>
-                  <TableHead className="w-40">Cron</TableHead>
-                  <TableHead className="w-28">Fuso</TableHead>
+                  <TableHead>Pianificazione</TableHead>
+                  <TableHead className="w-44">Ultima</TableHead>
+                  <TableHead className="w-36">Prossima</TableHead>
                   <TableHead className="w-px text-right">Azioni</TableHead>
                 </TableRow>
               </TableHeader>
@@ -448,7 +596,7 @@ export function JobsManager() {
                 {schedules.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="h-20 text-center text-muted-foreground"
                     >
                       Nessuna schedulazione. Creane una con «Schedula…».
@@ -459,12 +607,42 @@ export function JobsManager() {
                     <TableRow key={s.key}>
                       <TableCell className="font-medium">{s.key}</TableCell>
                       <TableCell>{labelFor(s.type)}</TableCell>
-                      <TableCell className="font-mono text-xs">{s.cron}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {s.timezone || "UTC"}
+                      <TableCell>
+                        <div className="flex min-w-0 flex-col">
+                          <span>{s.human ?? s.cron}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {s.timezone || "UTC"}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-end">
+                        {s.lastRun ? (
+                          <div className="flex flex-col gap-0.5">
+                            <Badge variant={STATUS_META[s.lastRun.status].variant}>
+                              {STATUS_META[s.lastRun.status].label}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {fmt(s.lastRun.at)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">mai</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {s.nextRun ? fmt(s.nextRun) : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={busyKey === s.key}
+                            onClick={() => handleRunNow(s.key)}
+                          >
+                            <ZapIcon data-icon="inline-start" />
+                            Esegui ora
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -488,89 +666,264 @@ export function JobsManager() {
   )
 }
 
-function ScheduleDialog({
-  open,
-  onOpenChange,
-  disabled,
-  name,
-  onName,
-  cron,
-  onCron,
-  scheduling,
-  onSubmit,
-  typeLabel,
+// --- Form generato dalla maschera -------------------------------------------
+function JobFieldInput({
+  field,
+  value,
+  onChange,
 }: {
-  open: boolean
-  onOpenChange: (v: boolean) => void
-  disabled: boolean
-  name: string
-  onName: (v: string) => void
+  field: JobField
+  value: string | number | boolean
+  onChange: (v: string | number | boolean) => void
+}) {
+  const id = `f-${field.name}`
+  if (field.type === "boolean") {
+    return (
+      <Field orientation="horizontal">
+        <Checkbox
+          id={id}
+          checked={Boolean(value)}
+          onCheckedChange={(c) => onChange(c === true)}
+        />
+        <FieldLabel htmlFor={id}>{field.label}</FieldLabel>
+      </Field>
+    )
+  }
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{field.label}</FieldLabel>
+      {field.type === "textarea" ? (
+        <Textarea
+          id={id}
+          rows={3}
+          required={field.required}
+          placeholder={field.placeholder}
+          value={String(value)}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : field.type === "select" ? (
+        <Select value={String(value)} onValueChange={onChange}>
+          <SelectTrigger id={id} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {field.options?.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Input
+          id={id}
+          type={field.type === "number" ? "number" : "text"}
+          required={field.required}
+          placeholder={field.placeholder}
+          min={field.min}
+          max={field.max}
+          value={String(value)}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+      {field.help && (
+        <span className="text-xs text-muted-foreground">{field.help}</span>
+      )}
+    </Field>
+  )
+}
+
+// --- Cron builder a preset ---------------------------------------------------
+type Freq = "minuti" | "ora" | "giorno" | "settimana" | "mese"
+
+const WEEKDAYS = [
+  { value: "1", label: "Lunedì" },
+  { value: "2", label: "Martedì" },
+  { value: "3", label: "Mercoledì" },
+  { value: "4", label: "Giovedì" },
+  { value: "5", label: "Venerdì" },
+  { value: "6", label: "Sabato" },
+  { value: "0", label: "Domenica" },
+]
+
+const clamp = (n: number, lo: number, hi: number) =>
+  Math.max(lo, Math.min(hi, Number.isNaN(n) ? lo : n))
+
+// Genera l'espressione cron (5 campi) dai parametri guidati.
+function buildCron(s: {
+  freq: Freq
+  everyN: number
+  atMinute: number
+  time: string
+  weekday: string
+  dom: number
+}): string {
+  const [h, m] = s.time.split(":").map((x) => clamp(Number(x), 0, 59))
+  switch (s.freq) {
+    case "minuti":
+      return `*/${clamp(s.everyN, 1, 59)} * * * *`
+    case "ora":
+      return `${clamp(s.atMinute, 0, 59)} * * * *`
+    case "giorno":
+      return `${m} ${h} * * *`
+    case "settimana":
+      return `${m} ${h} * * ${s.weekday}`
+    case "mese":
+      return `${m} ${h} ${clamp(s.dom, 1, 31)} * *`
+  }
+}
+
+function cronPreview(cron: string): string {
+  try {
+    return cronstrue.toString(cron, { locale: "it", use24HourTimeFormat: true })
+  } catch {
+    return cron
+  }
+}
+
+function CronBuilder(props: {
+  freq: Freq
+  onFreq: (v: Freq) => void
+  everyN: number
+  onEveryN: (v: number) => void
+  atMinute: number
+  onAtMinute: (v: number) => void
+  time: string
+  onTime: (v: string) => void
+  weekday: string
+  onWeekday: (v: string) => void
+  dom: number
+  onDom: (v: number) => void
+  tz: string
+  onTz: (v: string) => void
   cron: string
-  onCron: (v: string) => void
-  scheduling: boolean
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
-  typeLabel: string
+  disabled?: boolean
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline" disabled={disabled}>
-          <CalendarClockIcon data-icon="inline-start" />
-          Schedula…
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Schedula «{typeLabel}»</DialogTitle>
-          <DialogDescription>
-            Usa il tipo e i dati (JSON) selezionati sopra. L&apos;orario è in
-            sintassi cron a 5 campi (UTC).
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="s-name">Nome</FieldLabel>
-              <Input
-                id="s-name"
-                placeholder="es. nota-giornaliera"
-                required
-                value={name}
-                onChange={(e) => onName(e.target.value)}
-                disabled={scheduling}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="s-cron">Cron</FieldLabel>
-              <Input
-                id="s-cron"
-                className="font-mono"
-                placeholder="0 3 * * *"
-                required
-                value={cron}
-                onChange={(e) => onCron(e.target.value)}
-                disabled={scheduling}
-              />
-              <span className="text-xs text-muted-foreground">
-                Esempi: «0 3 * * *» ogni giorno alle 03:00 · «*/15 * * * *» ogni
-                15 minuti · «30 9 * * 1» lunedì alle 09:30.
-              </span>
-            </Field>
-          </FieldGroup>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={scheduling}>
-                Annulla
-              </Button>
-            </DialogClose>
-            <Button type="submit" disabled={scheduling}>
-              {scheduling && <Spinner />}
-              Schedula
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Field>
+        <FieldLabel>Frequenza</FieldLabel>
+        <Select
+          value={props.freq}
+          onValueChange={(v) => props.onFreq(v as Freq)}
+          disabled={props.disabled}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="minuti">Ogni N minuti</SelectItem>
+            <SelectItem value="ora">Ogni ora</SelectItem>
+            <SelectItem value="giorno">Ogni giorno</SelectItem>
+            <SelectItem value="settimana">Ogni settimana</SelectItem>
+            <SelectItem value="mese">Ogni mese</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+
+      {props.freq === "minuti" && (
+        <Field>
+          <FieldLabel htmlFor="cb-n">Ogni quanti minuti</FieldLabel>
+          <Input
+            id="cb-n"
+            type="number"
+            min={1}
+            max={59}
+            value={props.everyN}
+            onChange={(e) => props.onEveryN(Number(e.target.value))}
+            disabled={props.disabled}
+          />
+        </Field>
+      )}
+
+      {props.freq === "ora" && (
+        <Field>
+          <FieldLabel htmlFor="cb-m">Al minuto</FieldLabel>
+          <Input
+            id="cb-m"
+            type="number"
+            min={0}
+            max={59}
+            value={props.atMinute}
+            onChange={(e) => props.onAtMinute(Number(e.target.value))}
+            disabled={props.disabled}
+          />
+        </Field>
+      )}
+
+      {props.freq === "settimana" && (
+        <Field>
+          <FieldLabel>Giorno della settimana</FieldLabel>
+          <Select
+            value={props.weekday}
+            onValueChange={props.onWeekday}
+            disabled={props.disabled}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WEEKDAYS.map((d) => (
+                <SelectItem key={d.value} value={d.value}>
+                  {d.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
+
+      {props.freq === "mese" && (
+        <Field>
+          <FieldLabel htmlFor="cb-dom">Giorno del mese</FieldLabel>
+          <Input
+            id="cb-dom"
+            type="number"
+            min={1}
+            max={31}
+            value={props.dom}
+            onChange={(e) => props.onDom(Number(e.target.value))}
+            disabled={props.disabled}
+          />
+        </Field>
+      )}
+
+      {(props.freq === "giorno" ||
+        props.freq === "settimana" ||
+        props.freq === "mese") && (
+        <Field>
+          <FieldLabel htmlFor="cb-time">Orario</FieldLabel>
+          <Input
+            id="cb-time"
+            type="time"
+            value={props.time}
+            onChange={(e) => props.onTime(e.target.value)}
+            disabled={props.disabled}
+          />
+        </Field>
+      )}
+
+      <Field>
+        <FieldLabel>Fuso orario</FieldLabel>
+        <Select value={props.tz} onValueChange={props.onTz} disabled={props.disabled}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TIMEZONES.map((z) => (
+              <SelectItem key={z} value={z}>
+                {z}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <p className="rounded-md bg-muted/40 px-3 py-2 text-sm">
+        {cronPreview(props.cron)}{" "}
+        <span className="text-muted-foreground">· {props.tz}</span>
+      </p>
+    </>
   )
 }
 

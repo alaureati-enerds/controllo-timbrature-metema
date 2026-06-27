@@ -106,7 +106,14 @@ type Payload = z.infer<typeof payloadSchema>
 export const scrapeHandler: JobHandler<Payload> = {
   type: "scrape-pagina",
   label: "Scrape di una pagina",
-  parse: (raw) => payloadSchema.parse(raw),
+  // MASCHERA dei dati: la UI ci genera il form (niente JSON a mano). Tipi
+  // supportati: text, textarea, number, boolean, select. I campi iniettati dal
+  // server (es. userId) NON si elencano qui.
+  fields: [
+    { name: "url", label: "Indirizzo della pagina", type: "text", required: true,
+      placeholder: "https://esempio.it" },
+  ],
+  parse: (raw) => payloadSchema.parse(raw), // ← la validazione VERA resta qui
   async run({ url }, ctx) {
     await ctx.log(`Scarico ${url}`)
     const pagine = await elencaPagine(url) // esempio
@@ -120,7 +127,10 @@ export const scrapeHandler: JobHandler<Payload> = {
 ```
 
 **2. Registralo** in `lib/jobs/registry.ts`, aggiungendolo all'array `handlers`.
-Nient'altro: API e UI lo scoprono da soli (il tipo appare nel menu «Avvia»).
+Nient'altro: API e UI lo scoprono da soli — il tipo appare nel menu «Avvia» e il
+form di input viene generato dalla `fields`. `fields` e `parse` sono due
+dichiarazioni separate **di proposito**: la prima descrive il form (etichette,
+widget), la seconda è il validatore/guardiano lato server.
 
 **3. (Facoltativo) Avvialo da codice** con `enqueue("scrape-pagina", { url })`.
 
@@ -140,18 +150,27 @@ sintassi standard a 5 campi (`min ora giorno mese giorno-settimana`).
 
 Ci sono **due modi**, complementari:
 
-**1. Da UI** — nel pannello `/admin/jobs`, sezione *Schedulazioni*: scegli tipo e
-dati (JSON) in alto, premi «Schedula…», indica nome ed espressione cron. Le
-schedulazioni così create vivono **solo nel database** e si gestiscono (creano,
-elencano, eliminano) dall'interfaccia. Sotto usano la facade:
+**1. Da UI** — nel pannello `/admin/jobs`: scegli il tipo, compila i dati nel
+form generato dalla maschera, premi «Schedula…». L'orario si imposta con un
+**builder a preset** (ogni N minuti / ogni ora / ogni giorno / settimana / mese)
+più un **fuso orario** (default `Europe/Rome`): niente sintassi cron da scrivere.
+La sezione *Schedulazioni* mostra ogni voce in **forma leggibile** (es. «Alle
+03:00»), con **ultima** esecuzione (stato + ora, dallo storico job) e **prossima**
+esecuzione calcolata; da lì puoi anche **«Esegui ora»** o eliminarla. Queste
+schedulazioni vivono **solo nel database**. Sotto, la UI usa la facade:
 
 ```ts
-import { scheduleJob, listSchedules, unscheduleJob } from "@/lib/jobs"
+import { scheduleJob, listSchedules, unscheduleJob, runScheduleNow } from "@/lib/jobs"
 
-await scheduleJob({ type: "crea-nota", payload: { text: "..." }, cron: "0 9 * * *", key: "promemoria" })
-await listSchedules()
+await scheduleJob({ type: "crea-nota", payload: { text: "..." }, cron: "0 9 * * *", tz: "Europe/Rome", key: "promemoria" })
+await listSchedules()   // → { human, nextRun, lastRun, ... }
+await runScheduleNow("promemoria") // accoda subito un'esecuzione
 await unscheduleJob("promemoria")
 ```
+
+> Il testo leggibile usa `cronstrue` (locale `it`); la prossima esecuzione usa
+> `cron-parser` rispettando il fuso. L'ultima esecuzione è l'ultimo `Job` con
+> quello `scheduleKey` (nessuna infrastruttura extra).
 
 **2. Da codice** — per cron "di sistema" che fanno parte del prodotto, l'array
 `schedules` in `worker.ts`:
