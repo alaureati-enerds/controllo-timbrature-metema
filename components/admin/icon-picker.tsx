@@ -39,7 +39,7 @@ export function IconPicker({
       <div
         role="radiogroup"
         aria-label="Icona del branding"
-        className="grid grid-cols-6 gap-2 sm:grid-cols-8"
+        className="grid grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-2"
       >
         {filtered.map((name) => {
           const Icon = BRANDING_ICONS[name]
@@ -57,7 +57,7 @@ export function IconPicker({
               className={cn(
                 "flex aspect-square items-center justify-center rounded-md border transition-colors",
                 "hover:bg-accent hover:text-accent-foreground",
-                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
                 "disabled:pointer-events-none disabled:opacity-50",
                 selected
                   ? "border-primary bg-primary/10 text-primary"
