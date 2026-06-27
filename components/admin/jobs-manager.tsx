@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react"
 import cronstrue from "cronstrue/i18n"
 import {
   CalendarClockIcon,
+  FileTextIcon,
   PlayIcon,
   RefreshCwIcon,
+  SquareIcon,
   Trash2Icon,
-  ZapIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -17,10 +18,22 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -57,6 +70,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 // --- Tipi allineati a lib/jobs ----------------------------------------------
 type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled"
@@ -105,7 +123,10 @@ const POLL_MS = 1500
 
 const STATUS_META: Record<
   JobStatus,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
+  {
+    label: string
+    variant: "default" | "secondary" | "destructive" | "outline"
+  }
 > = {
   queued: { label: "In coda", variant: "secondary" },
   running: { label: "In esecuzione", variant: "default" },
@@ -116,7 +137,10 @@ const STATUS_META: Record<
 
 const isActive = (s: JobStatus) => s === "queued" || s === "running"
 const fmt = (iso: string) =>
-  new Date(iso).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })
+  new Date(iso).toLocaleString("it-IT", {
+    dateStyle: "short",
+    timeStyle: "short",
+  })
 
 // Fusi orari offerti per le schedulazioni (default: Europe/Rome).
 const TIMEZONES = [
@@ -130,7 +154,10 @@ const TIMEZONES = [
 ]
 
 // Valore corrente di un campo (valore inserito → default → vuoto coerente col tipo).
-function fieldValue(values: FormValues, f: JobField): string | number | boolean {
+function fieldValue(
+  values: FormValues,
+  f: JobField
+): string | number | boolean {
   const v = values[f.name]
   if (v !== undefined) return v
   if (f.default !== undefined) return f.default
@@ -164,6 +191,7 @@ export function JobsManager() {
   const [selectedType, setSelectedType] = useState<string>("")
   const [values, setValues] = useState<FormValues>({})
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [starting, setStarting] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [busyKey, setBusyKey] = useState<string | null>(null)
@@ -246,6 +274,17 @@ export function JobsManager() {
     setValues((prev) => ({ ...prev, [name]: value }))
   }
 
+  async function handleRefresh() {
+    setRefreshing(true)
+    try {
+      await Promise.all([reloadJobs(), reloadSchedules()])
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Aggiornamento non riuscito")
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   async function handleStart() {
     if (!selectedType) return
     setStarting(true)
@@ -304,7 +343,9 @@ export function JobsManager() {
   async function handleCancel(id: string) {
     setBusyId(id)
     try {
-      const res = await fetch(`/api/admin/jobs/${id}/cancel`, { method: "POST" })
+      const res = await fetch(`/api/admin/jobs/${id}/cancel`, {
+        method: "POST",
+      })
       if (!res.ok) throw new Error("Stop non riuscito")
       toast.success("Stop richiesto")
       await reloadJobs()
@@ -361,113 +402,128 @@ export function JobsManager() {
             Scegli un&apos;operazione, compila i dati, poi avviala subito o
             schedulala. Le esecuzioni compaiono nella tabella in basso.
           </CardDescription>
+          <CardAction>
+            <IconTip label="Aggiorna">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Aggiorna"
+                disabled={refreshing}
+                onClick={handleRefresh}
+              >
+                <RefreshCwIcon
+                  className={refreshing ? "animate-spin" : undefined}
+                />
+              </Button>
+            </IconTip>
+          </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Select
-                value={selectedType}
-                onValueChange={setSelectedType}
-                disabled={starting || types.length === 0}
-              >
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Scegli un'operazione…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {types.map((t) => (
-                    <SelectItem key={t.type} value={t.type}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button onClick={handleStart} disabled={starting || !selectedType}>
-                {starting ? <Spinner /> : <PlayIcon data-icon="inline-start" />}
-                Avvia
-              </Button>
-              <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" disabled={!selectedType}>
-                    <CalendarClockIcon data-icon="inline-start" />
-                    Schedula…
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Schedula «{labelFor(selectedType)}»</DialogTitle>
-                    <DialogDescription>
-                      Usa i dati compilati sopra. Scegli quando ripetere
-                      l&apos;operazione.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleSchedule} className="flex flex-col gap-4">
-                    <FieldGroup>
-                      <Field>
-                        <FieldLabel htmlFor="s-name">Nome</FieldLabel>
-                        <Input
-                          id="s-name"
-                          placeholder="es. nota-giornaliera"
-                          required
-                          value={scheduleName}
-                          onChange={(e) => setScheduleName(e.target.value)}
-                          disabled={scheduling}
-                        />
-                      </Field>
-                      <CronBuilder
-                        freq={freq}
-                        onFreq={setFreq}
-                        everyN={everyN}
-                        onEveryN={setEveryN}
-                        atMinute={atMinute}
-                        onAtMinute={setAtMinute}
-                        time={time}
-                        onTime={setTime}
-                        weekday={weekday}
-                        onWeekday={setWeekday}
-                        dom={dom}
-                        onDom={setDom}
-                        tz={tz}
-                        onTz={setTz}
-                        cron={cron}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Select
+              value={selectedType}
+              onValueChange={setSelectedType}
+              disabled={starting || types.length === 0}
+            >
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Scegli un'operazione…" />
+              </SelectTrigger>
+              <SelectContent>
+                {types.map((t) => (
+                  <SelectItem key={t.type} value={t.type}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={handleStart} disabled={starting || !selectedType}>
+              {starting ? <Spinner /> : <PlayIcon data-icon="inline-start" />}
+              Avvia
+            </Button>
+            <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" disabled={!selectedType}>
+                  <CalendarClockIcon data-icon="inline-start" />
+                  Schedula…
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Schedula «{labelFor(selectedType)}»</DialogTitle>
+                  <DialogDescription>
+                    Usa i dati compilati sopra. Scegli quando ripetere
+                    l&apos;operazione.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSchedule} className="flex flex-col gap-4">
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="s-name">Nome</FieldLabel>
+                      <Input
+                        id="s-name"
+                        placeholder="es. nota-giornaliera"
+                        required
+                        value={scheduleName}
+                        onChange={(e) => setScheduleName(e.target.value)}
                         disabled={scheduling}
                       />
-                    </FieldGroup>
-                    <DialogFooter>
-                      <DialogClose asChild>
-                        <Button type="button" variant="outline" disabled={scheduling}>
-                          Annulla
-                        </Button>
-                      </DialogClose>
-                      <Button type="submit" disabled={scheduling}>
-                        {scheduling && <Spinner />}
-                        Schedula
+                    </Field>
+                    <CronBuilder
+                      freq={freq}
+                      onFreq={setFreq}
+                      everyN={everyN}
+                      onEveryN={setEveryN}
+                      atMinute={atMinute}
+                      onAtMinute={setAtMinute}
+                      time={time}
+                      onTime={setTime}
+                      weekday={weekday}
+                      onWeekday={setWeekday}
+                      dom={dom}
+                      onDom={setDom}
+                      tz={tz}
+                      onTz={setTz}
+                      cron={cron}
+                      disabled={scheduling}
+                    />
+                  </FieldGroup>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={scheduling}
+                      >
+                        Annulla
                       </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => {
-                void reloadJobs()
-                void reloadSchedules()
-              }}
-            >
-              <RefreshCwIcon data-icon="inline-start" />
-              Aggiorna
-            </Button>
+                    </DialogClose>
+                    <Button type="submit" disabled={scheduling}>
+                      {scheduling && <Spinner />}
+                      Schedula
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Maschera dei dati generata dal tipo selezionato, in un accordion
               chiuso di default. */}
           {fields.length > 0 && (
-            <Accordion type="single" collapsible className="rounded-lg border px-4">
+            <Accordion
+              type="single"
+              collapsible
+              className="rounded-lg border px-4"
+            >
               <AccordionItem value="dati" className="border-b-0">
                 <AccordionTrigger>
-                  Dati ({fields.length} {fields.length === 1 ? "campo" : "campi"})
+                  Dati ({fields.length}{" "}
+                  {fields.length === 1 ? "campo" : "campi"})
                 </AccordionTrigger>
-                <AccordionContent>
+                {/* px-1: lascia spazio al focus ring (3px) degli input, che
+                    altrimenti verrebbe tagliato dall'overflow-hidden del
+                    contenuto dell'accordion. */}
+                <AccordionContent className="px-1">
                   <FieldGroup>
                     {fields.map((f) => (
                       <JobFieldInput
@@ -518,9 +574,11 @@ export function JobsManager() {
                               <span className="font-medium">
                                 {labelFor(job.type)}
                               </span>
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-xs text-muted-foreground tabular-nums">
                                 {fmt(job.createdAt)}
-                                {job.scheduleKey ? ` · cron: ${job.scheduleKey}` : ""}
+                                {job.scheduleKey
+                                  ? ` · cron: ${job.scheduleKey}`
+                                  : ""}
                               </span>
                             </div>
                           </TableCell>
@@ -531,7 +589,7 @@ export function JobsManager() {
                             {job.status === "running" || job.progress > 0 ? (
                               <div className="flex flex-col gap-1">
                                 <Progress value={job.progress} />
-                                <span className="truncate text-xs text-muted-foreground">
+                                <span className="truncate text-xs text-muted-foreground tabular-nums">
                                   {job.progress}%
                                   {job.message ? ` · ${job.message}` : ""}
                                 </span>
@@ -541,21 +599,35 @@ export function JobsManager() {
                                 {job.error}
                               </span>
                             ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
+                              <span className="text-xs text-muted-foreground">
+                                —
+                              </span>
                             )}
                           </TableCell>
                           <TableCell>
-                            <div className="flex justify-end gap-2">
-                              <JobLogsDialog job={job} label={labelFor(job.type)} />
+                            <div className="flex justify-end gap-1">
+                              <JobLogsDialog
+                                job={job}
+                                label={labelFor(job.type)}
+                              />
                               {isActive(job.status) && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={busyId === job.id || job.cancelRequested}
-                                  onClick={() => handleCancel(job.id)}
-                                >
-                                  {job.cancelRequested ? "Arresto…" : "Stop"}
-                                </Button>
+                                <ConfirmIconButton
+                                  icon={<SquareIcon className="fill-current" />}
+                                  label={
+                                    job.cancelRequested ? "Arresto…" : "Ferma"
+                                  }
+                                  disabled={
+                                    busyId === job.id || job.cancelRequested
+                                  }
+                                  busy={
+                                    busyId === job.id || job.cancelRequested
+                                  }
+                                  destructive
+                                  title="Fermare l'operazione?"
+                                  description="Verrà richiesto l'arresto al worker appena possibile. Il lavoro già svolto non viene annullato."
+                                  confirmLabel="Ferma"
+                                  onConfirm={() => handleCancel(job.id)}
+                                />
                               )}
                             </div>
                           </TableCell>
@@ -617,40 +689,47 @@ export function JobsManager() {
                       <TableCell>
                         {s.lastRun ? (
                           <div className="flex flex-col gap-0.5">
-                            <Badge variant={STATUS_META[s.lastRun.status].variant}>
+                            <Badge
+                              variant={STATUS_META[s.lastRun.status].variant}
+                            >
                               {STATUS_META[s.lastRun.status].label}
                             </Badge>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground tabular-nums">
                               {fmt(s.lastRun.at)}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-muted-foreground">mai</span>
+                          <span className="text-xs text-muted-foreground">
+                            mai
+                          </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
+                      <TableCell className="text-xs text-muted-foreground tabular-nums">
                         {s.nextRun ? fmt(s.nextRun) : "—"}
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
+                        <div className="flex justify-end gap-1">
+                          <ConfirmIconButton
+                            icon={<PlayIcon />}
+                            label="Esegui ora"
                             disabled={busyKey === s.key}
-                            onClick={() => handleRunNow(s.key)}
-                          >
-                            <ZapIcon data-icon="inline-start" />
-                            Esegui ora
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
+                            busy={busyKey === s.key}
+                            title="Eseguire adesso?"
+                            description={`Accoda subito un'esecuzione di «${labelFor(s.type)}», senza attendere l'orario pianificato.`}
+                            confirmLabel="Esegui ora"
+                            onConfirm={() => handleRunNow(s.key)}
+                          />
+                          <ConfirmIconButton
+                            icon={<Trash2Icon />}
+                            label="Elimina"
                             disabled={busyKey === s.key}
-                            onClick={() => handleUnschedule(s.key)}
-                          >
-                            <Trash2Icon data-icon="inline-start" />
-                            Elimina
-                          </Button>
+                            busy={busyKey === s.key}
+                            destructive
+                            title="Eliminare la schedulazione?"
+                            description={`«${s.key}» non verrà più eseguita automaticamente. Le esecuzioni già avviate non vengono toccate.`}
+                            confirmLabel="Elimina"
+                            onConfirm={() => handleUnschedule(s.key)}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -904,7 +983,11 @@ function CronBuilder(props: {
 
       <Field>
         <FieldLabel>Fuso orario</FieldLabel>
-        <Select value={props.tz} onValueChange={props.onTz} disabled={props.disabled}>
+        <Select
+          value={props.tz}
+          onValueChange={props.onTz}
+          disabled={props.disabled}
+        >
           <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
@@ -926,14 +1009,94 @@ function CronBuilder(props: {
   )
 }
 
+// Wrapper: associa un tooltip a un trigger icona (il bottone resta il figlio,
+// così funziona anche come trigger di Dialog/AlertDialog tramite asChild).
+function IconTip({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+// Azione di tabella: bottone solo-icona con tooltip e conferma (AlertDialog).
+// Le azioni con effetti (esegui, ferma, elimina) passano sempre da qui.
+function ConfirmIconButton({
+  icon,
+  label,
+  disabled,
+  busy,
+  destructive,
+  title,
+  description,
+  confirmLabel,
+  onConfirm,
+}: {
+  icon: React.ReactNode
+  label: string
+  disabled?: boolean
+  busy?: boolean
+  destructive?: boolean
+  title: string
+  description: string
+  confirmLabel: string
+  onConfirm: () => void
+}) {
+  return (
+    <AlertDialog>
+      <IconTip label={label}>
+        <AlertDialogTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={label}
+            disabled={disabled}
+            className={
+              destructive
+                ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                : undefined
+            }
+          >
+            {busy ? <Spinner /> : icon}
+          </Button>
+        </AlertDialogTrigger>
+      </IconTip>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Annulla</AlertDialogCancel>
+          <AlertDialogAction
+            variant={destructive ? "destructive" : "default"}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 function JobLogsDialog({ job, label }: { job: Job; label: string }) {
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          Log
-        </Button>
-      </DialogTrigger>
+      <IconTip label="Log">
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon-sm" aria-label="Log">
+            <FileTextIcon />
+          </Button>
+        </DialogTrigger>
+      </IconTip>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{label}</DialogTitle>

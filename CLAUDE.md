@@ -29,6 +29,54 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
 
 ---
 
+## Linee guida UI
+
+Convenzioni vincolanti per ogni interfaccia del progetto. Servono a mantenere
+coerenza e a non ripetere errori già corretti.
+
+### Componenti
+
+- **Usa sempre i componenti shadcn** in [`components/ui/`](components/ui/). Non
+  introdurre input, bottoni, dialog o tabelle "a mano": se manca un componente,
+  aggiungilo via shadcn invece di reinventarlo.
+- I bottoni icona usano le size dedicate (`icon`, `icon-sm`, `icon-xs`), non un
+  bottone normale con dentro solo un'icona.
+
+### Azioni e bottoni
+
+- **Niente bottoni con label di testo dentro le righe di tabella.** Le azioni di
+  riga sono **bottoni solo-icona** (`size="icon-sm"`, `variant="ghost"`) con
+  `aria-label` **e** un `Tooltip` che ripete l'etichetta. Evita di ripetere la
+  stessa parola (es. «Log», «Elimina») su ogni riga: occupa spazio inutile.
+- Le **azioni a livello di card** (aggiorna, ecc.) vanno come bottone solo-icona
+  dentro `CardAction`, in alto a destra nell'header della card.
+- Ogni bottone solo-icona **deve** avere un nome accessibile (`aria-label` o
+  `sr-only`): il tooltip da solo non basta per gli screen reader.
+- Il `TooltipProvider` è già montato nel layout della dashboard: usa `Tooltip`
+  direttamente, senza riavvolgerlo.
+
+### Conferme
+
+- Le azioni con effetti reali o distruttive (eliminare, fermare, «esegui ora»,
+  ecc.) **devono** chiedere conferma con un `AlertDialog`. Quelle distruttive
+  usano `variant="destructive"` sull'azione di conferma.
+- Le azioni di compilazione deliberata (es. avviare un'operazione da un form già
+  riempito) non richiedono conferma.
+
+### Stile e dettagli
+
+- **Non tagliare mai il focus ring.** I componenti usano un anello di `3px`
+  (`focus-visible:ring-3`): i contenitori con `overflow-hidden` (accordion,
+  carosello, ecc.) devono avere abbastanza padding perché il glow non venga
+  tagliato ai bordi. Caso tipico: input a larghezza piena dentro un
+  `AccordionContent` — serve un padding orizzontale sul contenuto.
+- Usa `tabular-nums` per date, orari, percentuali e contatori nelle tabelle, così
+  le cifre restano allineate in verticale.
+- Copy in **italiano**, voce attiva, sentence case: il bottone dice cosa succede
+  («Ferma», «Elimina») e il toast conferma con lo stesso verbo.
+
+---
+
 ## Linee guida per il versionamento
 
 Il progetto usa **Git Flow** come strategia di branching e

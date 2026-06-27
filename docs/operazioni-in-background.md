@@ -47,8 +47,10 @@ attivo i job restano in stato `queued`.
 
 Dal pannello **Operazioni in background** (`/admin/jobs`, solo admin) scegli un
 tipo di operazione e premi **Avvia**. La tabella si aggiorna in **polling**
-(~1,5s) mostrando stato, percentuale e messaggio; il pulsante **Log** apre i log
-del job, **Stop** ne richiede l'interruzione.
+(~1,5s) mostrando stato, percentuale e messaggio; nelle azioni di riga l'icona
+**Log** apre i log del job e l'icona **Ferma** ne richiede l'interruzione (con
+conferma). Le azioni di tabella sono bottoni solo-icona con tooltip
+(vedi «Linee guida UI» in [`CLAUDE.md`](../CLAUDE.md)).
 
 Da codice si usa sempre la facade:
 
