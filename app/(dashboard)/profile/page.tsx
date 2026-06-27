@@ -42,7 +42,7 @@ export default async function ProfilePage() {
             ))}
             {emailVerified ? (
               <Badge variant="outline">
-                <BadgeCheckIcon data-icon="inline-start" />
+                <BadgeCheckIcon aria-hidden="true" data-icon="inline-start" />
                 Email verificata
               </Badge>
             ) : (
