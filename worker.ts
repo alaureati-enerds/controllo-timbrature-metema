@@ -66,13 +66,18 @@ async function main() {
     }
   )
 
-  // Registra/aggiorna le schedulazioni cron (idempotente per chiave).
+  // Registra/aggiorna le schedulazioni cron DEFINITE NEL CODICE (idempotente per
+  // chiave). Convivono con quelle create da UI (lib/jobs.scheduleJob), che
+  // vivono solo nel DB: qui la `key` le tiene distinte. NB: una schedulazione da
+  // codice viene ri-applicata a ogni avvio del worker (il codice è la sua fonte
+  // di verità); se la elimini da UI, riapparirà al riavvio finché resta qui.
   for (const s of schedules) {
-    await boss.schedule(SCHEDULE_QUEUE, s.cron, {
-      type: s.type,
-      payload: s.payload,
-      scheduleKey: s.key,
-    })
+    await boss.schedule(
+      SCHEDULE_QUEUE,
+      s.cron,
+      { type: s.type, payload: s.payload, scheduleKey: s.key },
+      { key: s.key }
+    )
   }
 
   logger.info("Worker job avviato", {

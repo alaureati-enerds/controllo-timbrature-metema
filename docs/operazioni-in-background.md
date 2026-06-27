@@ -19,9 +19,11 @@ lib/jobs/
   registry.ts              registro { type → handler } — il punto di estendibilità
   handlers/
     demo.ts                handler dimostrativo (lavoro simulato a step)
-  index.ts                 FACADE: enqueue / cancel / getJob / listJobs / executeJob
-app/api/admin/jobs/        API admin protette per RBAC (list, enqueue, get, cancel)
-components/admin/jobs-manager.tsx   UI con polling, barra di avanzamento, Stop
+    crea-nota.ts           handler d'esempio REALE: crea una nota (riusa lib/notes)
+  index.ts                 FACADE: enqueue / cancel / getJob / listJobs +
+                           scheduleJob / listSchedules / unscheduleJob / executeJob
+app/api/admin/jobs/        API admin (RBAC): list+enqueue, get, cancel, schedules/
+components/admin/jobs-manager.tsx   UI con polling, avanzamento, Stop, schedulazioni
 ```
 
 Il modello [`Job`](../prisma/schema.prisma) è la **fonte di verità** per ciò che
@@ -131,10 +133,28 @@ Il `ctx` passato a `run` offre:
 
 ## Schedulare con un cron
 
-Le schedulazioni vivono in `worker.ts`, nell'array `schedules`. Una voce, allo
-scattare del cron, **non esegue** il lavoro: **accoda** un job del tipo indicato
-(cron ed esecuzione restano disaccoppiati, e ogni run schedulato compare nella
-lista job con il suo `scheduleKey`).
+Una schedulazione, allo scattare del cron, **non esegue** il lavoro: **accoda**
+un job del tipo indicato (cron ed esecuzione restano disaccoppiati, e ogni run
+schedulato compare nella lista job con il suo `scheduleKey`). `cron` è la
+sintassi standard a 5 campi (`min ora giorno mese giorno-settimana`).
+
+Ci sono **due modi**, complementari:
+
+**1. Da UI** — nel pannello `/admin/jobs`, sezione *Schedulazioni*: scegli tipo e
+dati (JSON) in alto, premi «Schedula…», indica nome ed espressione cron. Le
+schedulazioni così create vivono **solo nel database** e si gestiscono (creano,
+elencano, eliminano) dall'interfaccia. Sotto usano la facade:
+
+```ts
+import { scheduleJob, listSchedules, unscheduleJob } from "@/lib/jobs"
+
+await scheduleJob({ type: "crea-nota", payload: { text: "..." }, cron: "0 9 * * *", key: "promemoria" })
+await listSchedules()
+await unscheduleJob("promemoria")
+```
+
+**2. Da codice** — per cron "di sistema" che fanno parte del prodotto, l'array
+`schedules` in `worker.ts`:
 
 ```ts
 // worker.ts
@@ -144,12 +164,16 @@ const schedules = [
 ]
 ```
 
-`cron` è la sintassi standard a 5 campi (`min ora giorno mese giorno-settimana`).
-Le schedulazioni sono persistite da pg-boss e aggiornate in modo idempotente per
-`key` a ogni avvio del worker; rimuovere una voce e riavviare la disattiva.
+Differenza importante sulla **fonte di verità**: quelle da UI stanno nel DB; quelle
+da codice vengono **ri-applicate a ogni avvio del worker** (il codice le possiede).
+Perciò se elimini da UI una schedulazione definita nel codice, **riapparirà** al
+prossimo riavvio del worker finché resta nell'array.
 
-> Lo starter include come esempio `demo-giornaliero` (ogni giorno alle 03:00):
-> rimuovilo da `schedules` quando non ti serve.
+> ⚠️ Fuso orario: di default il cron è valutato in **UTC**. Per fissare un fuso
+> passa `tz` a `scheduleJob` (es. `tz: "Europe/Rome"`).
+
+> Lo starter include come esempio `demo-giornaliero` (ogni giorno alle 03:00) in
+> `worker.ts`: rimuovilo da `schedules` quando non ti serve.
 
 ## In produzione
 

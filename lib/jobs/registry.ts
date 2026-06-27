@@ -1,3 +1,4 @@
+import { creaNotaHandler } from "@/lib/jobs/handlers/crea-nota"
 import { demoHandler } from "@/lib/jobs/handlers/demo"
 import type { JobHandler } from "@/lib/jobs/types"
 
@@ -10,7 +11,7 @@ import type { JobHandler } from "@/lib/jobs/types"
 //   2. aggiungilo all'array qui sotto.
 // Né il worker, né la coda, né la UI vanno modificati. Vedi
 // docs/operazioni-in-background.md per la guida completa.
-const handlers: JobHandler[] = [demoHandler]
+const handlers: JobHandler[] = [demoHandler, creaNotaHandler]
 
 // Indicizzati per `type` per il dispatch nel worker.
 export const jobHandlers: Record<string, JobHandler> = Object.fromEntries(

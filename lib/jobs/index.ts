@@ -1,6 +1,6 @@
 import type { Job, JobStatus, Prisma } from "@/lib/generated/prisma/client"
 import { ApiError } from "@/lib/api"
-import { getBoss, JOBS_QUEUE } from "@/lib/jobs/boss"
+import { getBoss, JOBS_QUEUE, SCHEDULE_QUEUE } from "@/lib/jobs/boss"
 import { getHandler } from "@/lib/jobs/registry"
 import { JobCancelledError, type JobContext } from "@/lib/jobs/types"
 import { logger } from "@/lib/logger"
@@ -101,6 +101,77 @@ export async function listJobs(
     take: Math.min(filter.limit ?? 50, 200),
   })
   return jobs.map(toView)
+}
+
+// ---------------------------------------------------------------------------
+// Schedulazioni cron (gestibili da UI). Una schedulazione NON esegue il lavoro:
+// allo scattare del cron accoda un job del tipo dato (il bridge in worker.ts).
+// Sono persistite da pg-boss e identificate da una `key`; il worker (unico con
+// lo scheduler attivo) le fa scattare anche se create dal processo web.
+// ---------------------------------------------------------------------------
+
+export type ScheduleView = {
+  key: string
+  type: string
+  cron: string
+  timezone: string
+  payload: unknown
+}
+
+// Crea o aggiorna (per `key`) una schedulazione. Valida tipo, payload e cron
+// SUBITO: input errati vengono rifiutati qui, non a notte fonda.
+export async function scheduleJob(input: {
+  type: string
+  payload: unknown
+  cron: string
+  key: string
+  tz?: string
+}): Promise<void> {
+  const handler = getHandler(input.type)
+  if (!handler) throw new ApiError(`Tipo di job sconosciuto: ${input.type}`, 400)
+  const parsed = handler.parse(input.payload)
+
+  const boss = await getBoss()
+  try {
+    await boss.schedule(
+      SCHEDULE_QUEUE,
+      input.cron,
+      { type: input.type, payload: parsed, scheduleKey: input.key },
+      { key: input.key, tz: input.tz }
+    )
+  } catch {
+    // pg-boss valida l'espressione cron e lancia se è malformata.
+    throw new ApiError(`Espressione cron non valida: ${input.cron}`, 400)
+  }
+  logger.info(`Schedulazione creata: ${input.type}`, {
+    key: input.key,
+    cron: input.cron,
+  })
+}
+
+export async function listSchedules(): Promise<ScheduleView[]> {
+  const boss = await getBoss()
+  // NB: getSchedules(name) filtrerebbe anche per key='' (una sola riga); senza
+  // argomenti torna TUTTO, poi filtriamo la nostra coda in JS.
+  const schedules = await boss.getSchedules()
+  return schedules
+    .filter((s) => s.name === SCHEDULE_QUEUE)
+    .map((s) => {
+      const data = (s.data ?? {}) as { type?: string; payload?: unknown }
+      return {
+        key: s.key,
+        type: data.type ?? "?",
+        cron: s.cron,
+        timezone: s.timezone,
+        payload: data.payload ?? {},
+      }
+    })
+}
+
+export async function unscheduleJob(key: string): Promise<void> {
+  const boss = await getBoss()
+  await boss.unschedule(SCHEDULE_QUEUE, key)
+  logger.info("Schedulazione rimossa", { key })
 }
 
 // ---------------------------------------------------------------------------

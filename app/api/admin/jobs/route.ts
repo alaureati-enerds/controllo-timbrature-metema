@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import { ok, parseJson, safeHandler } from "@/lib/api"
+import { getSession } from "@/lib/auth-helpers"
 import { requireJobsPermission } from "@/lib/jobs/authz"
 import { enqueue, listJobs } from "@/lib/jobs"
 import { jobTypes } from "@/lib/jobs/registry"
@@ -21,8 +22,18 @@ const enqueueSchema = z.object({
   type: z.string().min(1),
   // Payload libero: la VALIDAZIONE vera è dell'handler (handler.parse in
   // enqueue), che conosce la forma attesa per il proprio tipo.
-  payload: z.unknown().optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 })
+
+// Inietta `userId` dalla SESSIONE nel payload: l'identità non si prende mai dal
+// client. Gli handler che non la dichiarano (es. demo) la ignorano (Zod la
+// scarta); quelli che operano su dati dell'utente (es. crea-nota) la usano.
+function withUser(
+  payload: Record<string, unknown> | undefined,
+  userId: string
+): Record<string, unknown> {
+  return { ...(payload ?? {}), userId }
+}
 
 // GET /api/admin/jobs — elenca i job (filtri opzionali ?status, ?type) e i tipi
 // disponibili per l'avvio manuale.
@@ -41,7 +52,8 @@ export const GET = safeHandler(async (request) => {
 // POST /api/admin/jobs — accoda una nuova operazione.
 export const POST = safeHandler(async (request) => {
   await requireJobsPermission("create")
+  const session = await getSession() // non-null: il permesso lo garantisce
   const { type, payload } = await parseJson(request, enqueueSchema)
-  const job = await enqueue(type, payload ?? {})
+  const job = await enqueue(type, withUser(payload, session!.user.id))
   return ok(job, { status: 201 })
 })
