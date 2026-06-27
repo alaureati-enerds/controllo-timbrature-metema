@@ -119,7 +119,7 @@ export function GlobalSearch() {
           }}
         />
         <InputGroupAddon align="inline-end">
-          <Kbd>⌘K</Kbd>
+          <Kbd>⌘+K</Kbd>
         </InputGroupAddon>
       </InputGroup>
 
