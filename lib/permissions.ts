@@ -21,6 +21,10 @@ const statement = {
   // Operazioni in background (job): chi le vede, le avvia e le ferma dal pannello
   // admin. Vedi lib/jobs/ e docs/operazioni-in-background.md.
   jobs: ["read", "create", "cancel"],
+  // Audit log: chi può consultare il registro e configurarlo. La SCRITTURA non
+  // è un'azione utente (avviene server-side via lib/audit/), quindi non c'è un
+  // permesso "create". Vedi lib/audit/ e docs/audit-logging.md.
+  audit: ["read", "configure"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -37,6 +41,7 @@ export const admin = ac.newRole({
   note: ["create", "read", "update", "delete"],
   settings: ["read", "update"],
   jobs: ["read", "create", "cancel"],
+  audit: ["read", "configure"],
 })
 
 // Ruoli esposti all'app. La chiave è il valore salvato in `user.role`.

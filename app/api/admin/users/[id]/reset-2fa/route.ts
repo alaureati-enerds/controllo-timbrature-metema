@@ -1,4 +1,5 @@
 import { ApiError, forbidden, ok, safeHandler, unauthorized } from "@/lib/api"
+import { audit } from "@/lib/audit"
 import { getSession } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 
@@ -15,7 +16,7 @@ function isAdminRole(role?: string | null): boolean {
 // Auth non espone un'azione admin nativa per questo, quindi rimuoviamo la riga
 // `TwoFactor` e azzeriamo `twoFactorEnabled` direttamente via Prisma. L'utente
 // potrà riconfigurare la 2FA dal proprio profilo. Riservato agli admin.
-export const POST = safeHandler(async (_request, context) => {
+export const POST = safeHandler(async (request, context) => {
   const session = await getSession()
   if (!session) throw unauthorized()
   if (!isAdminRole(session.user.role)) throw forbidden()
@@ -37,6 +38,16 @@ export const POST = safeHandler(async (_request, context) => {
       data: { twoFactorEnabled: false },
     }),
   ])
+
+  // Esempio di tracciamento di un evento di DOMINIO (non di Better Auth):
+  // chiamata diretta al service di audit. Vedi docs/audit-logging.md.
+  await audit({
+    action: "users.2fa.reset",
+    actorId: session.user.id,
+    actorEmail: session.user.email,
+    target: { type: "user", id },
+    request,
+  })
 
   return ok({ success: true })
 })

@@ -26,6 +26,9 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
 - [Operazioni in background (job e cron)](docs/operazioni-in-background.md) —
   job lunghi con avanzamento e stop, worker dedicato (`npm run worker`),
   schedulazioni cron; come aggiungere un nuovo tipo di operazione.
+- [Audit logging](docs/audit-logging.md) — registro append-only delle azioni di
+  sicurezza, configurabile dall'admin (toggle per evento, retention); come
+  aggiungere un evento al log.
 
 ---
 

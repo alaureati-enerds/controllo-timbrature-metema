@@ -35,6 +35,14 @@ const schedules: {
     type: "demo",
     payload: { steps: 5, stepMs: 1000 },
   },
+  // Retention dell'audit log: ogni giorno alle 03:30 elimina le righe più
+  // vecchie del periodo configurato (config audit). Vedi docs/audit-logging.md.
+  {
+    key: "audit-prune-giornaliero",
+    cron: "30 3 * * *",
+    type: "audit-prune",
+    payload: {},
+  },
 ]
 
 async function main() {

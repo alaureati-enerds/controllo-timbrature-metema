@@ -238,3 +238,45 @@ model Job {
   @@index([type, createdAt])
   @@map("job")
 }
+
+// ============================================================================
+// Audit log (tracciamento azioni)
+// ============================================================================
+
+/// Una riga del registro di audit: CHI ha fatto COSA, QUANDO, DA DOVE e con
+/// quale ESITO. È un log APPEND-ONLY: l'applicazione scrive (lib/audit/) e
+/// legge, ma non aggiorna né cancella mai una riga. L'unica cancellazione
+/// ammessa è il pruning di retention, eseguito dal worker (lib/jobs/handlers/
+/// audit-prune.ts) in base alla configurazione admin.
+///
+/// `action` è la chiave nel catalogo degli eventi (lib/audit/catalog.ts):
+/// aggiungere un evento da tracciare = aggiungere una voce al catalogo e una
+/// chiamata `audit(...)`, senza migrazioni. Vedi docs/audit-logging.md.
+///
+/// Alcuni campi sono DENORMALIZZATI di proposito (`actorEmail`, `target.label`):
+/// un audit log deve restare leggibile anche dopo che l'utente referenziato è
+/// stato eliminato, quindi non usiamo foreign key con cascade che ne
+/// cancellerebbero la storia.
+model AuditLog {
+  id       String @id @default(cuid())
+  action   String // chiave del catalogo, es. "auth.login.failure"
+  category String // "auth" | "account" | "users" | "system" | ...
+  outcome  String // "success" | "failure"
+
+  actorId    String? // id di chi ha agito (null = anonimo o azione di sistema)
+  actorEmail String? // email denormalizzata: leggibile anche dopo la cancellazione
+  target     Json? // su COSA si è agito: { type, id?, label? }
+  metadata   Json? // contesto extra (MAI segreti), es. { from, to } di un ruolo
+
+  ip        String? // indirizzo IP del richiedente
+  userAgent String? // user-agent del richiedente
+  requestId String? // correlazione tra eventi della stessa richiesta
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([category, createdAt])
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+  @@map("audit_log")
+}

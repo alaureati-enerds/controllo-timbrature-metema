@@ -3,6 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma"
 import { nextCookies } from "better-auth/next-js"
 import { admin, twoFactor } from "better-auth/plugins"
 
+import { auditAfterHook } from "@/lib/audit/auth-hooks"
 import {
   sendChangeEmailConfirmation,
   sendDeleteAccountVerification,
@@ -24,14 +25,20 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
 
   // Origini accettate per login/CSRF. In sviluppo consentiamo localhost su una
-  // qualsiasi porta (Next sceglie 3001/3002 se la 3000 è occupata); in
-  // produzione restringiamo all'URL configurato.
+  // qualsiasi porta (Next sceglie 3001/3002 se la 3000 è occupata) e gli IP di
+  // LAN più comuni, così l'app è raggiungibile da smartphone sulla stessa rete;
+  // in produzione restringiamo all'URL configurato.
   trustedOrigins:
     env.NODE_ENV === "production"
       ? env.BETTER_AUTH_URL
         ? [env.BETTER_AUTH_URL]
         : []
-      : ["http://localhost:*", "http://127.0.0.1:*"],
+      : [
+          "http://localhost:*",
+          "http://127.0.0.1:*",
+          "http://192.168.*.*:*",
+          "http://10.0.0.*:*",
+        ],
 
   emailAndPassword: {
     enabled: true,
@@ -73,6 +80,14 @@ export const auth = betterAuth({
           url,
         }),
     },
+  },
+
+  // Audit log: un unico hook DOPO ogni endpoint registra gli eventi di sicurezza
+  // (login ok/fallito, logout, cambio password/email, 2FA, azioni admin sugli
+  // utenti). La mappa path → evento vive in lib/audit/auth-hooks.ts. Il logging
+  // è fail-open: non può far fallire un'operazione di Better Auth.
+  hooks: {
+    after: auditAfterHook,
   },
 
   // Rate limiting integrato: protegge gli endpoint auth da abusi/brute force.
