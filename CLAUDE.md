@@ -23,6 +23,9 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
   salvano/servono i file (driver intercambiabile), file di sistema vs utente.
 - [Invio email (driver e template)](docs/email.md) — backend email
   intercambiabile (console/SMTP), template come stringhe editor-ready.
+- [Operazioni in background (job e cron)](docs/operazioni-in-background.md) —
+  job lunghi con avanzamento e stop, worker dedicato (`npm run worker`),
+  schedulazioni cron; come aggiungere un nuovo tipo di operazione.
 
 ---
 
