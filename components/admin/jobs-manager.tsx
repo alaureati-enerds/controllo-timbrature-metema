@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import cronstrue from "cronstrue/i18n"
 import {
   CalendarClockIcon,
-  ChevronsUpDownIcon,
   PlayIcon,
   RefreshCwIcon,
   Trash2Icon,
@@ -12,6 +11,12 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,11 +26,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
 import {
   Dialog,
   DialogClose,
@@ -163,7 +163,6 @@ export function JobsManager() {
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [selectedType, setSelectedType] = useState<string>("")
   const [values, setValues] = useState<FormValues>({})
-  const [dataOpen, setDataOpen] = useState(true)
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -460,28 +459,28 @@ export function JobsManager() {
             </Button>
           </div>
 
-          {/* Maschera dei dati generata dal tipo selezionato, sotto collapsible. */}
+          {/* Maschera dei dati generata dal tipo selezionato, in un accordion
+              chiuso di default. */}
           {fields.length > 0 && (
-            <Collapsible open={dataOpen} onOpenChange={setDataOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="w-fit px-2">
-                  <ChevronsUpDownIcon data-icon="inline-start" />
+            <Accordion type="single" collapsible className="rounded-lg border px-4">
+              <AccordionItem value="dati" className="border-b-0">
+                <AccordionTrigger>
                   Dati ({fields.length} {fields.length === 1 ? "campo" : "campi"})
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pt-2">
-                <FieldGroup className="rounded-lg border p-4">
-                  {fields.map((f) => (
-                    <JobFieldInput
-                      key={f.name}
-                      field={f}
-                      value={fieldValue(values, f)}
-                      onChange={(v) => setField(f.name, v)}
-                    />
-                  ))}
-                </FieldGroup>
-              </CollapsibleContent>
-            </Collapsible>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <FieldGroup>
+                    {fields.map((f) => (
+                      <JobFieldInput
+                        key={f.name}
+                        field={f}
+                        value={fieldValue(values, f)}
+                        onChange={(v) => setField(f.name, v)}
+                      />
+                    ))}
+                  </FieldGroup>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           )}
 
           {loading ? (
