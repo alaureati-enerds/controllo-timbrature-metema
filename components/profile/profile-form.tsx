@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { KeyRoundIcon, SaveIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
@@ -70,7 +71,7 @@ export function ProfileForm({
   }
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-2">
+    <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
           <CardTitle>Dati profilo</CardTitle>
@@ -81,31 +82,33 @@ export function ProfileForm({
         <form onSubmit={handleNameSubmit} className="contents">
           <CardContent>
             <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input id="email" value={email} disabled readOnly />
-                <FieldDescription>
-                  Per cambiare l&apos;email usa la sezione Sicurezza qui sotto.
-                </FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="name">Nome</FieldLabel>
-                <Input
-                  id="name"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={savingName}
-                />
-              </Field>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="name">Nome</FieldLabel>
+                  <Input
+                    id="name"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={savingName}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="email">Email</FieldLabel>
+                  <Input id="email" value={email} disabled readOnly />
+                  <FieldDescription>
+                    Per cambiarla usa la sezione Sicurezza qui sotto.
+                  </FieldDescription>
+                </Field>
+              </div>
             </FieldGroup>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="justify-end">
             <Button
               type="submit"
               disabled={savingName || name === initialName}
             >
-              {savingName && <Spinner />}
+              {savingName ? <Spinner /> : <SaveIcon />}
               Salva modifiche
             </Button>
           </CardFooter>
@@ -122,39 +125,41 @@ export function ProfileForm({
         <form onSubmit={handlePasswordSubmit} className="contents">
           <CardContent>
             <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="current-password">
-                  Password attuale
-                </FieldLabel>
-                <Input
-                  id="current-password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  disabled={savingPassword}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="new-password">Nuova password</FieldLabel>
-                <Input
-                  id="new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={8}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  disabled={savingPassword}
-                />
-                <FieldDescription>Almeno 8 caratteri.</FieldDescription>
-              </Field>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="current-password">
+                    Password attuale
+                  </FieldLabel>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    disabled={savingPassword}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="new-password">Nuova password</FieldLabel>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={savingPassword}
+                  />
+                  <FieldDescription>Almeno 8 caratteri.</FieldDescription>
+                </Field>
+              </div>
             </FieldGroup>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="justify-end">
             <Button type="submit" disabled={savingPassword}>
-              {savingPassword && <Spinner />}
+              {savingPassword ? <Spinner /> : <KeyRoundIcon />}
               Aggiorna password
             </Button>
           </CardFooter>

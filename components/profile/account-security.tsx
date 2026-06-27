@@ -2,7 +2,13 @@
 
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
-import { LaptopIcon, ShieldAlertIcon } from "lucide-react"
+import {
+  LaptopIcon,
+  LogOutIcon,
+  MailIcon,
+  ShieldAlertIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
@@ -30,6 +36,11 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 type SessionRow = {
   id: string
@@ -158,9 +169,9 @@ export function AccountSecurity({
         </p>
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-2">
+      <div className="flex flex-col gap-6">
         {/* Sessioni attive */}
-        <Card className="lg:row-span-2">
+        <Card>
           <CardHeader>
             <CardTitle>Dispositivi e accessi</CardTitle>
             <CardDescription>
@@ -186,7 +197,7 @@ export function AccountSecurity({
                       className="flex items-center gap-3 rounded-lg border p-3 text-sm"
                     >
                       <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                        <LaptopIcon className="size-4" />
+                        <LaptopIcon aria-hidden="true" className="size-4" />
                       </span>
                       <div className="flex min-w-0 flex-col">
                         <span className="flex items-center gap-2 truncate font-medium">
@@ -197,21 +208,17 @@ export function AccountSecurity({
                             <Badge variant="secondary">Questa sessione</Badge>
                           )}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground tabular-nums">
                           {s.ipAddress || "—"} ·{" "}
                           {new Date(s.createdAt).toLocaleString("it-IT")}
                         </span>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="ml-auto"
-                        disabled={isCurrent || busyToken === s.token}
-                        onClick={() => revokeOne(s.token)}
-                      >
-                        {busyToken === s.token && <Spinner />}
-                        Revoca
-                      </Button>
+                      {!isCurrent && (
+                        <RevokeSessionButton
+                          busy={busyToken === s.token}
+                          onConfirm={() => revokeOne(s.token)}
+                        />
+                      )}
                     </li>
                   )
                 })}
@@ -219,16 +226,41 @@ export function AccountSecurity({
             )}
           </CardContent>
           {otherSessions.length > 0 && (
-            <CardFooter>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={busyToken === "__others__"}
-                onClick={revokeOthers}
-              >
-                {busyToken === "__others__" && <Spinner />}
-                Disconnetti le altre sessioni
-              </Button>
+            <CardFooter className="justify-end">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busyToken === "__others__"}
+                  >
+                    {busyToken === "__others__" ? (
+                      <Spinner />
+                    ) : (
+                      <LogOutIcon />
+                    )}
+                    Disconnetti le altre sessioni
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Disconnettere le altre sessioni?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tutti gli altri dispositivi dovranno accedere di nuovo.
+                      Questa sessione resta attiva.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annulla</AlertDialogCancel>
+                    <Button variant="destructive" onClick={revokeOthers}>
+                      <LogOutIcon />
+                      Disconnetti
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardFooter>
           )}
         </Card>
@@ -260,9 +292,9 @@ export function AccountSecurity({
                 </Field>
               </FieldGroup>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="justify-end">
               <Button type="submit" disabled={changingEmail}>
-                {changingEmail && <Spinner />}
+                {changingEmail ? <Spinner /> : <MailIcon />}
                 Invia conferma
               </Button>
             </CardFooter>
@@ -277,7 +309,7 @@ export function AccountSecurity({
       <Card className="border-destructive/30 ring-destructive/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive">
-            <ShieldAlertIcon className="size-4" />
+            <ShieldAlertIcon aria-hidden="true" className="size-4" />
             Elimina account
           </CardTitle>
           <CardDescription>
@@ -294,7 +326,10 @@ export function AccountSecurity({
             }}
           >
             <AlertDialogTrigger asChild>
-              <Button variant="destructive">Elimina il mio account</Button>
+              <Button variant="destructive">
+                <Trash2Icon />
+                Elimina il mio account
+              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -328,7 +363,7 @@ export function AccountSecurity({
                   disabled={deleting || confirmEmail !== currentEmail}
                   onClick={handleDelete}
                 >
-                  {deleting && <Spinner />}
+                  {deleting ? <Spinner /> : <Trash2Icon />}
                   Elimina definitivamente
                 </Button>
               </AlertDialogFooter>
@@ -337,5 +372,51 @@ export function AccountSecurity({
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+// Azione di riga: bottone solo-icona con tooltip e conferma (revocare una
+// sessione disconnette quel dispositivo, quindi è un'azione con effetti reali).
+function RevokeSessionButton({
+  busy,
+  onConfirm,
+}: {
+  busy: boolean
+  onConfirm: () => void
+}) {
+  return (
+    <AlertDialog>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+              aria-label="Revoca questa sessione"
+              disabled={busy}
+            >
+              {busy ? <Spinner /> : <LogOutIcon />}
+            </Button>
+          </AlertDialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Revoca sessione</TooltipContent>
+      </Tooltip>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Revocare questa sessione?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Il dispositivo collegato dovrà accedere di nuovo per continuare.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Annulla</AlertDialogCancel>
+          <Button variant="destructive" onClick={onConfirm}>
+            <LogOutIcon />
+            Revoca
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

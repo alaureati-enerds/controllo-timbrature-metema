@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import QRCode from "qrcode"
 import {
+  ArrowRightIcon,
   CheckIcon,
   ChevronDownIcon,
   CopyIcon,
   DownloadIcon,
   KeyRoundIcon,
   ShieldCheckIcon,
+  ShieldXIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -119,9 +121,9 @@ function BackupCodes({ codes }: { codes: string[] }) {
           onClick={copy}
         >
           {copied ? (
-            <CheckIcon data-icon="inline-start" />
+            <CheckIcon aria-hidden="true" data-icon="inline-start" />
           ) : (
-            <CopyIcon data-icon="inline-start" />
+            <CopyIcon aria-hidden="true" data-icon="inline-start" />
           )}
           {copied ? "Copiati" : "Copia"}
         </Button>
@@ -132,7 +134,7 @@ function BackupCodes({ codes }: { codes: string[] }) {
           className="flex-1"
           onClick={download}
         >
-          <DownloadIcon data-icon="inline-start" />
+          <DownloadIcon aria-hidden="true" data-icon="inline-start" />
           Scarica .txt
         </Button>
       </div>
@@ -290,7 +292,10 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ShieldCheckIcon className="size-4 text-muted-foreground" />
+          <ShieldCheckIcon
+            aria-hidden="true"
+            className="size-4 text-muted-foreground"
+          />
           Autenticazione a due fattori
           {enabled ? (
             <Badge variant="secondary">Attiva</Badge>
@@ -307,12 +312,12 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
       </CardHeader>
 
       {enabled ? (
-        <CardFooter className="gap-2">
+        <CardFooter className="justify-end gap-2">
           {/* Rigenera codici di backup */}
           <Dialog open={regenOpen} onOpenChange={openRegen}>
             <DialogTrigger asChild>
               <Button variant="outline">
-                <KeyRoundIcon data-icon="inline-start" />
+                <KeyRoundIcon aria-hidden="true" data-icon="inline-start" />
                 Rigenera codici di backup
               </Button>
             </DialogTrigger>
@@ -328,7 +333,10 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
                 <div className="flex flex-col gap-4">
                   <BackupCodes codes={regenCodes} />
                   <DialogFooter>
-                    <Button onClick={() => openRegen(false)}>Fatto</Button>
+                    <Button onClick={() => openRegen(false)}>
+                      <CheckIcon />
+                      Fatto
+                    </Button>
                   </DialogFooter>
                 </div>
               ) : (
@@ -353,7 +361,7 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
                     </Field>
                     <DialogFooter>
                       <Button type="submit" disabled={busy || !regenPassword}>
-                        {busy && <Spinner />}
+                        {busy ? <Spinner /> : <KeyRoundIcon />}
                         Genera nuovi codici
                       </Button>
                     </DialogFooter>
@@ -370,7 +378,10 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
             }}
           >
             <AlertDialogTrigger asChild>
-              <Button variant="outline">Disattiva</Button>
+              <Button variant="outline">
+                <ShieldXIcon />
+                Disattiva
+              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -400,7 +411,7 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
                   disabled={busy || !disablePassword}
                   onClick={handleDisable}
                 >
-                  {busy && <Spinner />}
+                  {busy ? <Spinner /> : <ShieldXIcon />}
                   Disattiva
                 </Button>
               </AlertDialogFooter>
@@ -408,11 +419,11 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
           </AlertDialog>
         </CardFooter>
       ) : (
-        <CardFooter>
+        <CardFooter className="justify-end">
           <Dialog open={enableOpen} onOpenChange={openWizard}>
             <DialogTrigger asChild>
               <Button>
-                <ShieldCheckIcon data-icon="inline-start" />
+                <ShieldCheckIcon aria-hidden="true" data-icon="inline-start" />
                 Attiva
               </Button>
             </DialogTrigger>
@@ -447,7 +458,7 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
                       </Field>
                       <DialogFooter>
                         <Button type="submit" disabled={busy || !password}>
-                          {busy && <Spinner />}
+                          {busy ? <Spinner /> : <ArrowRightIcon />}
                           Continua
                         </Button>
                       </DialogFooter>
@@ -586,6 +597,7 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
                     </Field>
                     <DialogFooter>
                       <Button disabled={!saved} onClick={finishWizard}>
+                        <CheckIcon />
                         Fine
                       </Button>
                     </DialogFooter>
