@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { NotificationPreferencesForm } from "@/components/profile/notification-preferences-form"
+import { ThemeSelector } from "@/components/profile/theme-selector"
 import { requireUser } from "@/lib/auth-helpers"
 import { getUserPreferences } from "@/lib/settings/user"
 
@@ -20,6 +21,8 @@ export default async function SettingsPage() {
           Come l&apos;app si comporta per te.
         </p>
       </header>
+
+      <ThemeSelector />
 
       <NotificationPreferencesForm initial={preferences} />
     </div>
