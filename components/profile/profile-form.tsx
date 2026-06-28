@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { KeyRoundIcon, SaveIcon } from "lucide-react"
+import { SaveIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
+import { AvatarUploader } from "@/components/profile/avatar-uploader"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -24,20 +26,22 @@ import {
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 
+// Card "Informazioni personali": avatar + nome. La password e l'email stanno
+// nella sezione sicurezza (components/profile/account-security.tsx).
 export function ProfileForm({
   initialName,
   email,
+  image,
+  roles,
 }: {
   initialName: string
   email: string
+  image: string | null
+  roles: string[]
 }) {
   const router = useRouter()
   const [name, setName] = useState(initialName)
   const [savingName, setSavingName] = useState(false)
-
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [savingPassword, setSavingPassword] = useState(false)
 
   async function handleNameSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -52,36 +56,30 @@ export function ProfileForm({
     router.refresh()
   }
 
-  async function handlePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSavingPassword(true)
-    const { error } = await authClient.changePassword({
-      currentPassword,
-      newPassword,
-      revokeOtherSessions: true,
-    })
-    setSavingPassword(false)
-    if (error) {
-      toast.error(error.message ?? "Cambio password non riuscito")
-      return
-    }
-    toast.success("Password aggiornata")
-    setCurrentPassword("")
-    setNewPassword("")
-  }
-
   return (
-    <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Dati profilo</CardTitle>
-          <CardDescription>
-            Il nome compare nella barra laterale e nelle attività
-            dell&apos;account.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleNameSubmit} className="contents">
-          <CardContent>
+    <Card>
+      <CardHeader>
+        <CardTitle>Informazioni personali</CardTitle>
+        <CardDescription>
+          Nome e foto compaiono nella barra laterale e nelle attività
+          dell&apos;account.
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleNameSubmit} className="contents">
+        <CardContent>
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <AvatarUploader name={initialName} image={image} />
+              {roles.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {roles.map((r) => (
+                    <Badge key={r} variant="secondary" className="capitalize">
+                      {r}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
             <FieldGroup>
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field>
@@ -98,75 +96,20 @@ export function ProfileForm({
                   <FieldLabel htmlFor="email">Email</FieldLabel>
                   <Input id="email" value={email} disabled readOnly />
                   <FieldDescription>
-                    Per cambiarla usa la sezione Sicurezza qui sotto.
+                    Per cambiarla usa la sezione Email qui sotto.
                   </FieldDescription>
                 </Field>
               </div>
             </FieldGroup>
-          </CardContent>
-          <CardFooter className="justify-end">
-            <Button type="submit" disabled={savingName || name === initialName}>
-              {savingName ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
-              Salva modifiche
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Cambia password</CardTitle>
-          <CardDescription>
-            Per sicurezza, le altre sessioni verranno disconnesse.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handlePasswordSubmit} className="contents">
-          <CardContent>
-            <FieldGroup>
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="current-password">
-                    Password attuale
-                  </FieldLabel>
-                  <Input
-                    id="current-password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    disabled={savingPassword}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="new-password">Nuova password</FieldLabel>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    disabled={savingPassword}
-                  />
-                  <FieldDescription>Almeno 8 caratteri.</FieldDescription>
-                </Field>
-              </div>
-            </FieldGroup>
-          </CardContent>
-          <CardFooter className="justify-end">
-            <Button type="submit" disabled={savingPassword}>
-              {savingPassword ? (
-                <Spinner />
-              ) : (
-                <KeyRoundIcon data-icon="inline-start" />
-              )}
-              Aggiorna password
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
+          </div>
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button type="submit" disabled={savingName || name === initialName}>
+            {savingName ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
+            Salva modifiche
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
   )
 }

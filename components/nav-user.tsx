@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,17 +27,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
-
-function initials(name?: string | null) {
-  if (!name) return "??"
-  return name
-    .split(" ")
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase()
-}
+import { initials } from "@/lib/initials"
 
 // Account dropdown della sidebar: mostra l'utente reale dalla sessione e gestisce
 // il logout. Profilo/Impostazioni puntano alle relative pagine della dashboard.
@@ -74,6 +64,13 @@ export function NavUser() {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton size="lg" tooltip="Account">
               <Avatar className="size-8 rounded-lg">
+                {user?.image && (
+                  <AvatarImage
+                    src={user.image}
+                    alt=""
+                    className="rounded-lg"
+                  />
+                )}
                 <AvatarFallback className="rounded-lg">
                   {initials(user?.name)}
                 </AvatarFallback>
