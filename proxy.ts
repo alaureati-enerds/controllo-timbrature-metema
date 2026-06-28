@@ -20,8 +20,11 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Applica a tutto TRANNE le pagine di auth, le API, gli asset statici.
+  // Applica a tutto TRANNE le pagine di auth, le API, gli asset statici e i
+  // file PWA (manifest, service worker, icone). Questi ultimi DEVONO restare
+  // pubblici: se il proxy li reindirizza al login, Chrome non riesce a leggere
+  // il manifest né a registrare il SW e la PWA non è installabile.
   matcher: [
-    "/((?!login|register|reset-password|verify-email|two-factor|api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|register|reset-password|verify-email|two-factor|api|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icon|apple-icon|icon-.*\\.png|apple-icon\\.png).*)",
   ],
 }

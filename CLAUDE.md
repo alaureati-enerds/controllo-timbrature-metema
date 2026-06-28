@@ -32,6 +32,9 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
 - [Notifiche](docs/notifiche.md) — avvisi all'utente (in app + email via worker),
   con canali estendibili (push/realtime), config admin e preferenze per-utente;
   come aggiungere un tipo o un canale.
+- [PWA (installabilità)](docs/pwa.md) — manifest dinamico, service worker,
+  icone generate e prompt di installazione; come testare e come estendere con
+  notifiche push e supporto offline.
 
 ---
 
