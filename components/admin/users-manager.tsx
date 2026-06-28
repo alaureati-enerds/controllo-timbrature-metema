@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -76,12 +76,49 @@ type AdminUser = {
   id: string
   name: string
   email: string
+  image?: string | null
   role?: string | null
   banned?: boolean | null
 }
 
 const ROLES = ["user", "admin"] as const
 const PAGE_SIZE = 10
+
+// Filtri a preset: l'API admin accetta un solo filtro per query, quindi sono
+// mutuamente esclusivi (uno alla volta), e convivono con la ricerca.
+const FILTERS = [
+  { value: "all", label: "Tutti" },
+  { value: "admin", label: "Solo admin" },
+  { value: "user", label: "Solo utenti" },
+  { value: "banned", label: "Bannati" },
+] as const
+type FilterValue = (typeof FILTERS)[number]["value"]
+
+// Traduce un preset nei parametri filterField/Operator/Value dell'API admin.
+function filterQuery(filter: FilterValue) {
+  switch (filter) {
+    case "admin":
+      return {
+        filterField: "role",
+        filterOperator: "eq" as const,
+        filterValue: "admin",
+      }
+    case "user":
+      return {
+        filterField: "role",
+        filterOperator: "eq" as const,
+        filterValue: "user",
+      }
+    case "banned":
+      return {
+        filterField: "banned",
+        filterOperator: "eq" as const,
+        filterValue: true,
+      }
+    default:
+      return {}
+  }
+}
 
 export function UsersManager() {
   const { data: current } = authClient.useSession()
@@ -92,12 +129,19 @@ export function UsersManager() {
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  // Ricerca e paginazione
+  // Ricerca (con debounce), filtro e paginazione
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
+  const [filter, setFilter] = useState<FilterValue>("all")
   const [page, setPage] = useState(0)
   // Incrementato dopo le mutazioni per forzare il ricaricamento della lista.
   const [refreshKey, setRefreshKey] = useState(0)
+
+  // Cambio ruolo in attesa di conferma (azione di sicurezza con effetti reali).
+  const [pendingRole, setPendingRole] = useState<{
+    user: AdminUser
+    role: (typeof ROLES)[number]
+  } | null>(null)
 
   // Form di creazione manuale
   const [createOpen, setCreateOpen] = useState(false)
@@ -107,8 +151,17 @@ export function UsersManager() {
   const [role, setRole] = useState<(typeof ROLES)[number]>("user")
   const [creating, setCreating] = useState(false)
 
-  // Caricamento lista al variare di pagina, ricerca o refreshKey. Lo stato viene
-  // aggiornato nella callback `.then` (asincrona), non nel corpo dell'effetto.
+  // Debounce della ricerca: applica il testo digitato e torna a pagina 1.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(0)
+      setSearch(searchInput.trim())
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  // Caricamento lista al variare di pagina, ricerca, filtro o refreshKey. Lo
+  // stato viene aggiornato nella callback `.then` (asincrona), non nel corpo.
   useEffect(() => {
     let active = true
     authClient.admin
@@ -119,8 +172,17 @@ export function UsersManager() {
           sortBy: "createdAt",
           sortDirection: "desc",
           ...(search
-            ? { searchField: "email" as const, searchValue: search }
+            ? {
+                // Cerca per email se il testo sembra un indirizzo, altrimenti
+                // per nome: l'API accetta un solo campo di ricerca per volta.
+                searchField: (search.includes("@") ? "email" : "name") as
+                  | "email"
+                  | "name",
+                searchOperator: "contains" as const,
+                searchValue: search,
+              }
             : {}),
+          ...filterQuery(filter),
         },
       })
       .then(({ data, error }) => {
@@ -136,15 +198,9 @@ export function UsersManager() {
     return () => {
       active = false
     }
-  }, [page, search, refreshKey])
+  }, [page, search, filter, refreshKey])
 
   const refresh = () => setRefreshKey((k) => k + 1)
-
-  function handleSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setPage(0)
-    setSearch(searchInput.trim())
-  }
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -222,42 +278,60 @@ export function UsersManager() {
       <CardHeader>
         <CardTitle>Utenti</CardTitle>
         <CardDescription>
-          {total} {total === 1 ? "account" : "account"} registrati. Gestisci
-          ruoli e accesso; apri il dettaglio per le azioni avanzate.
+          {total} {total === 1 ? "account registrato" : "account registrati"}.
+          Gestisci ruoli e accesso; apri il dettaglio per le azioni avanzate.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {/* Barra strumenti: ricerca a sinistra, creazione a destra. */}
+        {/* Barra strumenti: ricerca + filtro a sinistra, creazione a destra. */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <form onSubmit={handleSearch} className="flex gap-2 sm:max-w-sm">
-            <div className="relative flex-1">
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative sm:max-w-xs sm:flex-1">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Cerca per email…"
+                placeholder="Cerca per nome o email…"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="pl-8"
+                aria-label="Cerca utenti per nome o email"
               />
+              {searchInput && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Azzera la ricerca"
+                      className="absolute top-1/2 right-1.5 -translate-y-1/2"
+                      onClick={() => setSearchInput("")}
+                    >
+                      <XIcon />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Azzera</TooltipContent>
+                </Tooltip>
+              )}
             </div>
-            <Button type="submit" variant="outline">
-              <SearchIcon data-icon="inline-start" />
-              Cerca
-            </Button>
-            {search && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setSearchInput("")
-                  setSearch("")
-                  setPage(0)
-                }}
-              >
-                <XIcon data-icon="inline-start" />
-                Azzera
-              </Button>
-            )}
-          </form>
+            <Select
+              value={filter}
+              onValueChange={(v) => {
+                setPage(0)
+                setFilter(v as FilterValue)
+              }}
+            >
+              <SelectTrigger className="sm:w-40" aria-label="Filtra utenti">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FILTERS.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
@@ -387,6 +461,7 @@ export function UsersManager() {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="size-9">
+                              {u.image && <AvatarImage src={u.image} alt="" />}
                               <AvatarFallback className="text-xs">
                                 {initials(u.name)}
                               </AvatarFallback>
@@ -404,10 +479,23 @@ export function UsersManager() {
                         <TableCell>
                           <Select
                             value={u.role ?? "user"}
-                            disabled={busyId === u.id}
-                            onValueChange={(v) => handleSetRole(u.id, v)}
+                            disabled={busyId === u.id || isSelf}
+                            onValueChange={(v) =>
+                              setPendingRole({
+                                user: u,
+                                role: v as (typeof ROLES)[number],
+                              })
+                            }
                           >
-                            <SelectTrigger size="sm" className="w-full">
+                            <SelectTrigger
+                              size="sm"
+                              className="w-full"
+                              aria-label={
+                                isSelf
+                                  ? "Non puoi cambiare il tuo ruolo"
+                                  : `Ruolo di ${u.name}`
+                              }
+                            >
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -486,7 +574,7 @@ export function UsersManager() {
         )}
 
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
+          <span className="text-muted-foreground tabular-nums">
             {rangeStart}–{rangeEnd} di {total} · pagina {page + 1} di{" "}
             {totalPages}
           </span>
@@ -512,6 +600,52 @@ export function UsersManager() {
           </div>
         </div>
       </CardContent>
+
+      {/* Conferma del cambio ruolo dalla tabella. */}
+      <AlertDialog
+        open={pendingRole !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRole(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cambiare il ruolo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingRole?.role === "admin" ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {pendingRole?.user.name}
+                  </span>{" "}
+                  diventerà amministratore, con pieno accesso alle aree
+                  riservate e alla gestione degli altri utenti.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-foreground">
+                    {pendingRole?.user.name}
+                  </span>{" "}
+                  tornerà utente standard e perderà l&apos;accesso alle aree
+                  riservate.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingRole) {
+                  handleSetRole(pendingRole.user.id, pendingRole.role)
+                }
+                setPendingRole(null)
+              }}
+            >
+              Conferma
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
