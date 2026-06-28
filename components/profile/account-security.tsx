@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 import {
+  BadgeCheckIcon,
+  KeyRoundIcon,
   LaptopIcon,
   LogOutIcon,
   MailIcon,
@@ -34,7 +36,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import {
@@ -53,9 +60,11 @@ type SessionRow = {
 
 export function AccountSecurity({
   currentEmail,
+  emailVerified,
   twoFactorEnabled,
 }: {
   currentEmail: string
+  emailVerified: boolean
   twoFactorEnabled: boolean
 }) {
   const router = useRouter()
@@ -139,6 +148,29 @@ export function AccountSecurity({
     )
   }
 
+  // --- Cambio password ---
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [savingPassword, setSavingPassword] = useState(false)
+
+  async function handlePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSavingPassword(true)
+    const { error } = await authClient.changePassword({
+      currentPassword,
+      newPassword,
+      revokeOtherSessions: true,
+    })
+    setSavingPassword(false)
+    if (error) {
+      toast.error(error.message ?? "Cambio password non riuscito")
+      return
+    }
+    toast.success("Password aggiornata")
+    setCurrentPassword("")
+    setNewPassword("")
+  }
+
   // --- Eliminazione account ---
   const [confirmEmail, setConfirmEmail] = useState("")
   const [deleting, setDeleting] = useState(false)
@@ -163,155 +195,222 @@ export function AccountSecurity({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">Sicurezza</h2>
-        <p className="text-sm text-muted-foreground">
-          Gestisci email, accessi attivi ed eliminazione dell&apos;account.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-6">
-        {/* Sessioni attive */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Dispositivi e accessi</CardTitle>
-            <CardDescription>
-              Sessioni attualmente collegate al tuo account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {loadingSessions ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Spinner /> Caricamento…
-              </div>
-            ) : sessions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nessuna sessione attiva.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {sessions.map((s) => {
-                  const isCurrent = s.token === currentToken
-                  return (
-                    <li
-                      key={s.id}
-                      className="flex items-center gap-3 rounded-lg border p-3 text-sm"
-                    >
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                        <LaptopIcon aria-hidden="true" className="size-4" />
-                      </span>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="flex items-center gap-2 truncate font-medium">
-                          <span className="truncate">
-                            {s.userAgent || "Client sconosciuto"}
-                          </span>
-                          {isCurrent && (
-                            <Badge variant="secondary">Questa sessione</Badge>
-                          )}
-                        </span>
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {s.ipAddress || "—"} ·{" "}
-                          {new Date(s.createdAt).toLocaleString("it-IT")}
-                        </span>
-                      </div>
-                      {!isCurrent && (
-                        <RevokeSessionButton
-                          busy={busyToken === s.token}
-                          onConfirm={() => revokeOne(s.token)}
-                        />
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
+      {/* Cambio email */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Email</CardTitle>
+          <CardDescription>
+            Tieni aggiornato l&apos;indirizzo per recuperare l&apos;account.
+            Riceverai un link di conferma sulla nuova email.
+          </CardDescription>
+        </CardHeader>
+        <form onSubmit={handleChangeEmail} className="contents">
+          <CardContent>
+            <FieldGroup>
+              <Field>
+                <FieldLabel>Email attuale</FieldLabel>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium">{currentEmail}</span>
+                  {emailVerified ? (
+                    <Badge variant="outline">
+                      <BadgeCheckIcon
+                        aria-hidden="true"
+                        data-icon="inline-start"
+                      />
+                      Verificata
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      Da verificare
+                    </Badge>
+                  )}
+                </div>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="new-email">Nuova email</FieldLabel>
+                <Input
+                  id="new-email"
+                  type="email"
+                  autoComplete="email"
+                  spellCheck={false}
+                  placeholder="Inserisci il nuovo indirizzo"
+                  required
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  disabled={changingEmail}
+                />
+              </Field>
+            </FieldGroup>
           </CardContent>
-          {otherSessions.length > 0 && (
-            <CardFooter className="justify-end">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busyToken === "__others__"}
-                  >
-                    {busyToken === "__others__" ? (
-                      <Spinner />
-                    ) : (
-                      <LogOutIcon data-icon="inline-start" />
-                    )}
-                    Disconnetti le altre sessioni
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Disconnettere le altre sessioni?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tutti gli altri dispositivi dovranno accedere di nuovo.
-                      Questa sessione resta attiva.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annulla</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      onClick={revokeOthers}
-                    >
-                      <LogOutIcon data-icon="inline-start" />
-                      Disconnetti
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </CardFooter>
-          )}
-        </Card>
+          <CardFooter className="justify-end">
+            <Button type="submit" disabled={changingEmail}>
+              {changingEmail ? (
+                <Spinner />
+              ) : (
+                <MailIcon data-icon="inline-start" />
+              )}
+              Invia conferma
+            </Button>
+          </CardFooter>
+        </form>
+      </Card>
 
-        {/* Cambio email */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cambia email</CardTitle>
-            <CardDescription>
-              Email attuale: <span className="font-medium">{currentEmail}</span>
-              . Riceverai un link di conferma sulla nuova email.
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={handleChangeEmail} className="contents">
-            <CardContent>
-              <FieldGroup>
+      {/* Cambio password */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Password</CardTitle>
+          <CardDescription>
+            Per sicurezza, le altre sessioni verranno disconnesse.
+          </CardDescription>
+        </CardHeader>
+        <form onSubmit={handlePasswordSubmit} className="contents">
+          <CardContent>
+            <FieldGroup>
+              <div className="grid gap-5 sm:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="new-email">Nuova email</FieldLabel>
+                  <FieldLabel htmlFor="current-password">
+                    Password attuale
+                  </FieldLabel>
                   <Input
-                    id="new-email"
-                    type="email"
-                    autoComplete="email"
-                    spellCheck={false}
+                    id="current-password"
+                    type="password"
+                    autoComplete="current-password"
                     required
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    disabled={changingEmail}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    disabled={savingPassword}
                   />
                 </Field>
-              </FieldGroup>
-            </CardContent>
-            <CardFooter className="justify-end">
-              <Button type="submit" disabled={changingEmail}>
-                {changingEmail ? (
-                  <Spinner />
-                ) : (
-                  <MailIcon data-icon="inline-start" />
-                )}
-                Invia conferma
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+                <Field>
+                  <FieldLabel htmlFor="new-password">Nuova password</FieldLabel>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={savingPassword}
+                  />
+                  <FieldDescription>Almeno 8 caratteri.</FieldDescription>
+                </Field>
+              </div>
+            </FieldGroup>
+          </CardContent>
+          <CardFooter className="justify-end">
+            <Button type="submit" disabled={savingPassword}>
+              {savingPassword ? (
+                <Spinner />
+              ) : (
+                <KeyRoundIcon data-icon="inline-start" />
+              )}
+              Aggiorna password
+            </Button>
+          </CardFooter>
+        </form>
+      </Card>
 
-        {/* Autenticazione a due fattori */}
-        <TwoFactorCard initialEnabled={twoFactorEnabled} />
-      </div>
+      {/* Autenticazione a due fattori */}
+      <TwoFactorCard initialEnabled={twoFactorEnabled} />
+
+      {/* Sessioni attive */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Dispositivi e accessi</CardTitle>
+          <CardDescription>
+            Sessioni attualmente collegate al tuo account.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {loadingSessions ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Spinner /> Caricamento…
+            </div>
+          ) : sessions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nessuna sessione attiva.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {sessions.map((s) => {
+                const isCurrent = s.token === currentToken
+                return (
+                  <li
+                    key={s.id}
+                    className="flex items-center gap-3 rounded-lg border p-3 text-sm"
+                  >
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <LaptopIcon aria-hidden="true" className="size-4" />
+                    </span>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="flex items-center gap-2 truncate font-medium">
+                        <span className="truncate">
+                          {s.userAgent || "Client sconosciuto"}
+                        </span>
+                        {isCurrent && (
+                          <Badge variant="secondary">Questa sessione</Badge>
+                        )}
+                      </span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {s.ipAddress || "—"} ·{" "}
+                        {new Date(s.createdAt).toLocaleString("it-IT")}
+                      </span>
+                    </div>
+                    {!isCurrent && (
+                      <RevokeSessionButton
+                        busy={busyToken === s.token}
+                        onConfirm={() => revokeOne(s.token)}
+                      />
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </CardContent>
+        {otherSessions.length > 0 && (
+          <CardFooter className="justify-end">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busyToken === "__others__"}
+                >
+                  {busyToken === "__others__" ? (
+                    <Spinner />
+                  ) : (
+                    <LogOutIcon data-icon="inline-start" />
+                  )}
+                  Disconnetti le altre sessioni
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Disconnettere le altre sessioni?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tutti gli altri dispositivi dovranno accedere di nuovo.
+                    Questa sessione resta attiva.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    onClick={revokeOthers}
+                  >
+                    <LogOutIcon data-icon="inline-start" />
+                    Disconnetti
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardFooter>
+        )}
+      </Card>
 
       {/* Eliminazione account */}
       <Card className="border-destructive/30 ring-destructive/20">
