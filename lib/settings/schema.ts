@@ -55,6 +55,26 @@ export const auditSettingsSchema = z.object({
 
 export type AuditSettings = z.infer<typeof auditSettingsSchema>
 
+// Config delle NOTIFICHE persistita nel blob del singleton. Server-only (mai in
+// toPublicSettings), stile opt-out come l'audit: di default il sistema è attivo e
+// nessun tipo è disabilitato, così un tipo nuovo notifica senza toccare la
+// config. NB: i tipi OBBLIGATORI (catalogo, `mandatory`) ignorano sia
+// l'interruttore generale sia `disabledTypes` — la sicurezza non si spegne.
+// Vedi lib/notifications/ e docs/notifiche.md.
+export const notificationSettingsSchema = z.object({
+  // Interruttore generale: false = nessuna notifica NON obbligatoria viene creata.
+  enabled: z.boolean().default(true),
+  // `type` (vedi catalogo) che l'admin ha spento esplicitamente. Ignorato per i
+  // tipi obbligatori.
+  disabledTypes: z.array(z.string()).default([]),
+  // Giorni di conservazione prima del pruning automatico. Si applica SOLO alle
+  // notifiche già lette; le non lette non scadono mai per età. 0 = conserva
+  // sempre.
+  retentionDays: z.coerce.number().int().min(0).max(3650).default(90),
+})
+
+export type NotificationSettings = z.infer<typeof notificationSettingsSchema>
+
 export const systemSettingsSchema = z.object({
   // Nome del software, mostrato nell'header della sidebar e nel <title>.
   appName: z.string().trim().min(1).default("shadcn starter"),
@@ -67,6 +87,11 @@ export const systemSettingsSchema = z.object({
   // Config audit log (server-only). Default = i default dello schema (logging
   // attivo, nessun evento spento, retention 90gg).
   audit: auditSettingsSchema.default(auditSettingsSchema.parse({})),
+  // Config notifiche (server-only). Default = i default dello schema (attive,
+  // nessun tipo spento, retention 90gg).
+  notifications: notificationSettingsSchema.default(
+    notificationSettingsSchema.parse({})
+  ),
 })
 
 export type SystemSettings = z.infer<typeof systemSettingsSchema>
@@ -90,7 +115,7 @@ export function toPublicSettings(s: SystemSettings): PublicSystemSettings {
 // opzionali (patch parziale). `email` e `audit` sono esclusi di proposito — si
 // aggiornano solo dai rispettivi endpoint dedicati, mai da qui.
 export const systemSettingsPatchSchema = systemSettingsSchema
-  .omit({ email: true, audit: true })
+  .omit({ email: true, audit: true, notifications: true })
   .partial()
 
 export type SystemSettingsPatch = z.infer<typeof systemSettingsPatchSchema>

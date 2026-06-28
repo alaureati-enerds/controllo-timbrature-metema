@@ -132,8 +132,13 @@ function buildEvent(ctx: AfterCtx, failed: boolean): AuditInput | null {
   }
 }
 
-// Middleware da registrare in `hooks.after` di Better Auth (lib/auth.ts).
-export const auditAfterHook = createAuthMiddleware(async (ctx) => {
+// Logica dell'after-hook, estratta come funzione così da poterla COMPORRE con
+// l'hook delle notifiche (Better Auth accetta un solo `hooks.after`): vedi la
+// composizione in lib/auth.ts. `ctx.request` serve a ricavare IP/user-agent.
+export async function runAuditAfter(ctx: {
+  request?: Request
+  [k: string]: unknown
+}): Promise<void> {
   const afterCtx = ctx as unknown as AfterCtx
   const failed = afterCtx.context.returned instanceof APIError
   const event = buildEvent(afterCtx, failed)
@@ -141,4 +146,7 @@ export const auditAfterHook = createAuthMiddleware(async (ctx) => {
   // FAIL-OPEN: audit() non lancia mai, ma per sicurezza non blocchiamo comunque
   // il flusso di Better Auth se qualcosa andasse storto qui.
   await audit({ ...event, request: ctx.request }).catch(() => {})
-})
+}
+
+// Middleware da comporre in `hooks.after` di Better Auth (lib/auth.ts).
+export const auditAfterHook = createAuthMiddleware(runAuditAfter)

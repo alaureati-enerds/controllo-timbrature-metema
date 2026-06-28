@@ -29,6 +29,9 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
 - [Audit logging](docs/audit-logging.md) — registro append-only delle azioni di
   sicurezza, configurabile dall'admin (toggle per evento, retention); come
   aggiungere un evento al log.
+- [Notifiche](docs/notifiche.md) — avvisi all'utente (in app + email via worker),
+  con canali estendibili (push/realtime), config admin e preferenze per-utente;
+  come aggiungere un tipo o un canale.
 
 ---
 

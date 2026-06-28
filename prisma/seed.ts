@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { env } from "@/lib/env"
+import { categoryOf } from "@/lib/notifications/catalog"
 import { prisma } from "@/lib/prisma"
 import { systemSettingsSchema } from "@/lib/settings/schema"
 
@@ -51,6 +52,70 @@ async function seedSystemSettings() {
   console.log("✔ Create impostazioni di sistema con i valori di default.")
 }
 
+// Notifiche di esempio per un utente, così la campanella e la pagina /notifications
+// hanno qualcosa da mostrare senza dover prima scatenare eventi reali. Idempotente:
+// se l'utente ha già notifiche, non aggiunge nulla. Le righe si creano direttamente
+// (non via notify()) per poter variare data e stato letto/non letto a scopo demo.
+async function seedNotifications(email: string) {
+  const user = await prisma.user.findUnique({ where: { email } })
+  if (!user) return
+
+  const existing = await prisma.notification.count({ where: { userId: user.id } })
+  if (existing > 0) {
+    console.log(`✔ Notifiche già presenti per ${email}, nessuna azione.`)
+    return
+  }
+
+  const hour = 60 * 60 * 1000
+  const now = Date.now()
+  // ageH = quante ore fa; read = se già letta.
+  const samples = [
+    {
+      type: "auth.login.new_device",
+      title: "Nuovo accesso al tuo account",
+      body: "Rilevato un accesso da un dispositivo non riconosciuto. Se non sei stato tu, cambia subito la password.",
+      ageH: 1,
+      read: false,
+    },
+    {
+      type: "account.password.change",
+      title: "Password modificata",
+      body: "La password del tuo account è stata cambiata. Se non sei stato tu, reimpostala subito.",
+      ageH: 26,
+      read: false,
+    },
+    {
+      type: "account.2fa.enable",
+      title: "Verifica in due passaggi attivata",
+      body: "Hai attivato la verifica in due passaggi (2FA) sul tuo account.",
+      ageH: 52,
+      read: true,
+    },
+    {
+      type: "account.email.change",
+      title: "Email modificata",
+      body: "L'indirizzo email del tuo account è stato modificato.",
+      ageH: 100,
+      read: true,
+    },
+  ]
+
+  await prisma.notification.createMany({
+    data: samples.map((s) => ({
+      userId: user.id,
+      type: s.type,
+      category: categoryOf(s.type),
+      title: s.title,
+      body: s.body,
+      data: { url: "/profile" },
+      createdAt: new Date(now - s.ageH * hour),
+      readAt: s.read ? new Date(now - s.ageH * hour + 30 * 60 * 1000) : null,
+    })),
+  })
+
+  console.log(`✔ Create ${samples.length} notifiche di esempio per ${email}.`)
+}
+
 async function main() {
   await seedSystemSettings()
 
@@ -67,6 +132,9 @@ async function main() {
     name: env.SEED_USER_NAME,
     role: "user",
   })
+
+  await seedNotifications(env.SEED_ADMIN_EMAIL)
+  await seedNotifications(env.SEED_USER_EMAIL)
 }
 
 main()

@@ -43,6 +43,15 @@ const schedules: {
     type: "audit-prune",
     payload: {},
   },
+  // Retention delle notifiche: ogni giorno alle 03:45 elimina le notifiche LETTE
+  // più vecchie del periodo configurato (le non lette non scadono). Vedi
+  // docs/notifiche.md.
+  {
+    key: "notification-prune-giornaliero",
+    cron: "45 3 * * *",
+    type: "notification-prune",
+    payload: {},
+  },
 ]
 
 async function main() {

@@ -39,11 +39,13 @@ model User {
   // Plugin twoFactor (2FA): true quando l'utente ha attivato e verificato la 2FA
   twoFactorEnabled Boolean? @default(false)
 
-  sessions   Session[]
-  accounts   Account[]
-  twoFactors TwoFactor[]
-  notes      Note[]
-  files      File[]
+  sessions      Session[]
+  accounts      Account[]
+  twoFactors    TwoFactor[]
+  notes         Note[]
+  files         File[]
+  notifications Notification[]
+  preference    UserPreference?
 
   @@map("user")
 }
@@ -151,6 +153,22 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 
   @@map("system_setting")
+}
+
+/// PREFERENZE PER-UTENTE: gemello di SystemSetting ma con autorizzazione per
+/// OWNERSHIP (una riga per utente, `userId` come chiave), non per ruolo. Il
+/// contenuto vive in un unico blob `data` (Json) validato in app da uno schema
+/// Zod (vedi lib/settings/user.ts), così aggiungere una preferenza non richiede
+/// una migrazione. Primo caso d'uso: la scelta dei canali di notifica per-tipo
+/// (vedi lib/notifications/). Vedi docs/impostazioni-di-sistema.md.
+model UserPreference {
+  userId    String   @id
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preference")
 }
 
 // ============================================================================
@@ -279,4 +297,44 @@ model AuditLog {
   @@index([action, createdAt])
   @@index([actorId, createdAt])
   @@map("audit_log")
+}
+
+// ============================================================================
+// Notifiche
+// ============================================================================
+
+/// Una notifica IN-APP recapitata a un singolo utente. È la FONTE DI VERITÀ del
+/// canale in-app (come `Job` lo è per le operazioni): l'app la crea via
+/// `notify()` (lib/notifications/) e l'utente la legge dalla campanella in
+/// topbar. Gli altri canali (email, e in futuro push/realtime) NON vivono qui:
+/// sono recapiti paralleli decisi al momento dell'evento. Vedi docs/notifiche.md.
+///
+/// `type` è la chiave nel catalogo (lib/notifications/catalog.ts): aggiungere un
+/// tipo di notifica = una voce nel catalogo + una chiamata `notify()`, senza
+/// migrazioni. `data` è un blob libero per tipo (es. `{ url }` per il link).
+///
+/// RETENTION: il pruning (worker) cancella solo le notifiche GIÀ LETTE più
+/// vecchie del periodo configurato; le NON lette non scadono mai per età, così
+/// un utente assente a lungo non perde notifiche mai viste.
+model Notification {
+  id       String @id @default(cuid())
+  type     String // chiave del catalogo, es. "auth.login.new_device"
+  category String // raggruppamento, derivato dalla `type`
+
+  title String // titolo breve mostrato nella campanella
+  body  String // corpo della notifica (testo)
+  data  Json? // contesto extra per il rendering, es. { url, target }
+
+  // Lettura: null = non letta. Marcata dall'utente (mark-as-read). Indicizzata
+  // per il conteggio dei "non letti" (badge) e per il pruning di retention.
+  readAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, createdAt])
+  @@map("notification")
 }

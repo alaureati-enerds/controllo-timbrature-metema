@@ -10,14 +10,24 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { navItems } from "@/lib/navigation"
+import { adminNavItems, navItems } from "@/lib/navigation"
 
-// Titolo della voce corrente. Se la rotta è registrata in navItems usa il suo
-// titolo; altrimenti deriva un'etichetta leggibile dall'ultimo segmento del
-// path, così una rotta sconosciuta non viene etichettata come "Dashboard".
+// Rotte non presenti nei menu (es. la pagina notifiche, raggiungibile solo dalla
+// campanella) ma che vogliamo etichettare in italiano nel breadcrumb.
+const EXTRA_TITLES: Record<string, string> = {
+  "/notifications": "Notifiche",
+}
+
+// Titolo della voce corrente. Cerca prima nei menu (piattaforma e admin), poi
+// nelle rotte extra; altrimenti deriva un'etichetta leggibile dall'ultimo
+// segmento del path, così una rotta sconosciuta non viene etichettata come
+// "Dashboard".
 function currentTitle(pathname: string) {
-  const item = navItems.find((item) => item.url === pathname)
+  const item = [...navItems, ...adminNavItems].find(
+    (item) => item.url === pathname
+  )
   if (item) return item.title
+  if (EXTRA_TITLES[pathname]) return EXTRA_TITLES[pathname]
 
   const segment = pathname.split("/").filter(Boolean).pop()
   if (!segment) return navItems[0].title

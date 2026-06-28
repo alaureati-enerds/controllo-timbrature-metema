@@ -2,6 +2,7 @@ import type { EmailMessage } from "@/lib/email/driver"
 import { escapeHtml, render, type TemplateVars } from "@/lib/email/render"
 import { changeEmailTemplate } from "@/lib/email/templates/change-email"
 import { deleteAccountTemplate } from "@/lib/email/templates/delete-account"
+import { notificationTemplate } from "@/lib/email/templates/notification"
 import { resetPasswordTemplate } from "@/lib/email/templates/reset-password"
 import type { EmailTemplate } from "@/lib/email/templates/types"
 import { verifyEmailTemplate } from "@/lib/email/templates/verify-email"
@@ -14,6 +15,7 @@ const TEMPLATES = {
   [resetPasswordTemplate.id]: resetPasswordTemplate,
   [changeEmailTemplate.id]: changeEmailTemplate,
   [deleteAccountTemplate.id]: deleteAccountTemplate,
+  [notificationTemplate.id]: notificationTemplate,
 } satisfies Record<string, EmailTemplate>
 
 export type EmailTemplateId = keyof typeof TEMPLATES

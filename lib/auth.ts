@@ -1,9 +1,10 @@
 import { betterAuth } from "better-auth"
 import { prismaAdapter } from "better-auth/adapters/prisma"
+import { createAuthMiddleware } from "better-auth/api"
 import { nextCookies } from "better-auth/next-js"
 import { admin, twoFactor } from "better-auth/plugins"
 
-import { auditAfterHook } from "@/lib/audit/auth-hooks"
+import { runAuditAfter } from "@/lib/audit/auth-hooks"
 import {
   sendChangeEmailConfirmation,
   sendDeleteAccountVerification,
@@ -11,6 +12,7 @@ import {
   sendVerificationEmail,
 } from "@/lib/email/auth-emails"
 import { env } from "@/lib/env"
+import { runNotifyAfter } from "@/lib/notifications/auth-hooks"
 import { ac, roles } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
 
@@ -82,12 +84,18 @@ export const auth = betterAuth({
     },
   },
 
-  // Audit log: un unico hook DOPO ogni endpoint registra gli eventi di sicurezza
-  // (login ok/fallito, logout, cambio password/email, 2FA, azioni admin sugli
-  // utenti). La mappa path → evento vive in lib/audit/auth-hooks.ts. Il logging
-  // è fail-open: non può far fallire un'operazione di Better Auth.
+  // Un unico hook DOPO ogni endpoint alimenta due sistemi paralleli e fail-open
+  // (nessuno dei due può far fallire un'operazione di Better Auth):
+  //  - AUDIT LOG: registra gli eventi di sicurezza (login ok/fallito, logout,
+  //    cambio password/email, 2FA, azioni admin) — lib/audit/auth-hooks.ts;
+  //  - NOTIFICHE: avvisa l'utente degli eventi di sicurezza che lo riguardano
+  //    (nuovo accesso, password/email/2FA) — lib/notifications/auth-hooks.ts.
+  // Better Auth accetta un solo `after`: qui li componiamo, isolando ciascuno.
   hooks: {
-    after: auditAfterHook,
+    after: createAuthMiddleware(async (ctx) => {
+      await runAuditAfter(ctx).catch(() => {})
+      await runNotifyAfter(ctx).catch(() => {})
+    }),
   },
 
   // Rate limiting integrato: protegge gli endpoint auth da abusi/brute force.

@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { GlobalSearch } from "@/components/global-search"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
 import { ModeToggle } from "@/components/mode-toggle"
+import { NotificationsBell } from "@/components/notifications-bell"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
@@ -53,6 +54,7 @@ export default async function DashboardLayout({
             <AppBreadcrumb />
             <div className="ml-auto flex items-center gap-2">
               <GlobalSearch />
+              <NotificationsBell />
               <ModeToggle />
             </div>
           </header>
