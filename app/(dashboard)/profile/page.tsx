@@ -2,17 +2,20 @@ import type { Metadata } from "next"
 import { BadgeCheckIcon } from "lucide-react"
 
 import { AccountSecurity } from "@/components/profile/account-security"
+import { NotificationPreferencesForm } from "@/components/profile/notification-preferences-form"
 import { ProfileForm } from "@/components/profile/profile-form"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { requireUser } from "@/lib/auth-helpers"
 import { initials } from "@/lib/initials"
+import { getUserPreferences } from "@/lib/settings/user"
 
 export const metadata: Metadata = { title: "Profilo" }
 
 export default async function ProfilePage() {
   const session = await requireUser()
   const { name, email, role, emailVerified } = session.user
+  const preferences = await getUserPreferences(session.user.id)
   const twoFactorEnabled = Boolean(
     (session.user as { twoFactorEnabled?: boolean | null }).twoFactorEnabled
   )
@@ -56,6 +59,7 @@ export default async function ProfilePage() {
 
       <ProfileForm initialName={name} email={email} />
       <AccountSecurity currentEmail={email} twoFactorEnabled={twoFactorEnabled} />
+      <NotificationPreferencesForm initial={preferences} />
     </div>
   )
 }

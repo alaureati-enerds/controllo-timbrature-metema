@@ -60,6 +60,7 @@ export const auditCatalog = [
   // --- Configurazione di sistema -------------------------------------------
   { action: "system.settings.update", category: "system", label: "Impostazioni modificate" },
   { action: "system.email.update", category: "system", label: "Config email modificata" },
+  { action: "system.notifications.update", category: "system", label: "Config notifiche modificata" },
 ] as const satisfies readonly AuditEventDef[]
 
 // Tutte le `action` conosciute, come tipo stretto: dà autocompletamento e
