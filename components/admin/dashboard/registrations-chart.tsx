@@ -10,6 +10,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
+import { useReducedMotion } from "@/hooks/use-reduced-motion"
 import type { DailyPoint } from "@/lib/dashboard/admin-stats"
 
 // Grafico a barre delle nuove registrazioni utenti per giorno: il segnale di
@@ -20,9 +21,10 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function RegistrationsChart({ data }: { data: DailyPoint[] }) {
+  const reducedMotion = useReducedMotion()
   return (
     <ChartContainer config={chartConfig} className="h-[240px] w-full">
-      <BarChart data={data} margin={{ left: 12, right: 12 }}>
+      <BarChart accessibilityLayer data={data} margin={{ left: 12, right: 12 }}>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey="date"
@@ -46,7 +48,12 @@ export function RegistrationsChart({ data }: { data: DailyPoint[] }) {
             />
           }
         />
-        <Bar dataKey="registrations" fill="var(--color-registrations)" radius={4} />
+        <Bar
+          dataKey="registrations"
+          fill="var(--color-registrations)"
+          radius={4}
+          isAnimationActive={!reducedMotion}
+        />
       </BarChart>
     </ChartContainer>
   )

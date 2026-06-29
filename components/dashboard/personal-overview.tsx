@@ -66,6 +66,7 @@ export async function PersonalOverview({
   ])
   const filesTotalSize = files.reduce((sum, f) => sum + f.size, 0)
   const recentNotes = notes.slice(0, 5)
+  const allSecure = user.emailVerified && user.twoFactorEnabled
 
   return (
     <div className="flex flex-col gap-4">
@@ -81,10 +82,15 @@ export async function PersonalOverview({
               <NotebookPenIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardFooter>
+          <CardFooter className="flex-col items-start gap-3">
+            <span className="text-sm text-muted-foreground">
+              {notes.length > 0
+                ? `Ultima il ${format(notes[0].createdAt, "d MMM", { locale: it })}`
+                : "Nessuna nota ancora"}
+            </span>
             <Button variant="outline" size="sm" asChild>
               <Link href="/notes">
-                Vai alle note
+                Apri le note
                 <ArrowRightIcon data-icon="inline-end" />
               </Link>
             </Button>
@@ -107,7 +113,7 @@ export async function PersonalOverview({
             </span>
             <Button variant="outline" size="sm" asChild>
               <Link href="/files">
-                Vai ai file
+                Apri i file
                 <ArrowRightIcon data-icon="inline-end" />
               </Link>
             </Button>
@@ -124,10 +130,13 @@ export async function PersonalOverview({
               <BellIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardFooter>
+          <CardFooter className="flex-col items-start gap-3">
+            <span className="text-sm text-muted-foreground">
+              {nf.format(notifs.total)} in tutto
+            </span>
             <Button variant="outline" size="sm" asChild>
               <Link href="/notifications">
-                Vai alle notifiche
+                Apri le notifiche
                 <ArrowRightIcon data-icon="inline-end" />
               </Link>
             </Button>
@@ -140,30 +149,46 @@ export async function PersonalOverview({
         <CardHeader>
           <CardTitle>Sicurezza dell&apos;account</CardTitle>
           <CardDescription>
-            Tieni al sicuro il tuo accesso completando questi passaggi.
+            {allSecure
+              ? "Tutti i controlli di sicurezza sono attivi."
+              : "Tieni al sicuro il tuo accesso completando questi passaggi."}
           </CardDescription>
           <CardAction>
             <ShieldCheckIcon className="text-muted-foreground" />
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <SecurityRow
-            icon={<MailIcon className="size-5 text-muted-foreground" />}
-            title="Email verificata"
-            description="Conferma il tuo indirizzo per ricevere le comunicazioni."
-            done={user.emailVerified}
-            doneLabel="Verificata"
-            ctaLabel="Verifica email"
-          />
-          <Separator />
-          <SecurityRow
-            icon={<KeyRoundIcon className="size-5 text-muted-foreground" />}
-            title="Verifica in due passaggi (2FA)"
-            description="Aggiungi un secondo fattore per proteggere l'accesso."
-            done={user.twoFactorEnabled}
-            doneLabel="Attiva"
-            ctaLabel="Attiva 2FA"
-          />
+          {allSecure ? (
+            <div className="flex items-center gap-3">
+              <CheckCircle2Icon className="size-5 text-muted-foreground" />
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">Account protetto</span>
+                <span className="text-sm text-muted-foreground">
+                  Email verificata e verifica in due passaggi attiva.
+                </span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <SecurityRow
+                icon={<MailIcon className="size-5 text-muted-foreground" />}
+                title="Email verificata"
+                description="Conferma il tuo indirizzo per ricevere le comunicazioni."
+                done={user.emailVerified}
+                doneLabel="Verificata"
+                ctaLabel="Verifica email"
+              />
+              <Separator />
+              <SecurityRow
+                icon={<KeyRoundIcon className="size-5 text-muted-foreground" />}
+                title="Verifica in due passaggi (2FA)"
+                description="Aggiungi un secondo fattore per proteggere l'accesso."
+                done={user.twoFactorEnabled}
+                doneLabel="Attiva"
+                ctaLabel="Attiva 2FA"
+              />
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -198,7 +223,7 @@ export async function PersonalOverview({
                       href={`/notes/${note.id}`}
                       className="flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent"
                     >
-                      <span className="truncate">{note.text}</span>
+                      <span className="min-w-0 truncate">{note.text}</span>
                       <span className="shrink-0 tabular-nums text-muted-foreground">
                         {format(note.createdAt, "d MMM", { locale: it })}
                       </span>

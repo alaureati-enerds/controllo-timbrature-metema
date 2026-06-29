@@ -12,6 +12,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
+import { useReducedMotion } from "@/hooks/use-reduced-motion"
 import type { DailyPoint } from "@/lib/dashboard/admin-stats"
 
 // Grafico ad area (impilata) degli eventi del registro di audit per giorno:
@@ -24,9 +25,10 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function ActivityChart({ data }: { data: DailyPoint[] }) {
+  const reducedMotion = useReducedMotion()
   return (
     <ChartContainer config={chartConfig} className="h-[240px] w-full">
-      <AreaChart data={data} margin={{ left: 12, right: 12 }}>
+      <AreaChart accessibilityLayer data={data} margin={{ left: 12, right: 12 }}>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey="date"
@@ -57,6 +59,7 @@ export function ActivityChart({ data }: { data: DailyPoint[] }) {
           fill="var(--color-auditOk)"
           fillOpacity={0.4}
           stroke="var(--color-auditOk)"
+          isAnimationActive={!reducedMotion}
         />
         <Area
           dataKey="auditFail"
@@ -65,6 +68,7 @@ export function ActivityChart({ data }: { data: DailyPoint[] }) {
           fill="var(--color-auditFail)"
           fillOpacity={0.4}
           stroke="var(--color-auditFail)"
+          isAnimationActive={!reducedMotion}
         />
       </AreaChart>
     </ChartContainer>
