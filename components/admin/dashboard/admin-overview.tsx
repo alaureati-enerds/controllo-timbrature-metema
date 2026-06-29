@@ -178,7 +178,7 @@ export function AdminOverview({ stats }: { stats: AdminStats }) {
               <ShieldCheckIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardContent className="grid grid-cols-3 gap-4">
+          <CardContent className="flex-1 grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-1">
               <span className="text-2xl font-semibold tabular-nums">
                 {nf.format(users.verified)}
@@ -218,7 +218,7 @@ export function AdminOverview({ stats }: { stats: AdminStats }) {
               <ListChecksIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
+          <CardContent className="flex-1 flex flex-col gap-2">
             {JOB_STATUS.map(({ key, label }) => (
               <div
                 key={key}
