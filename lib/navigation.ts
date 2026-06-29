@@ -1,5 +1,4 @@
 import {
-  BellIcon,
   FolderIcon,
   HourglassIcon,
   LayoutDashboardIcon,
@@ -34,6 +33,5 @@ export const adminNavItems: NavItem[] = [
   { title: "Gestione utenti", url: "/admin/users", icon: UsersIcon },
   { title: "Operazioni in background", url: "/admin/jobs", icon: ListChecksIcon },
   { title: "Audit log", url: "/admin/audit", icon: ScrollTextIcon },
-  { title: "Notifiche", url: "/admin/notifications", icon: BellIcon },
   { title: "Impostazioni di sistema", url: "/admin/settings", icon: SettingsIcon },
 ]
