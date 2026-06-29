@@ -3,7 +3,6 @@ import { format, parseISO } from "date-fns"
 import { it } from "date-fns/locale"
 import {
   ArrowRightIcon,
-  ArrowUpRightIcon,
   BellIcon,
   CheckCircle2Icon,
   FolderIcon,
@@ -20,10 +19,10 @@ import {
   CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { KpiFooter } from "@/components/dashboard/kpi-footer"
 import {
   Empty,
   EmptyDescription,
@@ -32,23 +31,10 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Separator } from "@/components/ui/separator"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { formatSize, nf } from "@/lib/dashboard/utils"
 import { listNotes } from "@/lib/notes"
 import { listUserFiles } from "@/lib/files"
 import { listNotifications } from "@/lib/notifications"
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
-}
-
-const nf = new Intl.NumberFormat("it-IT")
 
 type SecurityUser = {
   emailVerified: boolean
@@ -274,35 +260,6 @@ export async function PersonalOverview({
         </Card>
       </div>
     </div>
-  )
-}
-
-// Footer di una KPI card: una sola riga con la stat secondaria a sinistra e
-// una piccola icona di navigazione a destra (al posto di un bottone testuale,
-// che occupava una riga intera). L'icona ha nome accessibile + Tooltip.
-function KpiFooter({
-  href,
-  label,
-  children,
-}: {
-  href: string
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <CardFooter className="justify-between">
-      <span className="text-sm text-muted-foreground">{children}</span>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link href={href} aria-label={label}>
-              <ArrowUpRightIcon />
-            </Link>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{label}</TooltipContent>
-      </Tooltip>
-    </CardFooter>
   )
 }
 

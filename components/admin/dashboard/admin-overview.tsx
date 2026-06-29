@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { KpiFooter } from "@/components/dashboard/kpi-footer"
 import {
   Empty,
   EmptyDescription,
@@ -38,19 +39,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { AdminStats } from "@/lib/dashboard/admin-stats"
+import { formatSize, nf } from "@/lib/dashboard/utils"
 import type { JobStatus } from "@/lib/generated/prisma/client"
 
 import { ActivityChart } from "./activity-chart"
 import { RegistrationsChart } from "./registrations-chart"
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
-}
-
-const nf = new Intl.NumberFormat("it-IT")
 
 // Etichette e ordine di visualizzazione degli stati dei job.
 const JOB_STATUS: { key: JobStatus; label: string }[] = [
@@ -81,11 +74,11 @@ export function AdminOverview({ stats }: { stats: AdminStats }) {
               <UsersIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardFooter className="text-sm text-muted-foreground">
+          <KpiFooter href="/admin/users" label="Gestione utenti">
             {users.newLast7 > 0
               ? `+${nf.format(users.newLast7)} negli ultimi 7 giorni`
               : "Nessuna nuova registrazione (7 giorni)"}
-          </CardFooter>
+          </KpiFooter>
         </Card>
 
         <Card>
@@ -98,7 +91,7 @@ export function AdminOverview({ stats }: { stats: AdminStats }) {
               <ListChecksIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardFooter className="text-sm text-muted-foreground">
+          <KpiFooter href="/admin/jobs" label="Operazioni in background">
             {jobs.failedLast7 > 0 ? (
               <span className="text-destructive">
                 {nf.format(jobs.failedLast7)} fallite negli ultimi 7 giorni
@@ -106,7 +99,7 @@ export function AdminOverview({ stats }: { stats: AdminStats }) {
             ) : (
               "In coda o in esecuzione adesso"
             )}
-          </CardFooter>
+          </KpiFooter>
         </Card>
 
         <Card>
@@ -119,9 +112,9 @@ export function AdminOverview({ stats }: { stats: AdminStats }) {
               <FolderIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardFooter className="text-sm text-muted-foreground">
+          <KpiFooter href="/files" label="I miei file">
             {formatSize(files.totalSize)} occupati nello storage
-          </CardFooter>
+          </KpiFooter>
         </Card>
 
         <Card>
@@ -134,11 +127,11 @@ export function AdminOverview({ stats }: { stats: AdminStats }) {
               <NotebookPenIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardFooter className="text-sm text-muted-foreground">
-            {notifications.unread > 0
-              ? `${nf.format(notifications.unread)} notifiche non lette`
-              : "Note salvate da tutti gli utenti"}
-          </CardFooter>
+          <KpiFooter href="/notes" label="Note">
+            {notes.newLast7 > 0
+              ? `+${nf.format(notes.newLast7)} negli ultimi 7 giorni`
+              : "Nessuna nota recente"}
+          </KpiFooter>
         </Card>
       </div>
 
