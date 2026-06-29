@@ -6,6 +6,12 @@ import { getSystemSettings } from "@/lib/settings/system"
 // app/layout.tsx (legge il singleton SystemSetting). Diventa quindi un route
 // handler dinamico (usa prisma, API a request-time), coerente con quanto fa
 // già il <title> della pagina.
+//
+// `force-dynamic`: il manifest si genera a OGNI richiesta, mai al build. Così il
+// nome riflette subito l'impostazione di sistema E la build dell'immagine Docker
+// non richiede un database raggiungibile (vedi docs/deploy-docker.md).
+export const dynamic = "force-dynamic"
+
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const { appName } = await getSystemSettings()
   const shortName = appName.length > 12 ? appName.slice(0, 12) : appName

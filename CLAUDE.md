@@ -35,6 +35,9 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
 - [PWA (installabilità)](docs/pwa.md) — manifest dinamico, service worker,
   icone generate e prompt di installazione; come testare e come estendere con
   notifiche push e supporto offline.
+- [Deploy in produzione con Docker](docs/deploy-docker.md) — immagine unica per
+  web/worker/migrate dietro un NGINX reverse proxy esterno; come provare in
+  locale, configurare le variabili e fare gli aggiornamenti.
 
 ---
 

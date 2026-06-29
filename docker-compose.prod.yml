@@ -1,0 +1,85 @@
+# Compose di PRODUZIONE. Tre processi applicativi (web, worker, migrate) dalla
+# stessa immagine, più Postgres. Niente Mailpit (è solo per lo sviluppo).
+#
+# Esegui SEMPRE passando il file env di produzione, che serve sia a popolare le
+# variabili dei container sia all'interpolazione di ${WEB_PORT} qui dentro:
+#
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+#
+# Vedi docs/deploy-docker.md per la procedura completa e gli aggiornamenti.
+
+# Progetto Compose dedicato: tiene lo stack di produzione SEPARATO da quello di
+# sviluppo (docker-compose.yml). Senza, condividerebbero project name (la
+# cartella) e i servizi "postgres" omonimi entrerebbero in conflitto; i volumi
+# di produzione sono quindi prefissati `shadcn-starter-prod_*`.
+name: shadcn-starter-prod
+
+# Config comune ai servizi che usano l'immagine dell'app (build una volta,
+# riusata da web/worker/migrate grazie allo stesso tag immagine).
+x-app: &app
+  build: .
+  image: shadcn-starter:prod
+  env_file: .env.production
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: shadcn-starter-db-prod
+    restart: unless-stopped
+    env_file: .env.production
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # $$ evita l'interpolazione di compose: le variabili le espande la shell
+      # DENTRO il container, dove postgres le ha impostate da env_file.
+      test:
+        ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Nessuna porta esposta sull'host: il DB è raggiungibile solo dalla rete
+    # interna del compose (web/worker/migrate vi accedono come host "postgres").
+
+  # Servizio one-shot: applica le migration pendenti e (idempotente) il seed.
+  # Da qui dipendono web e worker, così a OGNI `up` le migration vengono
+  # riapplicate prima dell'avvio dell'app. È anche il meccanismo di aggiornamento.
+  migrate:
+    <<: *app
+    container_name: shadcn-starter-migrate
+    command: sh -c "npm run db:deploy && npm run db:seed"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    <<: *app
+    container_name: shadcn-starter-web
+    command: npm run start
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - storage:/app/storage
+    restart: unless-stopped
+
+  worker:
+    <<: *app
+    container_name: shadcn-starter-worker
+    command: npm run worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - storage:/app/storage
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  storage:

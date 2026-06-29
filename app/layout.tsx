@@ -14,6 +14,12 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
+// `force-dynamic`: il titolo dipende dal nome del software (impostazione di
+// sistema letta dal DB in generateMetadata), quindi ogni pagina si renderizza a
+// request-time invece che al build. Evita anche che la build dell'immagine
+// Docker richieda un database raggiungibile (vedi docs/deploy-docker.md).
+export const dynamic = "force-dynamic"
+
 // Titolo dinamico: il nome del software è un'impostazione di sistema, quindi va
 // letto a runtime (cachato server-side). `template` fa sì che le singole pagine
 // appaiano come "Pagina · <nome software>".

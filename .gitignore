@@ -20,6 +20,8 @@
 # Ambiente
 .env
 .env*.local
+# Segreti di produzione (usa .env.production.example come template)
+/.env.production
 
 # Storage dei file caricati (vedi STORAGE_DIR)
 /storage/
