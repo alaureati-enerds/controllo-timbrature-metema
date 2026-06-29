@@ -312,11 +312,11 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsAdmin }) 
                   : "Disponibile solo con il driver SMTP"
               }
             >
-              {testing ? <Spinner /> : <SendIcon />}
+              {testing ? <Spinner aria-hidden="true" /> : <SendIcon aria-hidden="true" />}
               Invia email di prova
             </Button>
             <Button type="submit" disabled={busy}>
-              {saving ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
+              {saving ? <Spinner aria-hidden="true" /> : <SaveIcon data-icon="inline-start" aria-hidden="true" />}
               Salva
             </Button>
           </div>

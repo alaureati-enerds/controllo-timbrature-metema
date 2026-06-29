@@ -147,6 +147,7 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
                 </FieldLabel>
                 <Input
                   id="retention"
+                  name="retentionDays"
                   type="number"
                   min={0}
                   max={3650}
@@ -208,7 +209,7 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
         </CardContent>
         <CardFooter className="justify-end">
           <Button type="submit" disabled={saving}>
-            {saving ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
+            {saving ? <Spinner aria-hidden="true" /> : <SaveIcon data-icon="inline-start" aria-hidden="true" />}
             Salva
           </Button>
         </CardFooter>

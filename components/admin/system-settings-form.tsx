@@ -129,7 +129,7 @@ export function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
         </CardContent>
         <CardFooter className="justify-end">
           <Button type="submit" disabled={saving || !appName.trim()}>
-            {saving ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
+            {saving ? <Spinner aria-hidden="true" /> : <SaveIcon data-icon="inline-start" aria-hidden="true" />}
             Salva
           </Button>
         </CardFooter>
