@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { useCallback, useRef, useState } from "react"
 
 import { authClient } from "@/lib/auth-client"
@@ -34,7 +34,6 @@ import { Spinner } from "@/components/ui/spinner"
 type Mode = "totp" | "backup"
 
 export function TwoFactorForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect") || "/"
 
@@ -48,10 +47,13 @@ export function TwoFactorForm() {
   // Evita il doppio invio quando l'OTP si completa e l'utente preme anche Invio.
   const submittingRef = useRef(false)
 
+  // Navigazione full-page (non router.push): dopo la verifica 2FA serve una
+  // richiesta nuova al server con il cookie di sessione già impostato, altrimenti
+  // la cache RSC del router può riusare lo stato non autenticato e il redirect
+  // non avviene al primo tentativo (visibile solo nella build di produzione).
   const finish = useCallback(() => {
-    router.push(redirectTo)
-    router.refresh()
-  }, [redirectTo, router])
+    window.location.href = redirectTo
+  }, [redirectTo])
 
   const verifyTotp = useCallback(
     async (value: string) => {

@@ -56,10 +56,12 @@ export function LoginForm() {
       return
     }
 
-    setPending(false)
-    toast.success("Accesso effettuato")
-    router.push(redirectTo)
-    router.refresh()
+    // Navigazione full-page (non router.push): dopo il login serve una richiesta
+    // nuova al server con il cookie di sessione già impostato. Con la
+    // navigazione soft la cache RSC del router può riusare lo stato NON
+    // autenticato (quello con cui proxy.ts rimanda a /login) e al primo tentativo
+    // il redirect non avviene — problema visibile solo nella build di produzione.
+    window.location.href = redirectTo
   }
 
   return (
