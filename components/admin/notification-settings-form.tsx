@@ -118,7 +118,7 @@ export function NotificationSettingsForm({
     <Card>
       <form onSubmit={handleSave} className="contents">
         <CardHeader>
-          <CardTitle>Configurazione</CardTitle>
+          <CardTitle>Notifiche</CardTitle>
           <CardDescription>
             Scegli quali azioni generano una notifica e per quanto conservare le
             notifiche lette. Le modifiche valgono dal salvataggio in poi.
@@ -224,7 +224,7 @@ export function NotificationSettingsForm({
         <CardFooter className="justify-end">
           <Button type="submit" disabled={saving}>
             {saving ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
-            Salva configurazione
+            Salva
           </Button>
         </CardFooter>
       </form>

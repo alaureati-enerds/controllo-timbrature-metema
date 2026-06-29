@@ -112,7 +112,7 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
     <Card>
       <form onSubmit={handleSave} className="contents">
         <CardHeader>
-          <CardTitle>Configurazione</CardTitle>
+          <CardTitle>Audit log</CardTitle>
           <CardDescription>
             Scegli quali eventi tracciare e per quanto conservarli. Le modifiche
             valgono dal salvataggio in poi.
@@ -209,7 +209,7 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
         <CardFooter className="justify-end">
           <Button type="submit" disabled={saving}>
             {saving ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
-            Salva configurazione
+            Salva
           </Button>
         </CardFooter>
       </form>

@@ -316,7 +316,7 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsAdmin }) 
               Invia email di prova
             </Button>
             <Button type="submit" disabled={busy}>
-              {saving ? <Spinner /> : <SaveIcon />}
+              {saving ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
               Salva
             </Button>
           </div>
