@@ -1,0 +1,36 @@
+# Contesto di build minimale: ciò che va rigenerato o non serve nell'immagine.
+
+# Dipendenze e build (rigenerate dentro l'immagine)
+node_modules
+.next
+out
+build
+dist
+lib/generated
+
+# Stato persistente (vive nei volumi a runtime, non nell'immagine)
+storage
+
+# Ambiente e segreti (i valori reali arrivano via env_file a runtime)
+.env
+.env.*
+
+# Git e metadati
+.git
+.gitignore
+
+# Strumenti, cache, editor
+coverage
+*.tsbuildinfo
+.eslintcache
+.DS_Store
+.vscode
+.idea
+.claude
+.agents
+.prettiercache
+
+# Docker stesso
+Dockerfile
+.dockerignore
+docker-compose*.yml
