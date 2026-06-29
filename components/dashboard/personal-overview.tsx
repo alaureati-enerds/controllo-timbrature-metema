@@ -3,6 +3,7 @@ import { format, parseISO } from "date-fns"
 import { it } from "date-fns/locale"
 import {
   ArrowRightIcon,
+  ArrowUpRightIcon,
   BellIcon,
   CheckCircle2Icon,
   FolderIcon,
@@ -31,6 +32,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Separator } from "@/components/ui/separator"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { listNotes } from "@/lib/notes"
 import { listUserFiles } from "@/lib/files"
 import { listNotifications } from "@/lib/notifications"
@@ -82,19 +88,11 @@ export async function PersonalOverview({
               <NotebookPenIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardFooter className="flex-col items-start gap-3">
-            <span className="text-sm text-muted-foreground">
-              {notes.length > 0
-                ? `Ultima il ${format(notes[0].createdAt, "d MMM", { locale: it })}`
-                : "Nessuna nota ancora"}
-            </span>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/notes">
-                Apri le note
-                <ArrowRightIcon data-icon="inline-end" />
-              </Link>
-            </Button>
-          </CardFooter>
+          <KpiFooter href="/notes" label="Apri le note">
+            {notes.length > 0
+              ? `Ultima il ${format(notes[0].createdAt, "d MMM", { locale: it })}`
+              : "Nessuna nota ancora"}
+          </KpiFooter>
         </Card>
 
         <Card>
@@ -107,17 +105,9 @@ export async function PersonalOverview({
               <FolderIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardFooter className="flex-col items-start gap-3">
-            <span className="text-sm text-muted-foreground">
-              {formatSize(filesTotalSize)} occupati
-            </span>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/files">
-                Apri i file
-                <ArrowRightIcon data-icon="inline-end" />
-              </Link>
-            </Button>
-          </CardFooter>
+          <KpiFooter href="/files" label="Apri i file">
+            {formatSize(filesTotalSize)} occupati
+          </KpiFooter>
         </Card>
 
         <Card>
@@ -130,17 +120,9 @@ export async function PersonalOverview({
               <BellIcon className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardFooter className="flex-col items-start gap-3">
-            <span className="text-sm text-muted-foreground">
-              {nf.format(notifs.total)} in tutto
-            </span>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/notifications">
-                Apri le notifiche
-                <ArrowRightIcon data-icon="inline-end" />
-              </Link>
-            </Button>
-          </CardFooter>
+          <KpiFooter href="/notifications" label="Apri le notifiche">
+            {nf.format(notifs.total)} in tutto
+          </KpiFooter>
         </Card>
       </div>
 
@@ -292,6 +274,35 @@ export async function PersonalOverview({
         </Card>
       </div>
     </div>
+  )
+}
+
+// Footer di una KPI card: una sola riga con la stat secondaria a sinistra e
+// una piccola icona di navigazione a destra (al posto di un bottone testuale,
+// che occupava una riga intera). L'icona ha nome accessibile + Tooltip.
+function KpiFooter({
+  href,
+  label,
+  children,
+}: {
+  href: string
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <CardFooter className="justify-between">
+      <span className="text-sm text-muted-foreground">{children}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon-sm" asChild>
+            <Link href={href} aria-label={label}>
+              <ArrowUpRightIcon />
+            </Link>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </CardFooter>
   )
 }
 
