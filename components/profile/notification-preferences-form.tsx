@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { SaveIcon } from "lucide-react"
+import { SaveIcon, ShieldIcon, UserIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -124,6 +124,11 @@ export function NotificationPreferencesForm({
     }
   }
 
+  const categoryIcons: Record<string, React.ReactNode> = {
+    security: <ShieldIcon className="size-4" />,
+    account: <UserIcon className="size-4" />,
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -138,23 +143,28 @@ export function NotificationPreferencesForm({
           <FieldGroup>
             {groups.map((group) => (
               <FieldSet key={group.category}>
-                <FieldLegend>{categoryLabel(group.category)}</FieldLegend>
-                <div className="flex flex-col gap-4">
+                <FieldLegend>
+                  <span className="inline-flex items-center gap-1.5">
+                    {categoryIcons[group.category]}
+                    {categoryLabel(group.category)}
+                  </span>
+                </FieldLegend>
+                <div className="flex flex-col divide-y divide-border">
                   {group.events.map((ev) => {
                     const set = channels[ev.type]
                     const inAppId = `ch-${ev.type}-in-app`
                     const emailId = `ch-${ev.type}-email`
                     return (
-                      <Field key={ev.type} orientation="responsive">
+                      <Field key={ev.type} orientation="responsive" className="py-3 first:pt-0 last:pb-0">
                         <FieldContent>
-                          <FieldLabel>
-                            {ev.label}
+                          <div className="flex items-start justify-between gap-2">
+                            <FieldLabel>{ev.label}</FieldLabel>
                             {ev.mandatory && (
-                              <Badge variant="secondary" className="ml-2">
+                              <Badge variant="secondary" className="shrink-0 mt-0.5">
                                 Obbligatoria
                               </Badge>
                             )}
-                          </FieldLabel>
+                          </div>
                           <FieldDescription>{ev.description}</FieldDescription>
                         </FieldContent>
                         <div className="flex items-center gap-5">
