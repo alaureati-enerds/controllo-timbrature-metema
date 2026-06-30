@@ -5,11 +5,16 @@ import cronstrue from "cronstrue/i18n"
 import {
   CalendarClockIcon,
   CalendarPlusIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   FileTextIcon,
+  FilterIcon,
+  InboxIcon,
   PlayIcon,
   RefreshCwIcon,
   SquareIcon,
   Trash2Icon,
+  XIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -37,6 +42,7 @@ import {
   CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -50,6 +56,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -61,6 +82,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import {
   Table,
@@ -121,6 +143,7 @@ type Schedule = {
 type FormValues = Record<string, string | number | boolean>
 
 const POLL_MS = 1500
+const PAGE_SIZE = 20
 
 const STATUS_META: Record<
   JobStatus,
@@ -197,6 +220,13 @@ export function JobsManager() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [busyKey, setBusyKey] = useState<string | null>(null)
 
+  // Filtri + paginazione della tabella operazioni (lista live, vedi polling).
+  const [statusFilter, setStatusFilter] = useState<JobStatus | "all">("all")
+  const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [offset, setOffset] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+
   // Stato del cron builder (tenuto qui per evitare setState negli effetti).
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [scheduleName, setScheduleName] = useState("")
@@ -217,11 +247,28 @@ export function JobsManager() {
   const currentType = types.find((t) => t.type === selectedType)
   const fields = currentType?.fields ?? []
 
+  // Query (filtri + pagina) della tabella operazioni: stessa stringa per polling
+  // e ricariche manuali, così restano in sincrono.
+  const jobsQuery = useMemo(() => {
+    const p = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+    })
+    if (statusFilter !== "all") p.set("status", statusFilter)
+    if (typeFilter !== "all") p.set("type", typeFilter)
+    return p.toString()
+  }, [statusFilter, typeFilter, offset])
+
   async function reloadJobs() {
-    const res = await fetch("/api/admin/jobs")
+    const res = await fetch(`/api/admin/jobs?${jobsQuery}`)
     if (!res.ok) throw new Error("Caricamento operazioni non riuscito")
-    const data = (await res.json()) as { jobs: Job[]; types: JobType[] }
+    const data = (await res.json()) as {
+      jobs: Job[]
+      total: number
+      types: JobType[]
+    }
     setJobs(data.jobs)
+    setTotal(data.total)
     setTypes(data.types)
     setSelectedType((prev) => prev || data.types[0]?.type || "")
   }
@@ -232,20 +279,27 @@ export function JobsManager() {
     setSchedules((await res.json()) as Schedule[])
   }
 
+  // Polling della tabella operazioni: ricarica la pagina corrente ogni POLL_MS e
+  // riparte quando cambiano filtri o pagina (jobsQuery).
   useEffect(() => {
     let active = true
     let inFlight = false
     const pollJobs = () => {
       if (inFlight) return
       inFlight = true
-      fetch("/api/admin/jobs")
+      fetch(`/api/admin/jobs?${jobsQuery}`)
         .then((res) => {
           if (!res.ok) throw new Error("Caricamento operazioni non riuscito")
-          return res.json() as Promise<{ jobs: Job[]; types: JobType[] }>
+          return res.json() as Promise<{
+            jobs: Job[]
+            total: number
+            types: JobType[]
+          }>
         })
         .then((data) => {
           if (!active) return
           setJobs(data.jobs)
+          setTotal(data.total)
           setTypes(data.types)
           setSelectedType((prev) => prev || data.types[0]?.type || "")
           setLoading(false)
@@ -258,16 +312,24 @@ export function JobsManager() {
         })
     }
     pollJobs()
+    const id = setInterval(pollJobs, POLL_MS)
+    return () => {
+      active = false
+      clearInterval(id)
+    }
+  }, [jobsQuery])
+
+  // Schedulazioni: caricate una volta (non cambiano col filtro dei job).
+  useEffect(() => {
+    let active = true
     fetch("/api/admin/jobs/schedules")
       .then((res) => (res.ok ? (res.json() as Promise<Schedule[]>) : []))
       .then((data) => {
         if (active) setSchedules(data)
       })
       .catch(() => {})
-    const id = setInterval(pollJobs, POLL_MS)
     return () => {
       active = false
-      clearInterval(id)
     }
   }, [])
 
@@ -394,6 +456,140 @@ export function JobsManager() {
   const labelFor = (type: string) =>
     types.find((t) => t.type === type)?.label ?? type
 
+  const activeJobFilters =
+    (statusFilter !== "all" ? 1 : 0) + (typeFilter !== "all" ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const page = Math.floor(offset / PAGE_SIZE) + 1
+
+  function clearJobFilters() {
+    setStatusFilter("all")
+    setTypeFilter("all")
+    setOffset(0)
+    setMobileFilterOpen(false)
+  }
+
+  // Select dei filtri riusati da toolbar desktop e Drawer mobile.
+  function jobStatusSelect(triggerClass: string) {
+    return (
+      <Select
+        value={statusFilter}
+        onValueChange={(v) => {
+          setOffset(0)
+          setStatusFilter(v as JobStatus | "all")
+        }}
+      >
+        <SelectTrigger className={triggerClass} aria-label="Filtra per stato">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Ogni stato</SelectItem>
+          {(Object.keys(STATUS_META) as JobStatus[]).map((s) => (
+            <SelectItem key={s} value={s}>
+              {STATUS_META[s].label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
+
+  function jobTypeSelect(triggerClass: string) {
+    return (
+      <Select
+        value={typeFilter}
+        onValueChange={(v) => {
+          setOffset(0)
+          setTypeFilter(v)
+        }}
+      >
+        <SelectTrigger className={triggerClass} aria-label="Filtra per tipo">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Ogni tipo</SelectItem>
+          {types.map((t) => (
+            <SelectItem key={t.type} value={t.type}>
+              {t.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
+
+  // Avanzamento riusato da tabella desktop e card mobile.
+  function jobProgress(job: Job) {
+    if (job.status === "running" || job.progress > 0) {
+      return (
+        <div className="flex flex-col gap-1">
+          <Progress value={job.progress} />
+          <span className="truncate text-xs text-muted-foreground tabular-nums">
+            {job.progress}%{job.message ? ` · ${job.message}` : ""}
+          </span>
+        </div>
+      )
+    }
+    if (job.error) {
+      return (
+        <span className="block text-xs break-words text-destructive">
+          {job.error}
+        </span>
+      )
+    }
+    return <span className="text-xs text-muted-foreground">—</span>
+  }
+
+  // Azioni di un'operazione: dettaglio (log) sempre, Ferma solo se attiva.
+  // Riusate da tabella desktop e dalla card mobile (in alto a destra).
+  function jobActions(job: Job) {
+    return (
+      <div className="flex justify-end gap-1">
+        <JobLogsDialog job={job} label={labelFor(job.type)} />
+        {isActive(job.status) && (
+          <ConfirmIconButton
+            icon={<SquareIcon className="fill-current" />}
+            label={job.cancelRequested ? "Arresto…" : "Ferma"}
+            disabled={busyId === job.id || job.cancelRequested}
+            busy={busyId === job.id || job.cancelRequested}
+            destructive
+            title="Fermare l'operazione?"
+            description="Verrà richiesto l'arresto al worker appena possibile. Il lavoro già svolto non viene annullato."
+            confirmLabel="Ferma"
+            onConfirm={() => handleCancel(job.id)}
+          />
+        )}
+      </div>
+    )
+  }
+
+  function scheduleActions(s: Schedule) {
+    return (
+      <div className="flex justify-end gap-1">
+        <ConfirmIconButton
+          icon={<PlayIcon />}
+          label="Esegui ora"
+          disabled={busyKey === s.key}
+          busy={busyKey === s.key}
+          title="Eseguire adesso?"
+          description={`Accoda subito un'esecuzione di «${labelFor(s.type)}», senza attendere l'orario pianificato.`}
+          confirmLabel="Esegui ora"
+          onConfirm={() => handleRunNow(s.key)}
+        />
+        <ConfirmIconButton
+          icon={<Trash2Icon />}
+          label="Elimina"
+          disabled={busyKey === s.key}
+          busy={busyKey === s.key}
+          destructive
+          title="Eliminare la schedulazione?"
+          description={`«${s.key}» non verrà più eseguita automaticamente. Le esecuzioni già avviate non vengono toccate.`}
+          confirmLabel="Elimina"
+          onConfirm={() => handleUnschedule(s.key)}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <Card>
@@ -420,13 +616,13 @@ export function JobsManager() {
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center">
             <Select
               value={selectedType}
               onValueChange={setSelectedType}
               disabled={starting || types.length === 0}
             >
-              <SelectTrigger className="w-64">
+              <SelectTrigger className="w-full md:w-64">
                 <SelectValue placeholder="Scegli un'operazione…" />
               </SelectTrigger>
               <SelectContent>
@@ -544,35 +740,115 @@ export function JobsManager() {
             </Accordion>
           )}
 
-          {loading ? (
-            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-              <Spinner /> Caricamento…
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Operazione</TableHead>
-                    <TableHead className="w-32">Stato</TableHead>
-                    <TableHead className="w-64">Avanzamento</TableHead>
-                    <TableHead className="w-px text-right">Azioni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {jobs.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="h-24 text-center text-muted-foreground"
+          {/* Desktop — filtri in linea */}
+          <div className="hidden items-center gap-3 md:flex">
+            {jobStatusSelect("w-44")}
+            {jobTypeSelect("w-52")}
+            {activeJobFilters > 0 && (
+              <Button
+                variant="ghost"
+                onClick={clearJobFilters}
+                aria-label="Azzera filtri"
+              >
+                <XIcon data-icon="inline-start" />
+                Azzera filtri
+              </Button>
+            )}
+          </div>
+
+          {/* Mobile — Drawer filtri */}
+          <div className="flex gap-2 md:hidden">
+            <Drawer open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
+              <DrawerTrigger asChild>
+                <Button variant="outline" className="flex-1">
+                  <FilterIcon data-icon="inline-start" />
+                  Filtri
+                  {activeJobFilters > 0 && (
+                    <Badge variant="secondary" className="ml-auto">
+                      {activeJobFilters}
+                    </Badge>
+                  )}
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent>
+                <DrawerHeader className="px-5 pt-4 pb-4 text-left">
+                  <div className="flex items-center justify-between">
+                    <DrawerTitle className="flex items-center gap-2">
+                      <FilterIcon className="size-4" />
+                      Filtri
+                    </DrawerTitle>
+                    {activeJobFilters > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Azzera filtri"
+                        onClick={clearJobFilters}
                       >
-                        Nessuna operazione. Avviane una qui sopra.
-                      </TableCell>
+                        <XIcon className="size-4" />
+                        Azzera
+                      </Button>
+                    )}
+                  </div>
+                  <DrawerDescription className="sr-only">
+                    Filtra le operazioni per stato e tipo.
+                  </DrawerDescription>
+                </DrawerHeader>
+                <div
+                  className="no-scrollbar overflow-y-auto"
+                  style={{
+                    paddingLeft: "calc(1.25rem + env(safe-area-inset-left))",
+                    paddingRight: "calc(1.25rem + env(safe-area-inset-right))",
+                    paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+                  }}
+                >
+                  <div className="flex flex-col gap-4">
+                    {jobStatusSelect("w-full")}
+                    {jobTypeSelect("w-full")}
+                  </div>
+                </div>
+              </DrawerContent>
+            </Drawer>
+            {activeJobFilters > 0 && (
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Azzera filtri"
+                onClick={clearJobFilters}
+              >
+                <XIcon />
+              </Button>
+            )}
+          </div>
+
+          {/* Desktop — tabella */}
+          <div className="hidden md:block">
+            {loading ? (
+              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                <Spinner /> Caricamento…
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Operazione</TableHead>
+                      <TableHead className="w-32">Stato</TableHead>
+                      <TableHead className="w-64">Avanzamento</TableHead>
+                      <TableHead className="w-px text-right">Azioni</TableHead>
                     </TableRow>
-                  ) : (
-                    jobs.map((job) => {
-                      const meta = STATUS_META[job.status]
-                      return (
+                  </TableHeader>
+                  <TableBody>
+                    {jobs.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          className="h-24 text-center text-muted-foreground"
+                        >
+                          Nessuna operazione con questi filtri.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      jobs.map((job) => (
                         <TableRow key={job.id}>
                           <TableCell>
                             <div className="flex min-w-0 flex-col">
@@ -588,63 +864,105 @@ export function JobsManager() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={meta.variant}>{meta.label}</Badge>
+                            <Badge variant={STATUS_META[job.status].variant}>
+                              {STATUS_META[job.status].label}
+                            </Badge>
                           </TableCell>
-                          <TableCell>
-                            {job.status === "running" || job.progress > 0 ? (
-                              <div className="flex flex-col gap-1">
-                                <Progress value={job.progress} />
-                                <span className="truncate text-xs text-muted-foreground tabular-nums">
-                                  {job.progress}%
-                                  {job.message ? ` · ${job.message}` : ""}
-                                </span>
-                              </div>
-                            ) : job.error ? (
-                              <span className="truncate text-xs text-destructive">
-                                {job.error}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">
-                                —
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex justify-end gap-1">
-                              <JobLogsDialog
-                                job={job}
-                                label={labelFor(job.type)}
-                              />
-                              {isActive(job.status) && (
-                                <ConfirmIconButton
-                                  icon={<SquareIcon className="fill-current" />}
-                                  label={
-                                    job.cancelRequested ? "Arresto…" : "Ferma"
-                                  }
-                                  disabled={
-                                    busyId === job.id || job.cancelRequested
-                                  }
-                                  busy={
-                                    busyId === job.id || job.cancelRequested
-                                  }
-                                  destructive
-                                  title="Fermare l'operazione?"
-                                  description="Verrà richiesto l'arresto al worker appena possibile. Il lavoro già svolto non viene annullato."
-                                  confirmLabel="Ferma"
-                                  onConfirm={() => handleCancel(job.id)}
-                                />
-                              )}
-                            </div>
-                          </TableCell>
+                          <TableCell>{jobProgress(job)}</TableCell>
+                          <TableCell>{jobActions(job)}</TableCell>
                         </TableRow>
-                      )
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile — lista di card */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} size="sm">
+                  <CardContent className="space-y-2">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-3 w-1/3" />
+                    <Skeleton className="h-2 w-full" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : jobs.length === 0 ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <InboxIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>Nessuna operazione</EmptyTitle>
+                  <EmptyDescription>
+                    Nessuna operazione con questi filtri. Avviane una qui sopra
+                    o azzera i filtri.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              jobs.map((job) => (
+                <Card key={job.id} size="sm">
+                  <CardContent>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {labelFor(job.type)}
+                      </span>
+                      {jobActions(job)}
+                    </div>
+                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant={STATUS_META[job.status].variant}
+                          className="shrink-0"
+                        >
+                          {STATUS_META[job.status].label}
+                        </Badge>
+                        <span className="tabular-nums">
+                          {fmt(job.createdAt)}
+                        </span>
+                      </div>
+                      {job.scheduleKey && (
+                        <div className="truncate">cron: {job.scheduleKey}</div>
+                      )}
+                    </div>
+                    <div className="mt-3">{jobProgress(job)}</div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </CardContent>
+        <CardFooter className="flex-col items-center gap-3 text-sm md:flex-row md:justify-between">
+          <span className="text-muted-foreground tabular-nums">
+            {total} operazion{total === 1 ? "e" : "i"}
+            {total > 0 ? ` · pagina ${page} di ${totalPages}` : ""}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={offset === 0}
+              onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+            >
+              <ChevronLeftIcon data-icon="inline-start" />
+              Precedente
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={offset + PAGE_SIZE >= total}
+              onClick={() => setOffset((o) => o + PAGE_SIZE)}
+            >
+              Successiva
+              <ChevronRightIcon data-icon="inline-end" />
+            </Button>
+          </div>
+        </CardFooter>
       </Card>
 
       <Card>
@@ -656,7 +974,8 @@ export function JobsManager() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-lg border">
+          {/* Desktop — tabella */}
+          <div className="hidden overflow-hidden rounded-lg border md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -712,36 +1031,73 @@ export function JobsManager() {
                       <TableCell className="text-xs text-muted-foreground tabular-nums">
                         {s.nextRun ? fmt(s.nextRun) : "—"}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          <ConfirmIconButton
-                            icon={<PlayIcon />}
-                            label="Esegui ora"
-                            disabled={busyKey === s.key}
-                            busy={busyKey === s.key}
-                            title="Eseguire adesso?"
-                            description={`Accoda subito un'esecuzione di «${labelFor(s.type)}», senza attendere l'orario pianificato.`}
-                            confirmLabel="Esegui ora"
-                            onConfirm={() => handleRunNow(s.key)}
-                          />
-                          <ConfirmIconButton
-                            icon={<Trash2Icon />}
-                            label="Elimina"
-                            disabled={busyKey === s.key}
-                            busy={busyKey === s.key}
-                            destructive
-                            title="Eliminare la schedulazione?"
-                            description={`«${s.key}» non verrà più eseguita automaticamente. Le esecuzioni già avviate non vengono toccate.`}
-                            confirmLabel="Elimina"
-                            onConfirm={() => handleUnschedule(s.key)}
-                          />
-                        </div>
-                      </TableCell>
+                      <TableCell>{scheduleActions(s)}</TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Mobile — lista di card */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {schedules.length === 0 ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <CalendarClockIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>Nessuna schedulazione</EmptyTitle>
+                  <EmptyDescription>
+                    Creane una con «Schedula…» dopo aver scelto un&apos;operazione.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              schedules.map((s) => (
+                <Card key={s.key} size="sm">
+                  <CardContent>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate font-medium">{s.key}</span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {labelFor(s.type)}
+                        </span>
+                      </div>
+                      {scheduleActions(s)}
+                    </div>
+                    <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                      <div>
+                        <span className="text-foreground">
+                          {s.human ?? s.cron}
+                        </span>{" "}
+                        · {s.timezone || "UTC"}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        Ultima:
+                        {s.lastRun ? (
+                          <>
+                            <Badge
+                              variant={STATUS_META[s.lastRun.status].variant}
+                            >
+                              {STATUS_META[s.lastRun.status].label}
+                            </Badge>
+                            <span className="tabular-nums">
+                              {fmt(s.lastRun.at)}
+                            </span>
+                          </>
+                        ) : (
+                          "mai"
+                        )}
+                      </div>
+                      <div className="tabular-nums">
+                        Prossima: {s.nextRun ? fmt(s.nextRun) : "—"}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
