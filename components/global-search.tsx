@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { SearchIcon } from "lucide-react"
 
 import { authClient } from "@/lib/auth-client"
+import { hasRole } from "@/lib/roles"
 import {
   Command,
   CommandDialog,
@@ -26,14 +27,6 @@ import {
   type SearchContext,
   type SearchResult,
 } from "@/lib/search/sources"
-
-// `user.role` può contenere più ruoli separati da virgola (vedi app-sidebar).
-function hasRole(role: string | null | undefined, target: string) {
-  return (role ?? "")
-    .split(",")
-    .map((r) => r.trim())
-    .includes(target)
-}
 
 type Groups = Record<string, SearchResult[]>
 
