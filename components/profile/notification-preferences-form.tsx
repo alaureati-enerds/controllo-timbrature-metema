@@ -145,7 +145,7 @@ export function NotificationPreferencesForm({
                     const inAppId = `ch-${ev.type}-in-app`
                     const emailId = `ch-${ev.type}-email`
                     return (
-                      <Field key={ev.type} orientation="horizontal">
+                      <Field key={ev.type} orientation="responsive">
                         <FieldContent>
                           <FieldLabel>
                             {ev.label}
