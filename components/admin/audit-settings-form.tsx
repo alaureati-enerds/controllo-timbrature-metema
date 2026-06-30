@@ -172,7 +172,7 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
           <Accordion type="single" collapsible className="rounded-lg border px-4">
             <AccordionItem value="azioni" className="border-b-0">
               <AccordionTrigger>Azioni da tracciare</AccordionTrigger>
-              <AccordionContent className="px-1">
+              <AccordionContent className="px-2">
                 <FieldGroup>
                   {groups.map((group) => (
                     <FieldSet key={group.category} data-disabled={!enabled}>
