@@ -146,7 +146,12 @@ man mano che rivediamo le pagine: ogni nuova regola va annotata qui.
   `Tooltip`. (Niente DataTable generico: si applica per-pagina.)
 - **Toolbar di filtri.** Niente `flex-wrap` con tanti controlli larghi: su mobile
   i filtri si impilano a larghezza piena (`flex-col` → `sm:flex-row`) oppure si
-  raccolgono dietro un trigger «Filtri» (`Sheet`/`Collapsible`).
+  raccolgono dietro un trigger «Filtri» (`Sheet`/`Collapsible`/`Drawer`). Quando i
+  filtri sono molti, il **`Drawer`** (bottom-sheet `vaul`,
+  [`components/ui/drawer.tsx`](components/ui/drawer.tsx)) è preferibile al `Sheet`
+  laterale: `max-h-[80vh]` scrollabile e padding di safe-area li ospitano spaziati
+  bene. Esempio: filtri dell'Audit Log
+  ([`components/admin/audit-log.tsx`](components/admin/audit-log.tsx)).
 - **Niente larghezze fisse che sforano.** Evita `w-64`, `min-w-*` ecc. che su
   schermi stretti causano scroll orizzontale: usa `w-full` con `sm:`/`md:` per le
   larghezze maggiori. La regola d'oro: il `body` non deve mai scrollare in
