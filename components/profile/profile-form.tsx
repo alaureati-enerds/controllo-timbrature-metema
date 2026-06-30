@@ -6,7 +6,9 @@ import { PencilIcon, UserIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AvatarUploader } from "@/components/profile/avatar-uploader"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -30,15 +32,20 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import { initials } from "@/lib/initials"
 
 // Card "Informazioni personali": avatar + nome. La password e l'email stanno
 // nella sezione sicurezza (components/profile/account-security.tsx).
 export function ProfileForm({
   initialName,
+  email,
   image,
+  roles,
 }: {
   initialName: string
+  email: string
   image: string | null
+  roles: string[]
 }) {
   const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
@@ -70,14 +77,26 @@ export function ProfileForm({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col gap-6">
-          <AvatarUploader name={initialName} image={image} />
-          <FieldGroup>
-            <Field>
-              <FieldLabel>Nome</FieldLabel>
-              <span className="text-sm font-medium">{name}</span>
-            </Field>
-          </FieldGroup>
+        <div className="flex items-center gap-4">
+          <Avatar className="size-16 shrink-0 rounded-xl">
+            {image && <AvatarImage src={image} alt="" className="rounded-xl" />}
+            <AvatarFallback className="rounded-xl text-lg font-medium">
+              {initials(name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="flex items-center gap-2">
+              <span className="truncate font-medium">{name}</span>
+              {roles.map((r) => (
+                <Badge key={r} variant="secondary" className="shrink-0 capitalize">
+                  {r}
+                </Badge>
+              ))}
+            </span>
+            <span className="truncate text-sm text-muted-foreground">
+              {email}
+            </span>
+          </div>
         </div>
       </CardContent>
       <CardFooter className="justify-end">
@@ -90,28 +109,31 @@ export function ProfileForm({
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Modifica nome</DialogTitle>
+              <DialogTitle>Modifica profilo</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleNameSubmit}>
-              <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor="edit-name">Nome</FieldLabel>
-                  <Input
-                    id="edit-name"
-                    required
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    disabled={savingName}
-                  />
-                </Field>
-              </FieldGroup>
-              <DialogFooter className="mt-6">
-                <Button type="submit" disabled={savingName || editName === name}>
-                  {savingName ? <Spinner /> : <PencilIcon data-icon="inline-start" />}
-                  Salva
-                </Button>
-              </DialogFooter>
-            </form>
+            <div className="flex flex-col gap-6">
+              <AvatarUploader name={editName} image={image} />
+              <form onSubmit={handleNameSubmit}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="edit-name">Nome</FieldLabel>
+                    <Input
+                      id="edit-name"
+                      required
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      disabled={savingName}
+                    />
+                  </Field>
+                </FieldGroup>
+                <DialogFooter className="mt-6">
+                  <Button type="submit" disabled={savingName || editName === name}>
+                    {savingName ? <Spinner /> : <PencilIcon data-icon="inline-start" />}
+                    Salva
+                  </Button>
+                </DialogFooter>
+              </form>
+            </div>
           </DialogContent>
         </Dialog>
       </CardFooter>
