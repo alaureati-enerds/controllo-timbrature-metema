@@ -104,6 +104,57 @@ coerenza e a non ripetere errori già corretti.
 - Copy in **italiano**, voce attiva, sentence case: il bottone dice cosa succede
   («Ferma», «Elimina») e il toast conferma con lo stesso verbo.
 
+### Mobile
+
+Convenzioni per rendere ogni pagina fruibile da telefono. Questa sezione cresce
+man mano che rivediamo le pagine: ogni nuova regola va annotata qui.
+
+- **Soglia unica mobile/desktop: `md` (768px).** È il breakpoint di `useIsMobile`
+  ([`hooks/use-mobile.ts`](hooks/use-mobile.ts)) e quello a cui la sidebar diventa
+  uno `Sheet`. Usa `md:` per i passaggi mobile→desktop, non `sm:` (640px), così
+  non si crea una fascia 640–768px incoerente.
+- **Safe area (notch e home indicator).** Il `viewport` è impostato con
+  `viewport-fit=cover` ([`app/layout.tsx`](app/layout.tsx)); i bordi dello schermo
+  vanno rispettati con `env(safe-area-inset-*)`. Già applicato a inset superiore
+  della shell ([`app/(dashboard)/layout.tsx`](app/(dashboard)/layout.tsx)), bordo
+  inferiore del contenuto, `Sheet` della sidebar e bottom bar. Ogni nuova barra
+  fissa (header/footer sticky) deve aggiungere il padding di safe-area. Nota: in
+  PWA standalone su iOS `env(safe-area-inset-top)` vale 0 (la status bar è già
+  riservata dal sistema); quel padding serve invece in Safari browser.
+- **Topbar sticky.** L'header della dashboard è dentro un contenitore `sticky
+  top-0 z-10 bg-background` (con il `pt` di safe-area), così resta in alto durante
+  lo scroll; lo sfondo opaco evita che il contenuto traspaia sotto la barra. Su
+  **mobile** mostra a sinistra il **branding** (icona + nome, link alla home) al
+  posto del breadcrumb — il titolo della pagina è già nell'`<h1>` sotto — e
+  nasconde il selettore tema (`hidden md:flex`; è nelle impostazioni utente):
+  restano solo ricerca e notifiche.
+- **Navigazione mobile = bottom bar + pagina `/menu`.** Su mobile la navigazione
+  è la `MobileBottomNav`
+  ([`components/mobile-bottom-nav.tsx`](components/mobile-bottom-nav.tsx)): barra
+  fissa in basso con 5 voci (4 destinazioni **role-aware** + «Menu»). Il 5° slot
+  apre `/menu` ([`components/mobile-menu.tsx`](components/mobile-menu.tsx)) con la
+  navigazione completa e le azioni account. La **sidebar è la navigazione del solo
+  desktop**: su mobile l'hamburger in topbar è nascosto (`hidden md:flex`) e il
+  contenuto ha `pb` extra per non finire sotto la barra. Usa `flex`+`flex-1` (non
+  `grid-cols-5`) per le colonne della barra. Le voci sono **solo icona** (con
+  `aria-label` per l'accessibilità); la voce attiva è evidenziata da una pillola
+  dietro l'icona.
+- **Tabelle → card sotto `md`.** Le tabelle dense non si usano in scroll
+  orizzontale su mobile. Pattern: la `Table` esistente con `className="hidden
+  md:table"` e, accanto, una lista di `Card` `md:hidden` che riusa gli stessi dati
+  e azioni. Le azioni di riga restano bottoni solo-icona con `aria-label` +
+  `Tooltip`. (Niente DataTable generico: si applica per-pagina.)
+- **Toolbar di filtri.** Niente `flex-wrap` con tanti controlli larghi: su mobile
+  i filtri si impilano a larghezza piena (`flex-col` → `sm:flex-row`) oppure si
+  raccolgono dietro un trigger «Filtri» (`Sheet`/`Collapsible`).
+- **Niente larghezze fisse che sforano.** Evita `w-64`, `min-w-*` ecc. che su
+  schermi stretti causano scroll orizzontale: usa `w-full` con `sm:`/`md:` per le
+  larghezze maggiori. La regola d'oro: il `body` non deve mai scrollare in
+  orizzontale.
+- **Dialog alti → valuta `Sheet` su mobile.** I `Dialog` sono già dimensionati
+  bene (`max-w-[calc(100%-2rem)]`), ma un form alto (es. CronBuilder) su mobile
+  conviene presentarlo in un `Sheet` o garantire lo scroll interno.
+
 ---
 
 ## Linee guida per il versionamento

@@ -40,14 +40,16 @@ export function AppBreadcrumb() {
   const title = currentTitle(pathname)
 
   return (
-    <Breadcrumb>
-      <BreadcrumbList>
+    <Breadcrumb className="min-w-0">
+      <BreadcrumbList className="flex-nowrap">
         <BreadcrumbItem className="hidden md:block">
           <BreadcrumbLink href="/">shadcn starter</BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator className="hidden md:block" />
-        <BreadcrumbItem>
-          <BreadcrumbPage>{title}</BreadcrumbPage>
+        <BreadcrumbItem className="min-w-0">
+          {/* truncate: su mobile il titolo della pagina non deve spingere fuori
+              i bottoni icona della topbar. */}
+          <BreadcrumbPage className="truncate">{title}</BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>

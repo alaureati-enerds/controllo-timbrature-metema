@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Geist_Mono, Manrope } from "next/font/google"
 
 import "./globals.css"
@@ -19,6 +19,15 @@ const fontMono = Geist_Mono({
 // request-time invece che al build. Evita anche che la build dell'immagine
 // Docker richieda un database raggiungibile (vedi docs/deploy-docker.md).
 export const dynamic = "force-dynamic"
+
+// `viewport-fit=cover`: estende la pagina sotto notch e home indicator su iOS,
+// requisito per poter usare le `env(safe-area-inset-*)` nei padding (vedi il
+// layout della dashboard e components/ui/sidebar.tsx).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+}
 
 // Titolo dinamico: il nome del software è un'impostazione di sistema, quindi va
 // letto a runtime (cachato server-side). `template` fa sì che le singole pagine
