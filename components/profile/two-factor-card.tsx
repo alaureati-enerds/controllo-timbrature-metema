@@ -291,14 +291,18 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ShieldCheckIcon
-            aria-hidden="true"
-            className="size-4 text-muted-foreground"
-          />
-          Autenticazione a due fattori
+        <CardTitle className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <ShieldCheckIcon
+              aria-hidden="true"
+              className="size-4 text-muted-foreground"
+            />
+            Autenticazione a due fattori
+          </span>
           {enabled ? (
-            <Badge variant="secondary">Attiva</Badge>
+            <Badge className="bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
+              Abilitata
+            </Badge>
           ) : (
             <Badge variant="outline" className="text-muted-foreground">
               Non attiva
