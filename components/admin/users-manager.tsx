@@ -7,10 +7,12 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   EyeIcon,
+  FilterIcon,
   LockOpenIcon,
   SearchIcon,
   Trash2Icon,
   UserPlusIcon,
+  UsersIcon,
   XIcon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -35,6 +37,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -48,6 +51,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
@@ -57,6 +75,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import {
   Table,
@@ -136,6 +155,8 @@ export function UsersManager() {
   const [page, setPage] = useState(0)
   // Incrementato dopo le mutazioni per forzare il ricaricamento della lista.
   const [refreshKey, setRefreshKey] = useState(0)
+  // Drawer filtri su mobile (la ricerca resta sempre visibile fuori).
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
 
   // Cambio ruolo in attesa di conferma (azione di sicurezza con effetti reali).
   const [pendingRole, setPendingRole] = useState<{
@@ -272,6 +293,92 @@ export function UsersManager() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1
   const rangeEnd = Math.min(total, (page + 1) * PAGE_SIZE)
+  const hasActiveFilter = filter !== "all"
+
+  // Celle riusate da tabella desktop e card mobile (un'unica fonte).
+  function roleSelect(u: AdminUser, isSelf: boolean) {
+    return (
+      <Select
+        value={u.role ?? "user"}
+        disabled={busyId === u.id || isSelf}
+        onValueChange={(v) =>
+          setPendingRole({ user: u, role: v as (typeof ROLES)[number] })
+        }
+      >
+        <SelectTrigger
+          size="sm"
+          className="w-full"
+          aria-label={
+            isSelf ? "Non puoi cambiare il tuo ruolo" : `Ruolo di ${u.name}`
+          }
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {ROLES.map((r) => (
+            <SelectItem key={r} value={r} className="capitalize">
+              {r}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
+
+  function statusBadge(u: AdminUser) {
+    return u.banned ? (
+      <Badge variant="destructive">Bannato</Badge>
+    ) : (
+      <Badge variant="outline">Attivo</Badge>
+    )
+  }
+
+  function rowActions(u: AdminUser, isSelf: boolean) {
+    return (
+      <div className="flex justify-end gap-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Apri dettaglio"
+              asChild
+            >
+              <Link href={`/admin/users/${u.id}`}>
+                <EyeIcon />
+              </Link>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Dettaglio</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={u.banned ? "Sblocca utente" : "Banna utente"}
+              disabled={busyId === u.id || isSelf}
+              onClick={() => handleToggleBan(u)}
+            >
+              {u.banned ? <LockOpenIcon /> : <BanIcon />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {isSelf
+              ? "Non puoi bannare te stesso"
+              : u.banned
+                ? "Sblocca"
+                : "Banna"}
+          </TooltipContent>
+        </Tooltip>
+        <DeleteUserDialog
+          user={u}
+          disabled={busyId === u.id || isSelf}
+          onConfirm={() => handleRemove(u)}
+        />
+      </div>
+    )
+  }
 
   return (
     <Card>
@@ -284,9 +391,9 @@ export function UsersManager() {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* Barra strumenti: ricerca + filtro a sinistra, creazione a destra. */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative sm:max-w-xs sm:flex-1">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-1 flex-col gap-2 md:flex-row md:items-center">
+            <div className="relative md:max-w-xs md:flex-1">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Cerca per nome o email…"
@@ -313,6 +420,7 @@ export function UsersManager() {
                 </Tooltip>
               )}
             </div>
+            {/* Desktop — filtro preset in linea */}
             <Select
               value={filter}
               onValueChange={(v) => {
@@ -320,7 +428,10 @@ export function UsersManager() {
                 setFilter(v as FilterValue)
               }}
             >
-              <SelectTrigger className="sm:w-40" aria-label="Filtra utenti">
+              <SelectTrigger
+                className="hidden md:flex md:w-40"
+                aria-label="Filtra utenti"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -331,6 +442,77 @@ export function UsersManager() {
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Mobile — Drawer filtri */}
+            <div className="md:hidden">
+              <Drawer open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
+                <DrawerTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    <FilterIcon data-icon="inline-start" />
+                    Filtri
+                    {hasActiveFilter && (
+                      <Badge variant="secondary" className="ml-auto">
+                        1
+                      </Badge>
+                    )}
+                  </Button>
+                </DrawerTrigger>
+                <DrawerContent>
+                  <DrawerHeader className="px-5 pt-4 pb-4 text-left">
+                    <div className="flex items-center justify-between">
+                      <DrawerTitle className="flex items-center gap-2">
+                        <FilterIcon className="size-4" />
+                        Filtri
+                      </DrawerTitle>
+                      {hasActiveFilter && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Azzera filtri"
+                          onClick={() => {
+                            setPage(0)
+                            setFilter("all")
+                          }}
+                        >
+                          <XIcon className="size-4" />
+                          Azzera
+                        </Button>
+                      )}
+                    </div>
+                    <DrawerDescription className="sr-only">
+                      Filtra gli utenti per ruolo e stato.
+                    </DrawerDescription>
+                  </DrawerHeader>
+                  <div
+                    className="no-scrollbar overflow-y-auto"
+                    style={{
+                      paddingLeft: "calc(1.25rem + env(safe-area-inset-left))",
+                      paddingRight: "calc(1.25rem + env(safe-area-inset-right))",
+                      paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+                    }}
+                  >
+                    <Select
+                      value={filter}
+                      onValueChange={(v) => {
+                        setPage(0)
+                        setFilter(v as FilterValue)
+                      }}
+                    >
+                      <SelectTrigger className="w-full" aria-label="Filtra utenti">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FILTERS.map((f) => (
+                          <SelectItem key={f.value} value={f.value}>
+                            {f.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </DrawerContent>
+              </Drawer>
+            </div>
           </div>
 
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -428,178 +610,157 @@ export function UsersManager() {
           </Dialog>
         </div>
 
-        {loading ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-            <Spinner /> Caricamento…
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Utente</TableHead>
-                  <TableHead className="w-36">Ruolo</TableHead>
-                  <TableHead className="w-28">Stato</TableHead>
-                  <TableHead className="w-px text-right">Azioni</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.length === 0 ? (
+        {/* Desktop — tabella */}
+        <div className="hidden md:block">
+          {loading ? (
+            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+              <Spinner /> Caricamento…
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      Nessun utente trovato.
-                    </TableCell>
+                    <TableHead>Utente</TableHead>
+                    <TableHead className="w-36">Ruolo</TableHead>
+                    <TableHead className="w-28">Stato</TableHead>
+                    <TableHead className="w-px text-right">Azioni</TableHead>
                   </TableRow>
-                ) : (
-                  users.map((u) => {
-                    const isSelf = u.id === currentUserId
-                    return (
-                      <TableRow key={u.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="size-9">
-                              {u.image && <AvatarImage src={u.image} alt="" />}
-                              <AvatarFallback className="text-xs">
-                                {initials(u.name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex min-w-0 flex-col">
-                              <span className="truncate font-medium">
-                                {u.name}
-                              </span>
-                              <span className="truncate text-xs text-muted-foreground">
-                                {u.email}
-                              </span>
+                </TableHeader>
+                <TableBody>
+                  {users.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        Nessun utente trovato.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    users.map((u) => {
+                      const isSelf = u.id === currentUserId
+                      return (
+                        <TableRow key={u.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="size-9">
+                                {u.image && (
+                                  <AvatarImage src={u.image} alt="" />
+                                )}
+                                <AvatarFallback className="text-xs">
+                                  {initials(u.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex min-w-0 flex-col">
+                                <span className="truncate font-medium">
+                                  {u.name}
+                                </span>
+                                <span className="truncate text-xs text-muted-foreground">
+                                  {u.email}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={u.role ?? "user"}
-                            disabled={busyId === u.id || isSelf}
-                            onValueChange={(v) =>
-                              setPendingRole({
-                                user: u,
-                                role: v as (typeof ROLES)[number],
-                              })
-                            }
-                          >
-                            <SelectTrigger
-                              size="sm"
-                              className="w-full"
-                              aria-label={
-                                isSelf
-                                  ? "Non puoi cambiare il tuo ruolo"
-                                  : `Ruolo di ${u.name}`
-                              }
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ROLES.map((r) => (
-                                <SelectItem
-                                  key={r}
-                                  value={r}
-                                  className="capitalize"
-                                >
-                                  {r}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          {u.banned ? (
-                            <Badge variant="destructive">Bannato</Badge>
-                          ) : (
-                            <Badge variant="outline">Attivo</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label="Apri dettaglio"
-                                  asChild
-                                >
-                                  <Link href={`/admin/users/${u.id}`}>
-                                    <EyeIcon />
-                                  </Link>
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Dettaglio</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label={
-                                    u.banned ? "Sblocca utente" : "Banna utente"
-                                  }
-                                  disabled={busyId === u.id || isSelf}
-                                  onClick={() => handleToggleBan(u)}
-                                >
-                                  {u.banned ? <LockOpenIcon /> : <BanIcon />}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {isSelf
-                                  ? "Non puoi bannare te stesso"
-                                  : u.banned
-                                    ? "Sblocca"
-                                    : "Banna"}
-                              </TooltipContent>
-                            </Tooltip>
-                            <DeleteUserDialog
-                              user={u}
-                              disabled={busyId === u.id || isSelf}
-                              onConfirm={() => handleRemove(u)}
-                            />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                          </TableCell>
+                          <TableCell>{roleSelect(u, isSelf)}</TableCell>
+                          <TableCell>{statusBadge(u)}</TableCell>
+                          <TableCell>{rowActions(u, isSelf)}</TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
 
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground tabular-nums">
-            {rangeStart}–{rangeEnd} di {total} · pagina {page + 1} di{" "}
-            {totalPages}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-            >
-              <ChevronLeftIcon data-icon="inline-start" />
-              Precedente
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page + 1 >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Successiva
-              <ChevronRightIcon data-icon="inline-end" />
-            </Button>
-          </div>
+        {/* Mobile — lista di card */}
+        <div className="flex flex-col gap-3 md:hidden">
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <Card key={i} size="sm">
+                <CardContent className="flex items-center gap-3">
+                  <Skeleton className="size-9 shrink-0 rounded-full" />
+                  <div className="flex flex-1 flex-col gap-2">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : users.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <UsersIcon />
+                </EmptyMedia>
+                <EmptyTitle>Nessun utente</EmptyTitle>
+                <EmptyDescription>
+                  Nessun utente corrisponde a ricerca e filtri. Prova ad
+                  azzerarli.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            users.map((u) => {
+              const isSelf = u.id === currentUserId
+              return (
+                <Card key={u.id} size="sm">
+                  <CardContent>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar className="size-9 shrink-0">
+                          {u.image && <AvatarImage src={u.image} alt="" />}
+                          <AvatarFallback className="text-xs">
+                            {initials(u.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate font-medium">{u.name}</span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {u.email}
+                          </span>
+                        </div>
+                      </div>
+                      {statusBadge(u)}
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="flex-1">{roleSelect(u, isSelf)}</div>
+                      {rowActions(u, isSelf)}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })
+          )}
         </div>
       </CardContent>
+      <CardFooter className="flex-col items-center gap-3 text-sm md:flex-row md:justify-between">
+        <span className="text-muted-foreground tabular-nums">
+          {rangeStart}–{rangeEnd} di {total} · pagina {page + 1} di {totalPages}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+          >
+            <ChevronLeftIcon data-icon="inline-start" />
+            Precedente
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page + 1 >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Successiva
+            <ChevronRightIcon data-icon="inline-end" />
+          </Button>
+        </div>
+      </CardFooter>
 
       {/* Conferma del cambio ruolo dalla tabella. */}
       <AlertDialog
