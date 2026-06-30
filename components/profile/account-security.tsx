@@ -505,7 +505,9 @@ export function AccountSecurity({
                   <span className="font-medium text-foreground">
                     {currentEmail}
                   </span>
-                  . L&apos;azione è definitiva.
+                  . Ti invieremo un ultimo link di conferma: l&apos;account
+                  viene eliminato solo dopo averlo aperto. L&apos;operazione è
+                  irreversibile.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <Field>
