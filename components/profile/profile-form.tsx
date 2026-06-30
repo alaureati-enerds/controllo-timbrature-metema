@@ -100,7 +100,15 @@ export function ProfileForm({
         </div>
       </CardContent>
       <CardFooter className="justify-end">
-        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <Dialog
+          open={editOpen}
+          onOpenChange={(open) => {
+            // Riallinea il campo al nome corrente a ogni apertura, così una
+            // modifica annullata in precedenza non resta in giro.
+            if (open) setEditName(name)
+            setEditOpen(open)
+          }}
+        >
           <DialogTrigger asChild>
             <Button>
               <PencilIcon aria-hidden="true" data-icon="inline-start" />
