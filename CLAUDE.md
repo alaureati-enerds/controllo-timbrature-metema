@@ -157,6 +157,12 @@ man mano che rivediamo le pagine: ogni nuova regola va annotata qui.
 
 ---
 
+### TODO — Da ricontrollare
+
+- **Pagina Audit Log** (`components/admin/audit-log.tsx`): redesign mobile completato (Drawer, card list, paginazione). Ricontrollare a freddo per eventuali regressioni su desktop (tabella, filtri in linea, paginazione).
+
+---
+
 ## Linee guida per il versionamento
 
 Il progetto usa **Git Flow** come strategia di branching e
