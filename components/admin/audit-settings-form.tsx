@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { SaveIcon } from "lucide-react"
+import { ScrollTextIcon, SaveIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -112,7 +112,10 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
     <Card>
       <form onSubmit={handleSave} className="contents">
         <CardHeader>
-          <CardTitle>Audit log</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ScrollTextIcon aria-hidden="true" className="size-4" />
+            Audit log
+          </CardTitle>
           <CardDescription>
             Scegli quali eventi tracciare e per quanto conservarli. Le modifiche
             valgono dal salvataggio in poi.
@@ -120,7 +123,7 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           <FieldGroup>
-            <Field orientation="horizontal">
+            <Field orientation="responsive">
               <FieldContent>
                 <FieldLabel htmlFor="audit-enabled">
                   Registrazione attiva
@@ -151,7 +154,7 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
                   type="number"
                   min={0}
                   max={3650}
-                  className="w-40 tabular-nums"
+                  className="w-full tabular-nums md:w-40"
                   value={retentionDays}
                   onChange={(e) => setRetentionDays(e.target.value)}
                 />
@@ -176,12 +179,12 @@ export function AuditSettingsForm({ initial }: { initial: AuditSettings }) {
                       <FieldLegend>
                         {categoryLabel(group.category)}
                       </FieldLegend>
-                      <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="grid gap-4 md:grid-cols-2">
                         {group.events.map((ev) => {
                           const on = !disabled.has(ev.action)
                           const id = `ev-${ev.action}`
                           return (
-                            <Field key={ev.action} orientation="horizontal">
+                            <Field key={ev.action} orientation="responsive">
                               <FieldContent>
                                 <FieldLabel htmlFor={id}>
                                   {ev.label}
