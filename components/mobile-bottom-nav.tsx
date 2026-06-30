@@ -69,20 +69,16 @@ export function MobileBottomNav() {
                 href={item.url}
                 aria-label={item.label}
                 aria-current={active ? "page" : undefined}
-                className="flex h-14 w-full items-center justify-center"
+                className={cn(
+                  "flex h-14 w-full touch-manipulation items-center justify-center transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset",
+                  active
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
-                {/* Solo icona: l'etichetta resta come `aria-label`. La pillola
-                    dietro l'icona segnala la voce attiva senza testo. */}
-                <span
-                  className={cn(
-                    "flex items-center justify-center rounded-full px-5 py-1.5 transition-colors",
-                    active
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  <item.icon aria-hidden="true" className="size-6 shrink-0" />
-                </span>
+                {/* Solo icona: l'etichetta resta come `aria-label`; la voce
+                    attiva si distingue per il colore (primario vs muted). */}
+                <item.icon aria-hidden="true" className="size-6 shrink-0" />
               </Link>
             </li>
           )

@@ -50,7 +50,7 @@ function MenuRow({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 p-3 text-sm transition-colors hover:bg-accent"
+      className="flex touch-manipulation items-center gap-3 p-3 text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
     >
       <Icon
         aria-hidden="true"
@@ -83,6 +83,13 @@ export function MobileMenu() {
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Menu</h1>
+        <p className="text-sm text-muted-foreground">
+          Naviga tra le sezioni e gestisci il tuo account.
+        </p>
+      </div>
+
       <div className="flex items-center gap-3 rounded-lg border p-3">
         <Avatar className="size-11 rounded-lg">
           {user?.image && (
@@ -139,7 +146,7 @@ export function MobileMenu() {
         <button
           type="button"
           onClick={handleSignOut}
-          className="flex w-full items-center gap-3 p-3 text-left text-sm transition-colors hover:bg-accent"
+          className="flex w-full touch-manipulation items-center gap-3 p-3 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         >
           <LogOutIcon
             aria-hidden="true"

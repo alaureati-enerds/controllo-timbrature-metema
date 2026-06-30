@@ -66,7 +66,7 @@ export default async function DashboardLayout({
                   nascosta). Desktop: breadcrumb come di consueto. */}
               <Link
                 href="/"
-                className="flex min-w-0 items-center gap-2 md:hidden"
+                className="flex min-w-0 touch-manipulation items-center gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:hidden"
               >
                 <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <BrandingIcon name={branding.iconName} className="size-4" />
