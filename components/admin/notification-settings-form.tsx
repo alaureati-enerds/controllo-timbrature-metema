@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { SaveIcon } from "lucide-react"
+import { BellIcon, SaveIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -118,7 +118,10 @@ export function NotificationSettingsForm({
     <Card>
       <form onSubmit={handleSave} className="contents">
         <CardHeader>
-          <CardTitle>Notifiche</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <BellIcon aria-hidden="true" className="size-4" />
+            Notifiche
+          </CardTitle>
           <CardDescription>
             Scegli quali azioni generano una notifica e per quanto conservare le
             notifiche lette. Le modifiche valgono dal salvataggio in poi.
@@ -126,7 +129,7 @@ export function NotificationSettingsForm({
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           <FieldGroup>
-            <Field orientation="horizontal">
+            <Field orientation="responsive">
               <FieldContent>
                 <FieldLabel htmlFor="notif-enabled">
                   Notifiche attive
@@ -157,7 +160,7 @@ export function NotificationSettingsForm({
                   type="number"
                   min={0}
                   max={3650}
-                  className="w-40 tabular-nums"
+                  className="w-full tabular-nums md:w-40"
                   value={retentionDays}
                   onChange={(e) => setRetentionDays(e.target.value)}
                 />
@@ -182,13 +185,13 @@ export function NotificationSettingsForm({
                       <FieldLegend>
                         {categoryLabel(group.category)}
                       </FieldLegend>
-                      <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="grid gap-4 md:grid-cols-2">
                         {group.events.map((ev) => {
                           // Le obbligatorie sono sempre attive e non spegnibili.
                           const on = ev.mandatory || !disabled.has(ev.type)
                           const id = `nt-${ev.type}`
                           return (
-                            <Field key={ev.type} orientation="horizontal">
+                            <Field key={ev.type} orientation="responsive">
                               <FieldContent>
                                 <FieldLabel htmlFor={id}>
                                   {ev.label}

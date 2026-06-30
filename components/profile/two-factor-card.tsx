@@ -291,17 +291,19 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ShieldCheckIcon
-            aria-hidden="true"
-            className="size-4 text-muted-foreground"
-          />
-          Autenticazione a due fattori
+        <CardTitle className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <ShieldCheckIcon
+              aria-hidden="true"
+              className="size-4 text-muted-foreground"
+            />
+            Autenticazione a due fattori
+          </span>
           {enabled ? (
-            <Badge variant="secondary">Attiva</Badge>
+            <Badge variant="success">Abilitata</Badge>
           ) : (
             <Badge variant="outline" className="text-muted-foreground">
-              Non attiva
+              Disabilitata
             </Badge>
           )}
         </CardTitle>
@@ -424,7 +426,7 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
             <DialogTrigger asChild>
               <Button>
                 <ShieldCheckIcon aria-hidden="true" data-icon="inline-start" />
-                Attiva
+                Abilita 2FA
               </Button>
             </DialogTrigger>
             <DialogContent>

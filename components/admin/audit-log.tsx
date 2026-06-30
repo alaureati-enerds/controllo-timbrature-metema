@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useState } from "react"
 import { endOfDay, format, startOfDay } from "date-fns"
 import { it } from "date-fns/locale"
-import { CalendarIcon, InfoIcon, RefreshCwIcon, XIcon } from "lucide-react"
+import {
+  CalendarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  FilterIcon,
+  InfoIcon,
+  RefreshCwIcon,
+  XIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +22,7 @@ import {
   CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -45,6 +54,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -108,6 +125,9 @@ export function AuditLog() {
   const [offset, setOffset] = useState(0)
   const [reloadKey, setReloadKey] = useState(0)
 
+  // State filtro mobile (Drawer controllato).
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+
   // Azioni selezionabili: filtrate per categoria, se scelta.
   const actionOptions = useMemo(
     () =>
@@ -122,6 +142,17 @@ export function AuditLog() {
     actor !== "" ||
     from !== undefined ||
     to !== undefined
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (category !== ALL) count++
+    if (action !== ALL) count++
+    if (outcome !== ALL) count++
+    if (actor !== "") count++
+    if (from !== undefined) count++
+    if (to !== undefined) count++
+    return count
+  }, [category, action, outcome, actor, from, to])
 
   // Carica con debounce (per il campo attore di testo).
   useEffect(() => {
@@ -174,6 +205,7 @@ export function AuditLog() {
     setFrom(undefined)
     setTo(undefined)
     setOffset(0)
+    setMobileFilterOpen(false)
   }
 
   function handleRefresh() {
@@ -213,8 +245,8 @@ export function AuditLog() {
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {/* Filtri */}
-        <div className="flex flex-wrap items-end gap-3">
+        {/* Desktop — filtri in linea */}
+        <div className="hidden flex-wrap items-end gap-3 md:flex">
           <Select
             value={category}
             onValueChange={(v) => {
@@ -302,14 +334,163 @@ export function AuditLog() {
           />
 
           {hasFilters && (
-            <Button variant="ghost" onClick={clearFilters}>
+            <Button variant="ghost" onClick={clearFilters} aria-label="Azzera filtri">
               <XIcon data-icon="inline-start" />
               Azzera filtri
             </Button>
           )}
         </div>
 
-        <div className="overflow-hidden rounded-lg border">
+        {/* Mobile — Drawer filtri */}
+        <div className="flex gap-2 md:hidden">
+          <Drawer open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
+            <DrawerTrigger asChild>
+              <Button variant="outline" className="flex-1">
+                <FilterIcon data-icon="inline-start" />
+                Filtri
+                {hasFilters && (
+                  <Badge variant="secondary" className="ml-auto">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader className="px-5 pt-4 pb-4 text-left">
+                <div className="flex items-center justify-between">
+                  <DrawerTitle className="flex items-center gap-2">
+                    <FilterIcon className="size-4" />
+                    Filtri
+                  </DrawerTitle>
+                  <DrawerDescription className="sr-only">
+                    Filtra gli eventi del registro per categoria, evento, esito,
+                    attore e intervallo di date.
+                  </DrawerDescription>
+                  {hasFilters && (
+                    <Button variant="ghost" onClick={clearFilters} size="sm" aria-label="Azzera filtri">
+                      <XIcon className="size-4" />
+                      Azzera
+                    </Button>
+                  )}
+                </div>
+              </DrawerHeader>
+              <div
+                className="no-scrollbar overflow-y-auto"
+                style={{
+                  paddingLeft: "calc(1.25rem + env(safe-area-inset-left))",
+                  paddingRight: "calc(1.25rem + env(safe-area-inset-right))",
+                  paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+                }}
+              >
+                <div className="flex flex-col gap-4">
+                  <Select
+                  value={category}
+                  onValueChange={(v) => {
+                    setCategory(v)
+                    setAction(ALL)
+                    resetToFirstPage()
+                  }}
+                >
+                  <SelectTrigger className="w-full" aria-label="Categoria">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>Tutte le categorie</SelectItem>
+                    {auditCategories.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {categoryLabel(c)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={action}
+                  onValueChange={(v) => {
+                    setAction(v)
+                    resetToFirstPage()
+                  }}
+                >
+                  <SelectTrigger className="w-full" aria-label="Evento">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>Tutti gli eventi</SelectItem>
+                    {actionOptions.map((e) => (
+                      <SelectItem key={e.action} value={e.action}>
+                        {e.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={outcome}
+                  onValueChange={(v) => {
+                    setOutcome(v)
+                    resetToFirstPage()
+                  }}
+                >
+                  <SelectTrigger className="w-full" aria-label="Esito">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>Ogni esito</SelectItem>
+                    <SelectItem value="success">Successo</SelectItem>
+                    <SelectItem value="failure">Fallimento</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Input
+                  placeholder="Attore (email o id)"
+                  aria-label="Attore"
+                  value={actor}
+                  onChange={(e) => {
+                    setActor(e.target.value)
+                    resetToFirstPage()
+                  }}
+                />
+
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <DateFilter
+                      label="Da"
+                      value={from}
+                      onChange={(d) => {
+                        setFrom(d)
+                        resetToFirstPage()
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <DateFilter
+                      label="A"
+                      value={to}
+                      onChange={(d) => {
+                        setTo(d)
+                        resetToFirstPage()
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              </div>
+            </DrawerContent>
+          </Drawer>
+          {hasFilters && (
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Azzera filtri"
+              onClick={clearFilters}
+            >
+              <XIcon />
+            </Button>
+          )}
+        </div>
+
+        {/* Desktop — tabella */}
+        <div className="hidden overflow-hidden rounded-lg border md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -396,32 +577,94 @@ export function AuditLog() {
           </Table>
         </div>
 
-        {/* Paginazione */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {total} event{total === 1 ? "o" : "i"}
-            {total > 0 ? ` · pagina ${page} di ${pages}` : ""}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={offset === 0}
-              onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-            >
-              Precedente
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={offset + PAGE_SIZE >= total}
-              onClick={() => setOffset((o) => o + PAGE_SIZE)}
-            >
-              Successiva
-            </Button>
-          </div>
+        {/* Mobile — card list */}
+        <div className="flex flex-col gap-3 md:hidden">
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <Card key={i} size="sm">
+                <CardContent className="space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-3 w-1/3" />
+                </CardContent>
+              </Card>
+            ))
+          ) : entries.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <InfoIcon />
+                </EmptyMedia>
+                <EmptyTitle>Nessun evento</EmptyTitle>
+                <EmptyDescription>
+                  Nessun evento corrisponde a questi filtri. Prova ad
+                  allargare l&apos;intervallo o ad azzerare i filtri.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            entries.map((e) => (
+              <Card key={e.id} size="sm">
+                <CardContent>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Badge
+                        variant={
+                          e.outcome === "failure" ? "destructive" : "outline"
+                        }
+                        className="shrink-0"
+                      >
+                        {e.outcome === "failure" ? "Fallito" : "OK"}
+                      </Badge>
+                      <div className="text-sm font-medium">
+                        {e.actionLabel}
+                      </div>
+                    </div>
+                    <AuditDetailsDialog entry={e} />
+                  </div>
+                  <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                    <div className="font-mono">{e.action}</div>
+                    <div className="tabular-nums">{fmt(e.createdAt)}</div>
+                    <div>
+                      {e.actorEmail ?? e.actorId ?? "anonimo"}
+                    </div>
+                    <div className="tabular-nums">{e.ip ?? "—"}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
+
       </CardContent>
+      <CardFooter className="flex-col items-center gap-3 md:flex-row md:justify-between">
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {total} event{total === 1 ? "o" : "i"}
+          {total > 0 ? ` · pagina ${page} di ${pages}` : ""}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={offset === 0}
+            onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+          >
+            <ChevronLeftIcon data-icon="inline-start" />
+            Precedente
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={offset + PAGE_SIZE >= total}
+            onClick={() => setOffset((o) => o + PAGE_SIZE)}
+          >
+            Successiva
+            <ChevronRightIcon data-icon="inline-end" />
+          </Button>
+        </div>
+      </CardFooter>
     </Card>
   )
 }
@@ -445,7 +688,7 @@ function DateFilter({
           variant="outline"
           aria-label={label}
           data-empty={!value}
-          className="w-40 justify-start font-normal tabular-nums data-[empty=true]:text-muted-foreground"
+          className="w-full justify-start font-normal tabular-nums data-[empty=true]:text-muted-foreground md:w-40"
         >
           <CalendarIcon data-icon="inline-start" />
           {value ? format(value, "dd/MM/yyyy") : label}

@@ -256,7 +256,7 @@ export function ThemeSelector() {
             )}
           </button>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             {themes.map((def) => (
               <ThemeTile
                 key={def.value}

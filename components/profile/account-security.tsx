@@ -26,6 +26,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -127,6 +136,7 @@ export function AccountSecurity({
   }
 
   // --- Cambio email ---
+  const [emailOpen, setEmailOpen] = useState(false)
   const [newEmail, setNewEmail] = useState("")
   const [changingEmail, setChangingEmail] = useState(false)
 
@@ -143,12 +153,14 @@ export function AccountSecurity({
       return
     }
     setNewEmail("")
+    setEmailOpen(false)
     toast.success(
       "Link di conferma inviato alla nuova email (in dev: nei log)."
     )
   }
 
   // --- Cambio password ---
+  const [passwordOpen, setPasswordOpen] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [savingPassword, setSavingPassword] = useState(false)
@@ -169,6 +181,7 @@ export function AccountSecurity({
     toast.success("Password aggiornata")
     setCurrentPassword("")
     setNewPassword("")
+    setPasswordOpen(false)
   }
 
   // --- Eliminazione account ---
@@ -198,117 +211,163 @@ export function AccountSecurity({
       {/* Cambio email */}
       <Card>
         <CardHeader>
-          <CardTitle>Email</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <MailIcon aria-hidden="true" className="size-4" />
+            Email
+          </CardTitle>
           <CardDescription>
             Tieni aggiornato l&apos;indirizzo per recuperare l&apos;account.
             Riceverai un link di conferma sulla nuova email.
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleChangeEmail} className="contents">
-          <CardContent>
-            <FieldGroup>
-              <Field>
-                <FieldLabel>Email attuale</FieldLabel>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium">{currentEmail}</span>
-                  {emailVerified ? (
-                    <Badge variant="outline">
-                      <BadgeCheckIcon
-                        aria-hidden="true"
-                        data-icon="inline-start"
-                      />
-                      Verificata
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      Da verificare
-                    </Badge>
-                  )}
-                </div>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="new-email">Nuova email</FieldLabel>
-                <Input
-                  id="new-email"
-                  type="email"
-                  autoComplete="email"
-                  spellCheck={false}
-                  placeholder="Inserisci il nuovo indirizzo"
-                  required
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  disabled={changingEmail}
-                />
-              </Field>
-            </FieldGroup>
-          </CardContent>
-          <CardFooter className="justify-end">
-            <Button type="submit" disabled={changingEmail}>
-              {changingEmail ? (
-                <Spinner />
+        <CardContent>
+          <Field>
+            <FieldLabel>Email attuale</FieldLabel>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">{currentEmail}</span>
+              {emailVerified ? (
+                <Badge variant="outline">
+                  <BadgeCheckIcon
+                    aria-hidden="true"
+                    data-icon="inline-start"
+                  />
+                  Verificata
+                </Badge>
               ) : (
-                <MailIcon data-icon="inline-start" />
+                <Badge variant="outline" className="text-muted-foreground">
+                  Da verificare
+                </Badge>
               )}
-              Invia conferma
-            </Button>
-          </CardFooter>
-        </form>
+            </div>
+          </Field>
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <MailIcon aria-hidden="true" data-icon="inline-start" />
+                Cambia email
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Cambia email</DialogTitle>
+                <DialogDescription>
+                  Riceverai un link di conferma sulla nuova email.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleChangeEmail}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="new-email">
+                      Nuova email
+                    </FieldLabel>
+                    <Input
+                      id="new-email"
+                      type="email"
+                      autoComplete="email"
+                      spellCheck={false}
+                      placeholder="Inserisci il nuovo indirizzo"
+                      required
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      disabled={changingEmail}
+                    />
+                  </Field>
+                </FieldGroup>
+                <DialogFooter className="mt-6">
+                  <Button type="submit" disabled={changingEmail}>
+                    {changingEmail ? (
+                      <Spinner />
+                    ) : (
+                      <MailIcon data-icon="inline-start" />
+                    )}
+                    Invia conferma
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </CardFooter>
       </Card>
 
       {/* Cambio password */}
       <Card>
         <CardHeader>
-          <CardTitle>Password</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRoundIcon aria-hidden="true" className="size-4" />
+            Password
+          </CardTitle>
           <CardDescription>
             Per sicurezza, le altre sessioni verranno disconnesse.
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handlePasswordSubmit} className="contents">
-          <CardContent>
-            <FieldGroup>
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="current-password">
-                    Password attuale
-                  </FieldLabel>
-                  <Input
-                    id="current-password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    disabled={savingPassword}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="new-password">Nuova password</FieldLabel>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    disabled={savingPassword}
-                  />
-                  <FieldDescription>Almeno 8 caratteri.</FieldDescription>
-                </Field>
-              </div>
-            </FieldGroup>
-          </CardContent>
-          <CardFooter className="justify-end">
-            <Button type="submit" disabled={savingPassword}>
-              {savingPassword ? (
-                <Spinner />
-              ) : (
-                <KeyRoundIcon data-icon="inline-start" />
-              )}
-              Aggiorna password
-            </Button>
-          </CardFooter>
-        </form>
+        <CardFooter className="justify-end">
+          <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <KeyRoundIcon aria-hidden="true" data-icon="inline-start" />
+                Cambia password
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Cambia password</DialogTitle>
+                <DialogDescription>
+                  Le altre sessioni verranno disconnesse per sicurezza.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handlePasswordSubmit}>
+                <FieldGroup>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="current-password">
+                        Password attuale
+                      </FieldLabel>
+                      <Input
+                        id="current-password"
+                        type="password"
+                        autoComplete="current-password"
+                        required
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        disabled={savingPassword}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="new-password">
+                        Nuova password
+                      </FieldLabel>
+                      <Input
+                        id="new-password"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        minLength={8}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        disabled={savingPassword}
+                      />
+                      <FieldDescription>
+                        Almeno 8 caratteri.
+                      </FieldDescription>
+                    </Field>
+                  </div>
+                </FieldGroup>
+                <DialogFooter className="mt-6">
+                  <Button type="submit" disabled={savingPassword}>
+                    {savingPassword ? (
+                      <Spinner />
+                    ) : (
+                      <KeyRoundIcon data-icon="inline-start" />
+                    )}
+                    Aggiorna password
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </CardFooter>
       </Card>
 
       {/* Autenticazione a due fattori */}
@@ -317,7 +376,10 @@ export function AccountSecurity({
       {/* Sessioni attive */}
       <Card>
         <CardHeader>
-          <CardTitle>Dispositivi e accessi</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <LaptopIcon aria-hidden="true" className="size-4" />
+            Dispositivi e accessi
+          </CardTitle>
           <CardDescription>
             Sessioni attualmente collegate al tuo account.
           </CardDescription>
@@ -343,18 +405,18 @@ export function AccountSecurity({
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                       <LaptopIcon aria-hidden="true" className="size-4" />
                     </span>
-                    <div className="flex min-w-0 flex-col">
-                      <span className="flex items-center gap-2 truncate font-medium">
-                        <span className="truncate">
-                          {s.userAgent || "Client sconosciuto"}
-                        </span>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate font-medium">
+                        {s.userAgent || "Client sconosciuto"}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground tabular-nums">
+                        {s.ipAddress || "—"}
+                      </span>
+                      <span className="flex items-center gap-2 truncate text-xs text-muted-foreground tabular-nums">
+                        {new Date(s.createdAt).toLocaleString("it-IT")}
                         {isCurrent && (
                           <Badge variant="secondary">Questa sessione</Badge>
                         )}
-                      </span>
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {s.ipAddress || "—"} ·{" "}
-                        {new Date(s.createdAt).toLocaleString("it-IT")}
                       </span>
                     </div>
                     {!isCurrent && (
@@ -423,11 +485,7 @@ export function AccountSecurity({
             Operazione irreversibile: vengono rimossi profilo, note e sessioni.
           </CardDescription>
         </CardHeader>
-        <CardFooter className="justify-between gap-4 border-t-0 bg-transparent">
-          <p className="text-sm text-muted-foreground">
-            Riceverai un&apos;ultima email di conferma prima
-            dell&apos;eliminazione.
-          </p>
+        <CardFooter className="justify-end">
           <AlertDialog
             onOpenChange={(open) => {
               if (!open) setConfirmEmail("")
@@ -447,7 +505,9 @@ export function AccountSecurity({
                   <span className="font-medium text-foreground">
                     {currentEmail}
                   </span>
-                  . L&apos;azione è definitiva.
+                  . Ti invieremo un ultimo link di conferma: l&apos;account
+                  viene eliminato solo dopo averlo aperto. L&apos;operazione è
+                  irreversibile.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <Field>

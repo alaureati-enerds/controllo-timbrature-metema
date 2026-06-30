@@ -141,10 +141,9 @@ export function AvatarUploader({
               <AlertDialogTrigger asChild>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="destructive"
                   size="sm"
                   disabled={busy !== null}
-                  className="text-muted-foreground"
                 >
                   {busy === "remove" ? (
                     <Spinner />

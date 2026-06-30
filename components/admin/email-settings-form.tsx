@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { SaveIcon, SendIcon } from "lucide-react"
+import { MailIcon, SaveIcon, SendIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -123,7 +123,10 @@ export function EmailSettingsForm({ initial }: { initial: EmailSettingsAdmin }) 
     <Card>
       <form onSubmit={handleSave} className="contents">
         <CardHeader>
-          <CardTitle>Email</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <MailIcon aria-hidden="true" className="size-4" />
+            Email
+          </CardTitle>
           <CardDescription>
             Server SMTP per l&apos;invio delle email (verifica account, reset
             password, ecc.). La password viene salvata cifrata.

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { SaveIcon } from "lucide-react"
+import { Building2Icon, SaveIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { IconPicker } from "@/components/admin/icon-picker"
@@ -71,14 +71,17 @@ export function SystemSettingsForm({ initial }: { initial: SystemSettings }) {
     <Card>
       <form onSubmit={handleSave} className="contents">
         <CardHeader>
-          <CardTitle>Identità</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Building2Icon aria-hidden="true" className="size-4" />
+            Identità
+          </CardTitle>
           <CardDescription>
             Nome, sottotitolo e icona mostrati nell&apos;interfaccia.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-5 md:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="app-name">Nome del software</FieldLabel>
                 <Input
