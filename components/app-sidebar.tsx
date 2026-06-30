@@ -38,15 +38,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { adminNavItems, navItems } from "@/lib/navigation"
+import { hasRole } from "@/lib/roles"
 import type { PublicSystemSettings } from "@/lib/settings/schema"
-
-// `user.role` può contenere più ruoli separati da virgola.
-function hasRole(role: string | null | undefined, target: string) {
-  return (role ?? "")
-    .split(",")
-    .map((r) => r.trim())
-    .includes(target)
-}
 
 // Sotto-voci della voce dimostrativa "Esempio".
 const exampleSubItems = [

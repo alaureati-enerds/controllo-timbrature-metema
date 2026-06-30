@@ -100,7 +100,7 @@ export function GlobalSearch() {
   return (
     <>
       {/* Desktop: campo che sembra una ricerca; al click/focus apre la palette. */}
-      <InputGroup className="hidden w-64 sm:flex">
+      <InputGroup className="hidden w-64 md:flex">
         <InputGroupAddon>
           <SearchIcon />
         </InputGroupAddon>
@@ -123,11 +123,12 @@ export function GlobalSearch() {
         </InputGroupAddon>
       </InputGroup>
 
-      {/* Mobile: solo icona per non occupare spazio in topbar. */}
+      {/* Mobile: solo icona per non occupare spazio in topbar. Soglia md
+          (768px) allineata a useIsMobile e alla sidebar. */}
       <Button
         variant="ghost"
         size="icon"
-        className="sm:hidden"
+        className="md:hidden"
         onClick={() => setOpen(true)}
         aria-label="Cerca"
       >
