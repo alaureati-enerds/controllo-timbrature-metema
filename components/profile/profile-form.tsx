@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { SaveIcon } from "lucide-react"
+import { SaveIcon, UserIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
@@ -59,7 +59,10 @@ export function ProfileForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Informazioni personali</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <UserIcon aria-hidden="true" className="size-4" />
+          Informazioni personali
+        </CardTitle>
         <CardDescription>
           Nome e foto compaiono nella barra laterale e nelle attività
           dell&apos;account.
