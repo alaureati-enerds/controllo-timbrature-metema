@@ -57,6 +57,7 @@ import {
 import {
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
@@ -124,7 +125,7 @@ export function AuditLog() {
   const [offset, setOffset] = useState(0)
   const [reloadKey, setReloadKey] = useState(0)
 
-  // State filtro mobile (Sheet controllato).
+  // State filtro mobile (Drawer controllato).
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
 
   // Azioni selezionabili: filtrate per categoria, se scelta.
@@ -340,7 +341,7 @@ export function AuditLog() {
           )}
         </div>
 
-        {/* Mobile — Sheet filtri */}
+        {/* Mobile — Drawer filtri */}
         <div className="flex gap-2 md:hidden">
           <Drawer open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
             <DrawerTrigger asChild>
@@ -361,6 +362,10 @@ export function AuditLog() {
                     <FilterIcon className="size-4" />
                     Filtri
                   </DrawerTitle>
+                  <DrawerDescription className="sr-only">
+                    Filtra gli eventi del registro per categoria, evento, esito,
+                    attore e intervallo di date.
+                  </DrawerDescription>
                   {hasFilters && (
                     <Button variant="ghost" onClick={clearFilters} size="sm" aria-label="Azzera filtri">
                       <XIcon className="size-4" />
