@@ -81,7 +81,7 @@ export function ProfileForm({
               )}
             </div>
             <FieldGroup>
-              <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid gap-5 md:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="name">Nome</FieldLabel>
                   <Input

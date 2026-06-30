@@ -266,7 +266,7 @@ export function AccountSecurity({
         <form onSubmit={handlePasswordSubmit} className="contents">
           <CardContent>
             <FieldGroup>
-              <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid gap-5 md:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="current-password">
                     Password attuale
@@ -343,18 +343,18 @@ export function AccountSecurity({
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                       <LaptopIcon aria-hidden="true" className="size-4" />
                     </span>
-                    <div className="flex min-w-0 flex-col">
-                      <span className="flex items-center gap-2 truncate font-medium">
-                        <span className="truncate">
-                          {s.userAgent || "Client sconosciuto"}
-                        </span>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate font-medium">
+                        {s.userAgent || "Client sconosciuto"}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground tabular-nums">
+                        {s.ipAddress || "—"}
+                      </span>
+                      <span className="flex items-center gap-2 truncate text-xs text-muted-foreground tabular-nums">
+                        {new Date(s.createdAt).toLocaleString("it-IT")}
                         {isCurrent && (
                           <Badge variant="secondary">Questa sessione</Badge>
                         )}
-                      </span>
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {s.ipAddress || "—"} ·{" "}
-                        {new Date(s.createdAt).toLocaleString("it-IT")}
                       </span>
                     </div>
                     {!isCurrent && (
@@ -423,7 +423,7 @@ export function AccountSecurity({
             Operazione irreversibile: vengono rimossi profilo, note e sessioni.
           </CardDescription>
         </CardHeader>
-        <CardFooter className="justify-between gap-4 border-t-0 bg-transparent">
+        <CardFooter className="flex-wrap justify-end gap-4 border-t-0 bg-transparent">
           <p className="text-sm text-muted-foreground">
             Riceverai un&apos;ultima email di conferma prima
             dell&apos;eliminazione.
