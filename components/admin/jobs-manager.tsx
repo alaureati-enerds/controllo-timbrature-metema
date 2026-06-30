@@ -531,29 +531,43 @@ export function JobsManager() {
     }
     if (job.error) {
       return (
-        <span className="truncate text-xs text-destructive">{job.error}</span>
+        <span className="block text-xs break-words text-destructive">
+          {job.error}
+        </span>
       )
     }
     return <span className="text-xs text-muted-foreground">—</span>
   }
 
+  // Tasto dettaglio (log): sta in alto a destra sulla card mobile e in fila
+  // azioni sul desktop.
+  function jobLogsButton(job: Job) {
+    return <JobLogsDialog job={job} label={labelFor(job.type)} />
+  }
+
+  // Tasto Ferma: solo per operazioni attive (altrimenti null).
+  function jobStopButton(job: Job) {
+    if (!isActive(job.status)) return null
+    return (
+      <ConfirmIconButton
+        icon={<SquareIcon className="fill-current" />}
+        label={job.cancelRequested ? "Arresto…" : "Ferma"}
+        disabled={busyId === job.id || job.cancelRequested}
+        busy={busyId === job.id || job.cancelRequested}
+        destructive
+        title="Fermare l'operazione?"
+        description="Verrà richiesto l'arresto al worker appena possibile. Il lavoro già svolto non viene annullato."
+        confirmLabel="Ferma"
+        onConfirm={() => handleCancel(job.id)}
+      />
+    )
+  }
+
   function jobActions(job: Job) {
     return (
       <div className="flex justify-end gap-1">
-        <JobLogsDialog job={job} label={labelFor(job.type)} />
-        {isActive(job.status) && (
-          <ConfirmIconButton
-            icon={<SquareIcon className="fill-current" />}
-            label={job.cancelRequested ? "Arresto…" : "Ferma"}
-            disabled={busyId === job.id || job.cancelRequested}
-            busy={busyId === job.id || job.cancelRequested}
-            destructive
-            title="Fermare l'operazione?"
-            description="Verrà richiesto l'arresto al worker appena possibile. Il lavoro già svolto non viene annullato."
-            confirmLabel="Ferma"
-            onConfirm={() => handleCancel(job.id)}
-          />
-        )}
+        {jobLogsButton(job)}
+        {jobStopButton(job)}
       </div>
     )
   }
@@ -905,24 +919,33 @@ export function JobsManager() {
                 <Card key={job.id} size="sm">
                   <CardContent>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 flex-col">
-                        <span className="font-medium">
-                          {labelFor(job.type)}
-                        </span>
-                        <span className="text-xs text-muted-foreground tabular-nums">
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {labelFor(job.type)}
+                      </span>
+                      <div className="shrink-0">{jobLogsButton(job)}</div>
+                    </div>
+                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant={STATUS_META[job.status].variant}
+                          className="shrink-0"
+                        >
+                          {STATUS_META[job.status].label}
+                        </Badge>
+                        <span className="tabular-nums">
                           {fmt(job.createdAt)}
-                          {job.scheduleKey ? ` · cron: ${job.scheduleKey}` : ""}
                         </span>
                       </div>
-                      <Badge
-                        variant={STATUS_META[job.status].variant}
-                        className="shrink-0"
-                      >
-                        {STATUS_META[job.status].label}
-                      </Badge>
+                      {job.scheduleKey && (
+                        <div className="truncate">cron: {job.scheduleKey}</div>
+                      )}
                     </div>
                     <div className="mt-3">{jobProgress(job)}</div>
-                    <div className="mt-3">{jobActions(job)}</div>
+                    {isActive(job.status) && (
+                      <div className="mt-3 flex justify-end">
+                        {jobStopButton(job)}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))
