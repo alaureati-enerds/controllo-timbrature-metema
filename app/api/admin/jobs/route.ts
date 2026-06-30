@@ -42,11 +42,15 @@ export const GET = safeHandler(async (request) => {
   const params = new URL(request.url).searchParams
   const status = statusSchema.safeParse(params.get("status") ?? undefined)
   const type = params.get("type") ?? undefined
-  const jobs = await listJobs({
+  const limit = Number.parseInt(params.get("limit") ?? "", 10)
+  const offset = Number.parseInt(params.get("offset") ?? "", 10)
+  const { jobs, total } = await listJobs({
     status: status.success ? status.data : undefined,
     type: type ?? undefined,
+    limit: Number.isFinite(limit) ? limit : undefined,
+    offset: Number.isFinite(offset) ? offset : undefined,
   })
-  return ok({ jobs, types: jobTypes })
+  return ok({ jobs, total, types: jobTypes })
 })
 
 // POST /api/admin/jobs — accoda una nuova operazione.

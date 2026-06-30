@@ -96,14 +96,24 @@ export async function getJob(id: string): Promise<JobView | null> {
 }
 
 export async function listJobs(
-  filter: { status?: JobStatus; type?: string; limit?: number } = {}
-): Promise<JobView[]> {
-  const jobs = await prisma.job.findMany({
-    where: { status: filter.status, type: filter.type },
-    orderBy: { createdAt: "desc" },
-    take: Math.min(filter.limit ?? 50, 200),
-  })
-  return jobs.map(toView)
+  filter: {
+    status?: JobStatus
+    type?: string
+    limit?: number
+    offset?: number
+  } = {}
+): Promise<{ jobs: JobView[]; total: number }> {
+  const where = { status: filter.status, type: filter.type }
+  const [jobs, total] = await prisma.$transaction([
+    prisma.job.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: Math.min(filter.limit ?? 50, 200),
+      skip: filter.offset ?? 0,
+    }),
+    prisma.job.count({ where }),
+  ])
+  return { jobs: jobs.map(toView), total }
 }
 
 // ---------------------------------------------------------------------------
