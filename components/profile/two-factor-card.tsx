@@ -424,7 +424,7 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
             <DialogTrigger asChild>
               <Button>
                 <ShieldCheckIcon aria-hidden="true" data-icon="inline-start" />
-                Attiva
+                Abilita 2FA
               </Button>
             </DialogTrigger>
             <DialogContent>

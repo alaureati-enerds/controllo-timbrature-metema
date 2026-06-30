@@ -423,11 +423,7 @@ export function AccountSecurity({
             Operazione irreversibile: vengono rimossi profilo, note e sessioni.
           </CardDescription>
         </CardHeader>
-        <CardFooter className="flex-wrap justify-end gap-4 border-t-0 bg-transparent">
-          <p className="text-sm text-muted-foreground">
-            Riceverai un&apos;ultima email di conferma prima
-            dell&apos;eliminazione.
-          </p>
+        <CardFooter className="justify-end">
           <AlertDialog
             onOpenChange={(open) => {
               if (!open) setConfirmEmail("")
