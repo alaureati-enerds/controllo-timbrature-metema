@@ -2,27 +2,32 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { SaveIcon, UserIcon } from "lucide-react"
+import { PencilIcon, UserIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
 import { AvatarUploader } from "@/components/profile/avatar-uploader"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import {
   Field,
-  FieldDescription,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -30,29 +35,29 @@ import { Spinner } from "@/components/ui/spinner"
 // nella sezione sicurezza (components/profile/account-security.tsx).
 export function ProfileForm({
   initialName,
-  email,
   image,
-  roles,
 }: {
   initialName: string
-  email: string
   image: string | null
-  roles: string[]
 }) {
   const router = useRouter()
+  const [editOpen, setEditOpen] = useState(false)
   const [name, setName] = useState(initialName)
+  const [editName, setEditName] = useState(initialName)
   const [savingName, setSavingName] = useState(false)
 
   async function handleNameSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSavingName(true)
-    const { error } = await authClient.updateUser({ name })
+    const { error } = await authClient.updateUser({ name: editName })
     setSavingName(false)
     if (error) {
       toast.error(error.message ?? "Aggiornamento non riuscito")
       return
     }
-    toast.success("Profilo aggiornato")
+    setName(editName)
+    setEditOpen(false)
+    toast.success("Nome aggiornato")
     router.refresh()
   }
 
@@ -63,56 +68,53 @@ export function ProfileForm({
           <UserIcon aria-hidden="true" className="size-4" />
           Informazioni personali
         </CardTitle>
-        <CardDescription>
-          Nome e foto compaiono nella barra laterale e nelle attività
-          dell&apos;account.
-        </CardDescription>
       </CardHeader>
-      <form onSubmit={handleNameSubmit} className="contents">
-        <CardContent>
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <AvatarUploader name={initialName} image={image} />
-              {roles.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {roles.map((r) => (
-                    <Badge key={r} variant="secondary" className="capitalize">
-                      {r}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-            <FieldGroup>
-              <div className="grid gap-5 md:grid-cols-2">
+      <CardContent>
+        <div className="flex flex-col gap-6">
+          <AvatarUploader name={initialName} image={image} />
+          <FieldGroup>
+            <Field>
+              <FieldLabel>Nome</FieldLabel>
+              <span className="text-sm font-medium">{name}</span>
+            </Field>
+          </FieldGroup>
+        </div>
+      </CardContent>
+      <CardFooter className="justify-end">
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <PencilIcon aria-hidden="true" data-icon="inline-start" />
+              Modifica
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Modifica nome</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleNameSubmit}>
+              <FieldGroup>
                 <Field>
-                  <FieldLabel htmlFor="name">Nome</FieldLabel>
+                  <FieldLabel htmlFor="edit-name">Nome</FieldLabel>
                   <Input
-                    id="name"
+                    id="edit-name"
                     required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
                     disabled={savingName}
                   />
                 </Field>
-                <Field>
-                  <FieldLabel htmlFor="email">Email</FieldLabel>
-                  <Input id="email" value={email} disabled readOnly />
-                  <FieldDescription>
-                    Per cambiarla usa la sezione Email qui sotto.
-                  </FieldDescription>
-                </Field>
-              </div>
-            </FieldGroup>
-          </div>
-        </CardContent>
-        <CardFooter className="justify-end">
-          <Button type="submit" disabled={savingName || name === initialName}>
-            {savingName ? <Spinner /> : <SaveIcon data-icon="inline-start" />}
-            Salva modifiche
-          </Button>
-        </CardFooter>
-      </form>
+              </FieldGroup>
+              <DialogFooter className="mt-6">
+                <Button type="submit" disabled={savingName || editName === name}>
+                  {savingName ? <Spinner /> : <PencilIcon data-icon="inline-start" />}
+                  Salva
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </CardFooter>
     </Card>
   )
 }

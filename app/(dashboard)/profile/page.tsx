@@ -8,11 +8,10 @@ export const metadata: Metadata = { title: "Profilo" }
 
 export default async function ProfilePage() {
   const session = await requireUser()
-  const { name, email, role, emailVerified, image } = session.user
+  const { name, email, emailVerified, image } = session.user
   const twoFactorEnabled = Boolean(
     (session.user as { twoFactorEnabled?: boolean | null }).twoFactorEnabled
   )
-  const roles = (role ?? "user").split(",").map((r) => r.trim())
 
   return (
     <div className="flex flex-col gap-6">
@@ -25,9 +24,7 @@ export default async function ProfilePage() {
 
       <ProfileForm
         initialName={name}
-        email={email}
         image={image ?? null}
-        roles={roles}
       />
       <AccountSecurity
         currentEmail={email}
