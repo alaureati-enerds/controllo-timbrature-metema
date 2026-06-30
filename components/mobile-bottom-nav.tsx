@@ -67,16 +67,22 @@ export function MobileBottomNav() {
             <li key={item.url} className="flex-1">
               <Link
                 href={item.url}
+                aria-label={item.label}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex h-14 w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
-                  active
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
+                className="flex h-14 w-full items-center justify-center"
               >
-                <item.icon aria-hidden="true" className="size-5 shrink-0" />
-                <span className="max-w-full truncate px-1">{item.label}</span>
+                {/* Solo icona: l'etichetta resta come `aria-label`. La pillola
+                    dietro l'icona segnala la voce attiva senza testo. */}
+                <span
+                  className={cn(
+                    "flex items-center justify-center rounded-full px-5 py-1.5 transition-colors",
+                    active
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  <item.icon aria-hidden="true" className="size-6 shrink-0" />
+                </span>
               </Link>
             </li>
           )

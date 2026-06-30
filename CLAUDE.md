@@ -123,7 +123,11 @@ man mano che rivediamo le pagine: ogni nuova regola va annotata qui.
   riservata dal sistema); quel padding serve invece in Safari browser.
 - **Topbar sticky.** L'header della dashboard è dentro un contenitore `sticky
   top-0 z-10 bg-background` (con il `pt` di safe-area), così resta in alto durante
-  lo scroll; lo sfondo opaco evita che il contenuto traspaia sotto la barra.
+  lo scroll; lo sfondo opaco evita che il contenuto traspaia sotto la barra. Su
+  **mobile** mostra a sinistra il **branding** (icona + nome, link alla home) al
+  posto del breadcrumb — il titolo della pagina è già nell'`<h1>` sotto — e
+  nasconde il selettore tema (`hidden md:flex`; è nelle impostazioni utente):
+  restano solo ricerca e notifiche.
 - **Navigazione mobile = bottom bar + pagina `/menu`.** Su mobile la navigazione
   è la `MobileBottomNav`
   ([`components/mobile-bottom-nav.tsx`](components/mobile-bottom-nav.tsx)): barra
@@ -132,7 +136,9 @@ man mano che rivediamo le pagine: ogni nuova regola va annotata qui.
   navigazione completa e le azioni account. La **sidebar è la navigazione del solo
   desktop**: su mobile l'hamburger in topbar è nascosto (`hidden md:flex`) e il
   contenuto ha `pb` extra per non finire sotto la barra. Usa `flex`+`flex-1` (non
-  `grid-cols-5`) per le colonne della barra.
+  `grid-cols-5`) per le colonne della barra. Le voci sono **solo icona** (con
+  `aria-label` per l'accessibilità); la voce attiva è evidenziata da una pillola
+  dietro l'icona.
 - **Tabelle → card sotto `md`.** Le tabelle dense non si usano in scroll
   orizzontale su mobile. Pattern: la `Table` esistente con `className="hidden
   md:table"` e, accanto, una lista di `Card` `md:hidden` che riusa gli stessi dati

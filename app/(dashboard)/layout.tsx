@@ -1,7 +1,9 @@
 import { cookies } from "next/headers"
+import Link from "next/link"
 
 import { AppBreadcrumb } from "@/components/app-breadcrumb"
 import { AppSidebar } from "@/components/app-sidebar"
+import { BrandingIcon } from "@/components/branding-icon"
 import { GlobalSearch } from "@/components/global-search"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
@@ -60,11 +62,30 @@ export default async function DashboardLayout({
                 orientation="vertical"
                 className="mr-2 hidden data-[orientation=vertical]:h-4 md:block"
               />
-              <AppBreadcrumb />
+              {/* Mobile: branding a sinistra (la sidebar che lo mostra è
+                  nascosta). Desktop: breadcrumb come di consueto. */}
+              <Link
+                href="/"
+                className="flex min-w-0 items-center gap-2 md:hidden"
+              >
+                <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <BrandingIcon name={branding.iconName} className="size-4" />
+                </div>
+                <span className="truncate font-semibold">
+                  {branding.appName}
+                </span>
+              </Link>
+              <div className="hidden min-w-0 md:flex">
+                <AppBreadcrumb />
+              </div>
               <div className="ml-auto flex items-center gap-2">
                 <GlobalSearch />
                 <NotificationsBell />
-                <ModeToggle />
+                {/* Selettore tema solo su desktop: su mobile è nelle
+                    impostazioni utente. */}
+                <div className="hidden md:flex">
+                  <ModeToggle />
+                </div>
               </div>
             </header>
           </div>
