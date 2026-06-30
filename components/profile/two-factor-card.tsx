@@ -300,9 +300,7 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
             Autenticazione a due fattori
           </span>
           {enabled ? (
-            <Badge className="bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
-              Abilitata
-            </Badge>
+            <Badge variant="success">Abilitata</Badge>
           ) : (
             <Badge variant="outline" className="text-muted-foreground">
               Disabilitata
