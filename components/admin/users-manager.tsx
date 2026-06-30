@@ -6,6 +6,7 @@ import {
   BanIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  EllipsisVerticalIcon,
   EyeIcon,
   FilterIcon,
   LockOpenIcon,
@@ -19,6 +20,7 @@ import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
 import { initials } from "@/lib/initials"
+import { cn } from "@/lib/utils"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +61,13 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Empty,
   EmptyDescription,
@@ -293,7 +302,49 @@ export function UsersManager() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1
   const rangeEnd = Math.min(total, (page + 1) * PAGE_SIZE)
-  const hasActiveFilter = filter !== "all"
+  // Su mobile anche la ricerca sta nel Drawer: la conto tra i filtri attivi.
+  const activeFilterCount =
+    (filter !== "all" ? 1 : 0) + (searchInput.trim() !== "" ? 1 : 0)
+  const hasActiveFilter = activeFilterCount > 0
+
+  function clearFilters() {
+    setPage(0)
+    setFilter("all")
+    setSearchInput("")
+  }
+
+  // Campo ricerca riusato da toolbar desktop e Drawer mobile.
+  function searchField(className?: string) {
+    return (
+      <div className={cn("relative", className)}>
+        <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Cerca per nome o email…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="pl-8"
+          aria-label="Cerca utenti per nome o email"
+        />
+        {searchInput && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Azzera la ricerca"
+                className="absolute top-1/2 right-1.5 -translate-y-1/2"
+                onClick={() => setSearchInput("")}
+              >
+                <XIcon />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Azzera</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    )
+  }
 
   // Celle riusate da tabella desktop e card mobile (un'unica fonte).
   function roleSelect(u: AdminUser, isSelf: boolean) {
@@ -393,33 +444,8 @@ export function UsersManager() {
         {/* Barra strumenti: ricerca + filtro a sinistra, creazione a destra. */}
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-1 flex-col gap-2 md:flex-row md:items-center">
-            <div className="relative md:max-w-xs md:flex-1">
-              <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Cerca per nome o email…"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-8"
-                aria-label="Cerca utenti per nome o email"
-              />
-              {searchInput && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label="Azzera la ricerca"
-                      className="absolute top-1/2 right-1.5 -translate-y-1/2"
-                      onClick={() => setSearchInput("")}
-                    >
-                      <XIcon />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Azzera</TooltipContent>
-                </Tooltip>
-              )}
-            </div>
+            {/* Desktop — ricerca sempre visibile (su mobile è nel Drawer) */}
+            {searchField("hidden md:block md:max-w-xs md:flex-1")}
             {/* Desktop — filtro preset in linea */}
             <Select
               value={filter}
@@ -452,7 +478,7 @@ export function UsersManager() {
                     Filtri
                     {hasActiveFilter && (
                       <Badge variant="secondary" className="ml-auto">
-                        1
+                        {activeFilterCount}
                       </Badge>
                     )}
                   </Button>
@@ -469,10 +495,7 @@ export function UsersManager() {
                           variant="ghost"
                           size="sm"
                           aria-label="Azzera filtri"
-                          onClick={() => {
-                            setPage(0)
-                            setFilter("all")
-                          }}
+                          onClick={clearFilters}
                         >
                           <XIcon className="size-4" />
                           Azzera
@@ -480,7 +503,7 @@ export function UsersManager() {
                       )}
                     </div>
                     <DrawerDescription className="sr-only">
-                      Filtra gli utenti per ruolo e stato.
+                      Cerca e filtra gli utenti per ruolo e stato.
                     </DrawerDescription>
                   </DrawerHeader>
                   <div
@@ -491,24 +514,30 @@ export function UsersManager() {
                       paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
                     }}
                   >
-                    <Select
-                      value={filter}
-                      onValueChange={(v) => {
-                        setPage(0)
-                        setFilter(v as FilterValue)
-                      }}
-                    >
-                      <SelectTrigger className="w-full" aria-label="Filtra utenti">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FILTERS.map((f) => (
-                          <SelectItem key={f.value} value={f.value}>
-                            {f.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex flex-col gap-4">
+                      {searchField()}
+                      <Select
+                        value={filter}
+                        onValueChange={(v) => {
+                          setPage(0)
+                          setFilter(v as FilterValue)
+                        }}
+                      >
+                        <SelectTrigger
+                          className="w-full"
+                          aria-label="Filtra utenti"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FILTERS.map((f) => (
+                            <SelectItem key={f.value} value={f.value}>
+                              {f.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </DrawerContent>
               </Drawer>
@@ -708,7 +737,7 @@ export function UsersManager() {
               return (
                 <Card key={u.id} size="sm">
                   <CardContent>
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-3">
                         <Avatar className="size-9 shrink-0">
                           {u.image && <AvatarImage src={u.image} alt="" />}
@@ -717,17 +746,23 @@ export function UsersManager() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium">{u.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="min-w-0 truncate font-medium">
+                              {u.name}
+                            </span>
+                            {statusBadge(u)}
+                          </div>
                           <span className="truncate text-xs text-muted-foreground">
                             {u.email}
                           </span>
                         </div>
                       </div>
-                      {statusBadge(u)}
-                    </div>
-                    <div className="mt-3 flex items-center gap-2">
-                      <div className="flex-1">{roleSelect(u, isSelf)}</div>
-                      {rowActions(u, isSelf)}
+                      <UserActionsMenu
+                        user={u}
+                        disabled={busyId === u.id || isSelf}
+                        onToggleBan={handleToggleBan}
+                        onRemove={handleRemove}
+                      />
                     </div>
                   </CardContent>
                 </Card>
@@ -854,5 +889,76 @@ function DeleteUserDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  )
+}
+
+// Azioni utente compatte per le card mobile: un solo bottone «⋮» con dropdown.
+// L'eliminazione è dietro un AlertDialog annidato (onSelect preventDefault
+// tiene aperto il menu mentre si conferma).
+function UserActionsMenu({
+  user,
+  disabled,
+  onToggleBan,
+  onRemove,
+}: {
+  user: AdminUser
+  disabled: boolean
+  onToggleBan: (user: AdminUser) => void
+  onRemove: (user: AdminUser) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label="Azioni utente">
+          <EllipsisVerticalIcon />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem asChild>
+          <Link href={`/admin/users/${user.id}`}>
+            <EyeIcon />
+            Dettaglio
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={disabled}
+          onSelect={() => onToggleBan(user)}
+        >
+          {user.banned ? <LockOpenIcon /> : <BanIcon />}
+          {user.banned ? "Sblocca" : "Banna"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={disabled}
+              onSelect={(e) => e.preventDefault()}
+            >
+              <Trash2Icon />
+              Elimina
+            </DropdownMenuItem>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminare {user.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                L&apos;account {user.email} e i suoi dati verranno rimossi
+                definitivamente. L&apos;azione non è reversibile.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annulla</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => onRemove(user)}
+              >
+                Elimina
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
