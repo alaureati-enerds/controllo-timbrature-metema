@@ -24,6 +24,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 // Tipo allineato a NotificationView (lib/notifications). Ridichiarato qui come in
 // audit-log.tsx: il client non importa dal modulo server.
@@ -49,10 +50,12 @@ const relative = (iso: string) =>
 
 // Campanella delle notifiche in topbar: badge col numero di non lette (polling) e
 // un popover con le ultime notifiche, "segna tutte come lette" e il link alla
-// pagina completa. La pagina /notifications è raggiungibile SOLO da qui (non è in
-// sidebar). Vedi docs/notifiche.md.
+// pagina completa. Su mobile il popover non si usa: la campanella porta dritto
+// alla pagina /notifications (più comoda del popover su schermo stretto). La
+// pagina è raggiungibile SOLO da qui (non è in sidebar). Vedi docs/notifiche.md.
 export function NotificationsBell() {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const { data: session } = authClient.useSession()
   const [unread, setUnread] = useState(0)
   const [open, setOpen] = useState(false)
@@ -145,6 +148,38 @@ export function NotificationsBell() {
 
   if (!session) return null
 
+  const ariaLabel = unread > 0 ? `Notifiche, ${unread} non lette` : "Notifiche"
+  // Icona + badge: condivisi dal trigger del popover (desktop) e dal link diretto
+  // (mobile). Il badge è in posizione assoluta, quindi il contenitore è `relative`.
+  const bellContent = (
+    <>
+      <BellIcon />
+      {unread > 0 && (
+        <Badge
+          className="absolute -top-1 -right-1 size-5 min-w-5 justify-center rounded-full px-1 tabular-nums"
+          variant="destructive"
+        >
+          {unread > 9 ? "9+" : unread}
+        </Badge>
+      )}
+    </>
+  )
+
+  // Mobile: niente popover, la campanella è un link alla pagina completa.
+  if (isMobile) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative"
+        aria-label={ariaLabel}
+        asChild
+      >
+        <Link href="/notifications">{bellContent}</Link>
+      </Button>
+    )
+  }
+
   return (
     <Popover
       open={open}
@@ -159,19 +194,9 @@ export function NotificationsBell() {
           variant="ghost"
           size="icon"
           className="relative"
-          aria-label={
-            unread > 0 ? `Notifiche, ${unread} non lette` : "Notifiche"
-          }
+          aria-label={ariaLabel}
         >
-          <BellIcon />
-          {unread > 0 && (
-            <Badge
-              className="absolute -top-1 -right-1 size-5 min-w-5 justify-center rounded-full px-1 tabular-nums"
-              variant="destructive"
-            >
-              {unread > 9 ? "9+" : unread}
-            </Badge>
-          )}
+          {bellContent}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 p-0">

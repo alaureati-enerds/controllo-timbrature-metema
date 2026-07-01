@@ -7,14 +7,7 @@ import { it } from "date-fns/locale"
 import { BellIcon, CheckCheckIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Empty,
   EmptyDescription,
@@ -25,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { typeLabel } from "@/lib/notifications/catalog"
 
 // Tipo allineato a NotificationView (lib/notifications), ridichiarato lato client.
@@ -49,6 +43,7 @@ const relative = (iso: string) =>
 // "Tutte"/"Non lette", paginazione e azioni di lettura. Vedi docs/notifiche.md.
 export function NotificationsView() {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const [tab, setTab] = useState<"all" | "unread">("all")
   const [entries, setEntries] = useState<Notification[]>([])
   const [total, setTotal] = useState(0)
@@ -56,6 +51,11 @@ export function NotificationsView() {
   const [offset, setOffset] = useState(0)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
+
+  // Su mobile il filtro Tutte/Non lette è nascosto: la vista è sempre "tutte".
+  // Forziamo qui il valore effettivo così i dati combaciano con ciò che si vede
+  // anche se si attraversa il breakpoint con "Non lette" attivo da desktop.
+  const effectiveTab = isMobile ? "all" : tab
 
   // Caricamento inline nell'effect, senza setState sincrono: `loading` parte true
   // e si spegne al primo dato (come in audit-log.tsx). I cambi di tab/pagina
@@ -66,7 +66,7 @@ export function NotificationsView() {
       limit: String(PAGE_SIZE),
       offset: String(offset),
     })
-    if (tab === "unread") params.set("unreadOnly", "true")
+    if (effectiveTab === "unread") params.set("unreadOnly", "true")
     fetch(`/api/notifications?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error("Caricamento non riuscito")
@@ -91,7 +91,7 @@ export function NotificationsView() {
     return () => {
       active = false
     }
-  }, [tab, offset, reloadKey])
+  }, [effectiveTab, offset, reloadKey])
 
   async function markAllRead() {
     try {
@@ -124,39 +124,40 @@ export function NotificationsView() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Tutte le notifiche</CardTitle>
-        <CardDescription>
-          Gli avvisi del tuo account, dal più recente. Le notifiche lette
-          vengono conservate per il periodo impostato dall&apos;amministratore.
-        </CardDescription>
-        <CardAction>
+      <CardContent className="flex flex-col gap-4">
+        {/* Toolbar: tab di filtro + "segna tutte". Niente titolo/descrizione di
+            card: la pagina ha già `<h1>Notifiche</h1>` con l'intro, e ripeterli
+            spingeva le notifiche molto in basso — su mobile la CardAction
+            strozzava la descrizione su sei righe prima del primo avviso. */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          {/* Filtro Tutte/Non lette solo da desktop: su mobile la vista è sempre
+              "tutte" (vedi `effectiveTab`), così si va dritti agli avvisi. */}
+          <Tabs
+            value={tab}
+            onValueChange={(v) => {
+              setTab(v as "all" | "unread")
+              setOffset(0)
+            }}
+            className="hidden md:block"
+          >
+            <TabsList>
+              <TabsTrigger value="all">Tutte</TabsTrigger>
+              <TabsTrigger value="unread">
+                Non lette{unread > 0 ? ` (${unread})` : ""}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Button
             variant="outline"
             size="sm"
+            className="w-full md:w-auto"
             disabled={unread === 0}
             onClick={markAllRead}
           >
             <CheckCheckIcon data-icon="inline-start" />
             Segna tutte come lette
           </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <Tabs
-          value={tab}
-          onValueChange={(v) => {
-            setTab(v as "all" | "unread")
-            setOffset(0)
-          }}
-        >
-          <TabsList>
-            <TabsTrigger value="all">Tutte</TabsTrigger>
-            <TabsTrigger value="unread">
-              Non lette{unread > 0 ? ` (${unread})` : ""}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        </div>
 
         {loading ? (
           <div className="flex flex-col gap-3">
@@ -175,7 +176,7 @@ export function NotificationsView() {
               </EmptyMedia>
               <EmptyTitle>Nessuna notifica</EmptyTitle>
               <EmptyDescription>
-                {tab === "unread"
+                {effectiveTab === "unread"
                   ? "Hai letto tutte le notifiche."
                   : "Qui arriveranno gli avvisi del tuo account."}
               </EmptyDescription>
