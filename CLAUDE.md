@@ -137,8 +137,9 @@ man mano che rivediamo le pagine: ogni nuova regola va annotata qui.
   desktop**: su mobile l'hamburger in topbar è nascosto (`hidden md:flex`) e il
   contenuto ha `pb` extra per non finire sotto la barra. Usa `flex`+`flex-1` (non
   `grid-cols-5`) per le colonne della barra. Le voci sono **solo icona** (con
-  `aria-label` per l'accessibilità); la voce attiva è evidenziata da una pillola
-  dietro l'icona.
+  `aria-label` per l'accessibilità); la voce attiva è evidenziata dal colore
+  primario e da una barretta sotto l'icona (le voci inattive tengono una
+  barretta trasparente, così le icone non saltano al cambio di rotta).
 - **Tabelle → card sotto `md`.** Le tabelle dense non si usano in scroll
   orizzontale su mobile. Pattern: la `Table` esistente con `className="hidden
   md:table"` e, accanto, una lista di `Card` `md:hidden` che riusa gli stessi dati
