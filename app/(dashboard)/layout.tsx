@@ -92,7 +92,7 @@ export default async function DashboardLayout({
           {/* `pb` mobile: lascia spazio per la bottom bar (h-14) + safe-area,
               così l'ultimo contenuto non finisce sotto la barra. Su desktop la
               barra è nascosta, quindi padding normale. */}
-          <div className="flex flex-1 flex-col gap-4 p-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-4">
+          <div className="flex flex-1 flex-col gap-4 p-4 pb-[calc(4.5rem+min(env(safe-area-inset-bottom),0.5rem))] md:pb-4">
             {children}
           </div>
           <MobileBottomNav />

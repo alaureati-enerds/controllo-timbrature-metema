@@ -48,7 +48,10 @@ function isActive(pathname: string, url: string) {
 }
 
 // Barra di navigazione inferiore: visibile solo su mobile (la sidebar resta la
-// navigazione del desktop). `pb` da safe-area per stare sopra l'home indicator.
+// navigazione del desktop). Le icone, centrate in `h-14`, sono già staccate dal
+// bordo inferiore: per l'home indicator basta un filo di safe-area, non l'inset
+// pieno. Lo limitiamo con `min(...,0.5rem)` perché su iOS 26 Safari l'inset è
+// gonfiato dalla barra flottante e lasciava un vuoto enorme sotto le icone.
 export function MobileBottomNav() {
   const pathname = usePathname()
   const { data: session } = authClient.useSession()
@@ -58,7 +61,7 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Navigazione principale"
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[min(env(safe-area-inset-bottom),0.5rem)] md:hidden"
     >
       <ul className="flex">
         {items.map((item) => {
@@ -70,15 +73,24 @@ export function MobileBottomNav() {
                 aria-label={item.label}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-14 w-full touch-manipulation items-center justify-center transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset",
+                  "flex h-14 w-full touch-manipulation flex-col items-center justify-center gap-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                {/* Solo icona: l'etichetta resta come `aria-label`; la voce
-                    attiva si distingue per il colore (primario vs muted). */}
+                {/* Solo icona: l'etichetta resta come `aria-label`. La voce
+                    attiva si distingue per il colore (primario vs muted) e per la
+                    barretta sotto l'icona; quella inattiva tiene una barretta
+                    trasparente, così le icone restano allineate (niente salto). */}
                 <item.icon aria-hidden="true" className="size-6 shrink-0" />
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "h-0.5 w-3 rounded-full transition-colors",
+                    active ? "bg-primary" : "bg-transparent"
+                  )}
+                />
               </Link>
             </li>
           )
