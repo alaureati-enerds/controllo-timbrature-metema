@@ -128,11 +128,17 @@ export function GlobalSearch() {
         <SearchIcon />
       </Button>
 
+      {/* Su mobile la palette è ancorata in alto (sotto il notch): la tastiera
+          sale dal basso e coprirebbe input e risultati se restasse centrata.
+          Ancorandola in alto, input e primi risultati stanno sempre sopra la
+          tastiera; la lista scrolla nei suoi `max-h-72`. Desktop: resta a
+          top-1/3 (default del CommandDialog). */}
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
         title="Ricerca globale"
         description="Cerca tra le voci di menu e i tuoi record."
+        className="top-[calc(env(safe-area-inset-top)+0.5rem)] md:top-1/3"
       >
         <Command shouldFilter={false}>
           <CommandInput
