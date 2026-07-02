@@ -374,28 +374,28 @@ export function TimbratureManager() {
                             {format(new Date(r.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
                           </TableCell>
                           <TableCell className="text-center tabular-nums">
-                            {r.entrata1?.slice(0, 5) ?? (r.we ? "—" : "")}
+                            {r.entrata1?.slice(0, 5) ?? "—"}
                           </TableCell>
                           <TableCell className="text-center tabular-nums">
-                            {r.uscita1?.slice(0, 5) ?? (r.we ? "—" : "")}
+                            {r.uscita1?.slice(0, 5) ?? "—"}
                           </TableCell>
                           <TableCell className="text-center tabular-nums">
-                            {r.entrata2?.slice(0, 5) ?? (r.we ? "—" : "")}
+                            {r.entrata2?.slice(0, 5) ?? "—"}
                           </TableCell>
                           <TableCell className="text-center tabular-nums">
-                            {r.uscita2?.slice(0, 5) ?? (r.we ? "—" : "")}
+                            {r.uscita2?.slice(0, 5) ?? "—"}
                           </TableCell>
                           <TableCell className="text-center tabular-nums border-l">
-                            {r.ce1 ?? (r.we ? "—" : "")}
+                            {r.ce1 ?? "—"}
                           </TableCell>
                           <TableCell className="text-center tabular-nums">
-                            {r.cu1 ?? (r.we ? "—" : "")}
+                            {r.cu1 ?? "—"}
                           </TableCell>
                           <TableCell className="text-center tabular-nums">
-                            {r.ce2 ?? (r.we ? "—" : "")}
+                            {r.ce2 ?? "—"}
                           </TableCell>
                           <TableCell className="text-center tabular-nums">
-                            {r.cu2 ?? (r.we ? "—" : "")}
+                            {r.cu2 ?? "—"}
                           </TableCell>
                           <TableCell
                             className={cn(
