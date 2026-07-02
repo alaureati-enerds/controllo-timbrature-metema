@@ -75,6 +75,18 @@ export const notificationSettingsSchema = z.object({
 
 export type NotificationSettings = z.infer<typeof notificationSettingsSchema>
 
+// Config MySQL esterna persistita nel blob del singleton. Server-only (mai in
+// toPublicSettings). `passwordEnc` è la password cifrata con lib/crypto.ts.
+export const mysqlSettingsSchema = z.object({
+  host: z.string().trim().min(1).optional(),
+  port: z.coerce.number().int().positive().optional(),
+  user: z.string().trim().min(1).optional(),
+  passwordEnc: z.string().min(1).optional(),
+  database: z.string().trim().min(1).optional(),
+})
+
+export type MySqlSettings = z.infer<typeof mysqlSettingsSchema>
+
 export const systemSettingsSchema = z.object({
   // Nome del software, mostrato nell'header della sidebar e nel <title>.
   appName: z.string().trim().min(1).default("shadcn starter"),
@@ -92,6 +104,9 @@ export const systemSettingsSchema = z.object({
   notifications: notificationSettingsSchema.default(
     notificationSettingsSchema.parse({})
   ),
+  // Config MySQL esterna (server-only, vedi sopra). Default = i default dello
+  // schema (password cifrata con lib/crypto.ts).
+  mysql: mysqlSettingsSchema.default({}),
 })
 
 export type SystemSettings = z.infer<typeof systemSettingsSchema>
@@ -112,10 +127,10 @@ export function toPublicSettings(s: SystemSettings): PublicSystemSettings {
 }
 
 // Schema per gli aggiornamenti dal form admin del BRANDING: tutti i campi
-// opzionali (patch parziale). `email` e `audit` sono esclusi di proposito — si
-// aggiornano solo dai rispettivi endpoint dedicati, mai da qui.
+// opzionali (patch parziale). `email`, `audit`, `notifications` e `mysql` sono
+// esclusi di proposito — si aggiornano solo dai rispettivi endpoint dedicati.
 export const systemSettingsPatchSchema = systemSettingsSchema
-  .omit({ email: true, audit: true, notifications: true })
+  .omit({ email: true, audit: true, notifications: true, mysql: true })
   .partial()
 
 export type SystemSettingsPatch = z.infer<typeof systemSettingsPatchSchema>
@@ -139,6 +154,30 @@ export const emailSettingsInputSchema = z.object({
 })
 
 export type EmailSettingsInput = z.infer<typeof emailSettingsInputSchema>
+
+// Input del form MySQL (admin → server). Distinto dallo schema persistito:
+// la password arriva in CHIARO (write-only) e qui viene poi cifrata.
+export const mysqlSettingsInputSchema = z.object({
+  host: z.string().trim(),
+  port: z.coerce.number().int().positive().nullable(),
+  user: z.string().trim(),
+  password: z.string().min(1).optional(),
+  removePassword: z.boolean().optional(),
+  database: z.string().trim(),
+})
+
+export type MySqlSettingsInput = z.infer<typeof mysqlSettingsInputSchema>
+
+// Vista MASCHERATA della config MySQL (server → admin): rispecchia i valori
+// persistiti per popolare il form, ma non espone mai la password — solo se è
+// impostata (`passwordSet`).
+export type MySqlSettingsAdmin = {
+  host: string
+  port: number | null
+  user: string
+  passwordSet: boolean
+  database: string
+}
 
 // Vista MASCHERATA della config email (server → admin): rispecchia i valori
 // persistiti per popolare il form, ma non espone mai la password — solo se è
