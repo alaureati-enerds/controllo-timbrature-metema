@@ -338,3 +338,25 @@ model Notification {
   @@index([userId, createdAt])
   @@map("notification")
 }
+
+// ============================================================================
+// Timbrature corrette (override manuali salvati)
+// ============================================================================
+
+/// Una correzione manuale alle timbrature di un dipendente in un giorno specifico.
+/// Quando esiste, i valori qui prevalgono sui calcolati dall'algoritmo. Questo
+/// modello NON tocca il MySQL aziendale: vive nel DB locale dell'app.
+model TimbraturaCorretta {
+  id         String   @id @default(cuid())
+  dipendente String
+  giorno     String   // YYYY-MM-DD
+  entrata1   String?
+  uscita1    String?
+  entrata2   String?
+  uscita2    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([dipendente, giorno])
+  @@map("timbratura_corretta")
+}

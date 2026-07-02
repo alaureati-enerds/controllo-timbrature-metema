@@ -1,12 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { endOfMonth, format } from "date-fns"
 import { it } from "date-fns/locale"
 import {
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  RotateCcwIcon,
   SearchIcon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -73,11 +74,14 @@ function minutiDaOra(ora: string): number {
   return h * 60 + m
 }
 
-function calcolaCorretti(g: Giornata) {
-  const ce1 = g.entrata1 ? arrotondaEntrata(g.entrata1) : null
-  const cu1 = g.uscita1 ? arrotondaUscita(g.uscita1) : null
-  const ce2 = g.entrata2 ? arrotondaEntrata(g.entrata2) : null
-  const cu2 = g.uscita2 ? arrotondaUscita(g.uscita2) : null
+function calcolaCorretti(
+  g: Giornata,
+  override?: Record<string, string | null>
+) {
+  const ce1 = override?.entrata1 ?? (g.entrata1 ? arrotondaEntrata(g.entrata1) : null)
+  const cu1 = override?.uscita1 ?? (g.uscita1 ? arrotondaUscita(g.uscita1) : null)
+  const ce2 = override?.entrata2 ?? (g.entrata2 ? arrotondaEntrata(g.entrata2) : null)
+  const cu2 = override?.uscita2 ?? (g.uscita2 ? arrotondaUscita(g.uscita2) : null)
 
   const minuti = (ce1 && cu1 ? minutiDaOra(cu1) - minutiDaOra(ce1) : 0)
     + (ce2 && cu2 ? minutiDaOra(cu2) - minutiDaOra(ce2) : 0)
@@ -88,6 +92,85 @@ function calcolaCorretti(g: Giornata) {
     ordinario: Math.min(minuti, 480),
     straordinario: Math.max(minuti - 480, 0),
   }
+}
+
+function CorrettaCell({
+  giorno,
+  campo,
+  valore,
+  modificato,
+  editing,
+  setEditing,
+  editRef,
+  onSave,
+  onReset,
+}: {
+  giorno: string
+  campo: string
+  valore: string | null
+  modificato: boolean
+  editing: { giorno: string; campo: string } | null
+  setEditing: (k: { giorno: string; campo: string } | null) => void
+  editRef: React.RefObject<HTMLInputElement | null>
+  onSave: (giorno: string, campo: string, v: string | null) => void
+  onReset: (giorno: string, campo: string) => void
+}) {
+  const isEditing = editing?.giorno === giorno && editing?.campo === campo
+
+  function startEdit() {
+    setEditing({ giorno, campo })
+    requestAnimationFrame(() => editRef.current?.select())
+  }
+
+  function commit() {
+    const v = editRef.current?.value.trim()
+    setEditing(null)
+    if (!v || v === valore) {
+      if (modificato && !v) onReset(giorno, campo)
+      return
+    }
+    onSave(giorno, campo, v)
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") commit()
+    if (e.key === "Escape") setEditing(null)
+  }
+
+  if (isEditing) {
+    return (
+      <TableCell className="p-0 text-center">
+        <input
+          ref={editRef}
+          defaultValue={valore ?? ""}
+          className="w-full bg-transparent px-2 py-2 text-center tabular-nums text-sky-600 outline-none"
+          onBlur={commit}
+          onKeyDown={onKeyDown}
+        />
+      </TableCell>
+    )
+  }
+
+  return (
+    <TableCell
+      className="cursor-pointer text-center tabular-nums text-sky-600 hover:bg-muted/20"
+      onClick={startEdit}
+      title="Clicca per modificare"
+    >
+      <span className="inline-flex items-center gap-1">
+        {valore ?? "—"}
+        {modificato && (
+          <RotateCcwIcon
+            className="ml-0.5 inline size-3 cursor-pointer opacity-50 hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation()
+              onReset(giorno, campo)
+            }}
+          />
+        )}
+      </span>
+    </TableCell>
+  )
 }
 
 export function TimbratureManager() {
@@ -105,6 +188,75 @@ export function TimbratureManager() {
   })
   const [loading, setLoading] = useState(false)
   const [loadingDip, setLoadingDip] = useState(false)
+  const [correzioni, setCorrezioni] = useState<Map<string, Record<string, string | null>>>(new Map())
+
+  type EditingKey = { giorno: string; campo: string }
+  const [editing, setEditing] = useState<EditingKey | null>(null)
+  const editRef = useRef<HTMLInputElement>(null)
+
+  function isModificato(giorno: string, campo: string) {
+    return correzioni.get(giorno)?.[campo] !== undefined
+  }
+
+  async function salvaCorrezione(
+    giorno: string,
+    campo: string,
+    valore: string | null
+  ) {
+    if (!dipendente) return
+    const prev = correzioni.get(giorno) ?? {}
+    const next = { ...prev, [campo]: valore }
+
+    try {
+      const res = await fetch("/api/admin/timbrature/correzioni", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dipendente: dipendente.codice,
+          giorno,
+          ...next,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      setCorrezioni(new Map(correzioni).set(giorno, next))
+    } catch {
+      toast.error("Errore salvataggio correzione")
+    }
+  }
+
+  async function resettaCorrezione(giorno: string, campo: string) {
+    if (!dipendente) return
+    const prev = correzioni.get(giorno)
+    if (!prev) return
+
+    const { [campo]: _, ...rest } = prev
+    const keys = Object.keys(rest)
+
+    try {
+      if (keys.length === 0) {
+        await fetch(
+          `/api/admin/timbrature/correzioni?dipendente=${dipendente.codice}&giorno=${giorno}`,
+          { method: "DELETE" }
+        )
+        const next = new Map(correzioni)
+        next.delete(giorno)
+        setCorrezioni(next)
+      } else {
+        await fetch("/api/admin/timbrature/correzioni", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            dipendente: dipendente.codice,
+            giorno,
+            ...rest,
+          }),
+        })
+        setCorrezioni(new Map(correzioni).set(giorno, rest))
+      }
+    } catch {
+      toast.error("Errore reset correzione")
+    }
+  }
 
   useEffect(() => {
     setLoadingDip(true)
@@ -123,21 +275,46 @@ export function TimbratureManager() {
   const carica = useCallback(() => {
     if (!dipendente) return
     setLoading(true)
+    setCorrezioni(new Map())
     const params = new URLSearchParams({
       dipendente: dipendente.codice,
       mese: String(mese + 1),
       anno: String(anno),
     })
-    fetch(`/api/admin/timbrature?${params.toString()}`)
-      .then((res) => {
-        if (!res.ok) throw new Error()
-        return res.json()
-      })
-      .then((data: { giornate: Giornata[]; orario: typeof orario }) => {
-        setGiornate(data.giornate)
-        setOrario(data.orario)
-        setLoading(false)
-      })
+    Promise.all([
+      fetch(`/api/admin/timbrature?${params.toString()}`).then((r) => {
+        if (!r.ok) throw new Error()
+        return r.json()
+      }),
+      fetch(`/api/admin/timbrature/correzioni?${params.toString()}`)
+        .then((r) => r.json())
+        .catch(() => []),
+    ])
+      .then(
+        ([
+          data,
+          correzioniRaw,
+        ]: [{ giornate: Giornata[]; orario: typeof orario }, any[]]) => {
+          setGiornate(data.giornate)
+          setOrario(data.orario)
+          setCorrezioni(
+            new Map(
+              (correzioniRaw as { giorno: string; entrata1?: string | null; uscita1?: string | null; entrata2?: string | null; uscita2?: string | null }[]).map(
+                (c) => [
+                  c.giorno,
+                  {
+                    ...(c.entrata1 !== null && { entrata1: c.entrata1 }),
+                    ...(c.uscita1 !== null && { uscita1: c.uscita1 }),
+                    ...(c.entrata2 !== null && { entrata2: c.entrata2 }),
+                    ...(c.uscita2 !== null && { uscita2: c.uscita2 }),
+                  },
+                ]
+              )
+            )
+          )
+          setLoading(false)
+        }
+      )
       .catch(() => {
         toast.error("Impossibile caricare le timbrature")
         setLoading(false)
@@ -161,8 +338,13 @@ export function TimbratureManager() {
   }
 
   const righe = useMemo(
-    () => giornate.map((g) => ({ ...g, ...calcolaCorretti(g), we: weekEnd(g.giorno) })),
-    [giornate]
+    () =>
+      giornate.map((g) => ({
+        ...g,
+        ...calcolaCorretti(g, correzioni.get(g.giorno)),
+        we: weekEnd(g.giorno),
+      })),
+    [giornate, correzioni]
   )
 
   const totaliMese = useMemo(
@@ -385,18 +567,50 @@ export function TimbratureManager() {
                           <TableCell className="text-center tabular-nums">
                             {r.uscita2?.slice(0, 5) ?? "—"}
                           </TableCell>
-                          <TableCell className="text-center tabular-nums text-sky-600">
-                            {r.ce1 ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-center tabular-nums text-sky-600">
-                            {r.cu1 ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-center tabular-nums text-sky-600">
-                            {r.ce2 ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-center tabular-nums text-sky-600">
-                            {r.cu2 ?? "—"}
-                          </TableCell>
+                          <CorrettaCell
+                            giorno={r.giorno}
+                            campo="entrata1"
+                            valore={r.ce1}
+                            modificato={isModificato(r.giorno, "entrata1")}
+                            editing={editing}
+                            setEditing={setEditing}
+                            editRef={editRef}
+                            onSave={salvaCorrezione}
+                            onReset={resettaCorrezione}
+                          />
+                          <CorrettaCell
+                            giorno={r.giorno}
+                            campo="uscita1"
+                            valore={r.cu1}
+                            modificato={isModificato(r.giorno, "uscita1")}
+                            editing={editing}
+                            setEditing={setEditing}
+                            editRef={editRef}
+                            onSave={salvaCorrezione}
+                            onReset={resettaCorrezione}
+                          />
+                          <CorrettaCell
+                            giorno={r.giorno}
+                            campo="entrata2"
+                            valore={r.ce2}
+                            modificato={isModificato(r.giorno, "entrata2")}
+                            editing={editing}
+                            setEditing={setEditing}
+                            editRef={editRef}
+                            onSave={salvaCorrezione}
+                            onReset={resettaCorrezione}
+                          />
+                          <CorrettaCell
+                            giorno={r.giorno}
+                            campo="uscita2"
+                            valore={r.cu2}
+                            modificato={isModificato(r.giorno, "uscita2")}
+                            editing={editing}
+                            setEditing={setEditing}
+                            editRef={editRef}
+                            onSave={salvaCorrezione}
+                            onReset={resettaCorrezione}
+                          />
                           <TableCell
                             className={cn(
                               "text-right tabular-nums",
