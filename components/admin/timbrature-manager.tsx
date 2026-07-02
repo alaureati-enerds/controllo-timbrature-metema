@@ -68,6 +68,28 @@ function formattaMinuti(minuti: number): string {
   return `${h}h ${m}m`
 }
 
+function minutiDaOra(ora: string): number {
+  const [h, m] = ora.split(":").map(Number)
+  return h * 60 + m
+}
+
+function calcolaCorretti(g: Giornata) {
+  const ce1 = g.entrata1 ? arrotondaEntrata(g.entrata1) : null
+  const cu1 = g.uscita1 ? arrotondaUscita(g.uscita1) : null
+  const ce2 = g.entrata2 ? arrotondaEntrata(g.entrata2) : null
+  const cu2 = g.uscita2 ? arrotondaUscita(g.uscita2) : null
+
+  const minuti = (ce1 && cu1 ? minutiDaOra(cu1) - minutiDaOra(ce1) : 0)
+    + (ce2 && cu2 ? minutiDaOra(cu2) - minutiDaOra(ce2) : 0)
+
+  return {
+    ce1, cu1, ce2, cu2,
+    totale: minuti,
+    ordinario: Math.min(minuti, 480),
+    straordinario: Math.max(minuti - 480, 0),
+  }
+}
+
 export function TimbratureManager() {
   const def = meseCorrente()
   const [mese, setMese] = useState(def.mese)
@@ -122,11 +144,6 @@ export function TimbratureManager() {
       })
   }, [dipendente, mese, anno])
 
-  const totaleMese = useMemo(
-    () => giornate.reduce((sum, g) => sum + g.totaleMinuti, 0),
-    [giornate]
-  )
-
   const meseLabel = `${MESI[mese]} ${anno}`
 
   function meseSu() {
@@ -142,6 +159,20 @@ export function TimbratureManager() {
     const d = new Date(g + "T12:00:00")
     return d.getDay() === 0 || d.getDay() === 6
   }
+
+  const righe = useMemo(
+    () => giornate.map((g) => ({ ...g, ...calcolaCorretti(g), we: weekEnd(g.giorno) })),
+    [giornate]
+  )
+
+  const totaliMese = useMemo(
+    () => ({
+      totale: righe.reduce((s, r) => s + r.totale, 0),
+      ordinario: righe.reduce((s, r) => s + r.ordinario, 0),
+      straordinario: righe.reduce((s, r) => s + r.straordinario, 0),
+    }),
+    [righe]
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -222,9 +253,11 @@ export function TimbratureManager() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span className="tabular-nums">{meseLabel}</span>
-            {giornate.length > 0 && (
-              <span className="text-base font-normal text-muted-foreground tabular-nums">
-                Totale mese: {formattaMinuti(totaleMese)}
+            {righe.length > 0 && (
+              <span className="flex items-center gap-3 text-base font-normal text-muted-foreground tabular-nums">
+                <span>Totale: {formattaMinuti(totaliMese.totale)}</span>
+                <span>Ord.: {formattaMinuti(totaliMese.ordinario)}</span>
+                <span>Straord.: {formattaMinuti(totaliMese.straordinario)}</span>
               </span>
             )}
           </CardTitle>
@@ -274,9 +307,21 @@ export function TimbratureManager() {
                         </TableHead>
                         <TableHead
                           rowSpan={2}
-                          className="w-24 text-right tabular-nums"
+                          className="w-28 text-right tabular-nums"
                         >
                           Totale
+                        </TableHead>
+                        <TableHead
+                          rowSpan={2}
+                          className="w-28 text-right tabular-nums"
+                        >
+                          Ordinario
+                        </TableHead>
+                        <TableHead
+                          rowSpan={2}
+                          className="w-28 text-right tabular-nums"
+                        >
+                          Straordinario
                         </TableHead>
                       </TableRow>
                       <TableRow>
@@ -307,130 +352,137 @@ export function TimbratureManager() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {giornate.map((g) => {
-                        const we = weekEnd(g.giorno)
-                        return (
-                          <TableRow
-                            key={g.giorno}
+                      {righe.map((r) => (
+                        <TableRow
+                          key={r.giorno}
+                          className={cn(r.we && "bg-destructive/10")}
+                        >
+                          <TableCell
                             className={cn(
-                              we && "bg-destructive/10"
+                              "tabular-nums",
+                              r.we && "text-destructive"
                             )}
                           >
-                            <TableCell
-                              className={cn(
-                                "tabular-nums",
-                                we && "text-destructive"
-                              )}
-                            >
-                              {format(new Date(g.giorno + "T12:00:00"), "dd/MM", { locale: it })}
-                            </TableCell>
-                            <TableCell
-                              className={cn(
-                                "tabular-nums",
-                                we && "text-destructive"
-                              )}
-                            >
-                              {format(new Date(g.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
-                            </TableCell>
-                            <TableCell className="text-center tabular-nums">
-                              {g.entrata1?.slice(0, 5) ?? (we ? "—" : "")}
-                            </TableCell>
-                            <TableCell className="text-center tabular-nums">
-                              {g.uscita1?.slice(0, 5) ?? (we ? "—" : "")}
-                            </TableCell>
-                            <TableCell className="text-center tabular-nums">
-                              {g.entrata2?.slice(0, 5) ?? (we ? "—" : "")}
-                            </TableCell>
-                            <TableCell className="text-center tabular-nums">
-                              {g.uscita2?.slice(0, 5) ?? (we ? "—" : "")}
-                            </TableCell>
-                            <TableCell className="text-center tabular-nums border-l">
-                              {g.entrata1 ? arrotondaEntrata(g.entrata1) : we ? "—" : ""}
-                            </TableCell>
-                            <TableCell className="text-center tabular-nums">
-                              {g.uscita1 ? arrotondaUscita(g.uscita1) : we ? "—" : ""}
-                            </TableCell>
-                            <TableCell className="text-center tabular-nums">
-                              {g.entrata2 ? arrotondaEntrata(g.entrata2) : we ? "—" : ""}
-                            </TableCell>
-                            <TableCell className="text-center tabular-nums">
-                              {g.uscita2 ? arrotondaUscita(g.uscita2) : we ? "—" : ""}
-                            </TableCell>
-                            <TableCell
-                              className={cn(
-                                "text-right tabular-nums",
-                                g.totaleMinuti > 0 &&
-                                  g.totaleMinuti < 5 * 60 &&
-                                  "text-muted-foreground",
-                                g.totaleMinuti === 0 && !we && "text-muted-foreground"
-                              )}
-                            >
-                              {formattaMinuti(g.totaleMinuti)}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
+                            {format(new Date(r.giorno + "T12:00:00"), "dd/MM", { locale: it })}
+                          </TableCell>
+                          <TableCell
+                            className={cn(
+                              "tabular-nums",
+                              r.we && "text-destructive"
+                            )}
+                          >
+                            {format(new Date(r.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums">
+                            {r.entrata1?.slice(0, 5) ?? (r.we ? "—" : "")}
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums">
+                            {r.uscita1?.slice(0, 5) ?? (r.we ? "—" : "")}
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums">
+                            {r.entrata2?.slice(0, 5) ?? (r.we ? "—" : "")}
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums">
+                            {r.uscita2?.slice(0, 5) ?? (r.we ? "—" : "")}
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums border-l">
+                            {r.ce1 ?? (r.we ? "—" : "")}
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums">
+                            {r.cu1 ?? (r.we ? "—" : "")}
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums">
+                            {r.ce2 ?? (r.we ? "—" : "")}
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums">
+                            {r.cu2 ?? (r.we ? "—" : "")}
+                          </TableCell>
+                          <TableCell
+                            className={cn(
+                              "text-right tabular-nums",
+                              r.totale > 0 &&
+                                r.totale < 5 * 60 &&
+                                "text-muted-foreground",
+                              r.totale === 0 && !r.we && "text-muted-foreground"
+                            )}
+                          >
+                            {formattaMinuti(r.totale)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {formattaMinuti(r.ordinario)}
+                          </TableCell>
+                          <TableCell
+                            className={cn(
+                              "text-right tabular-nums",
+                              r.straordinario > 0 && "text-amber-600"
+                            )}
+                          >
+                            {formattaMinuti(r.straordinario)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
               </div>
 
               <div className="flex flex-col gap-3 md:hidden">
-                {giornate.map((g) => {
-                  const we = weekEnd(g.giorno)
-                  return (
-                    <Card
-                      key={g.giorno}
-                      size="sm"
-                      className={cn(we && "bg-destructive/10")}
-                    >
-                      <CardContent className="p-4">
-                        <div className="mb-2 flex items-center justify-between">
-                          <div className="flex items-baseline gap-2">
-                            <span
-                              className={cn(
-                                "tabular-nums",
-                                we && "text-destructive"
-                              )}
-                            >
-                              {format(new Date(g.giorno + "T12:00:00"), "dd/MM", { locale: it })}
-                            </span>
-                            <span
-                              className={cn(
-                                "text-sm font-medium",
-                                we && "text-destructive"
-                              )}
-                            >
-                              {format(new Date(g.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
-                            </span>
-                          </div>
+                {righe.map((r) => (
+                  <Card
+                    key={r.giorno}
+                    size="sm"
+                    className={cn(r.we && "bg-destructive/10")}
+                  >
+                    <CardContent className="p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="flex items-baseline gap-2">
                           <span
                             className={cn(
-                              "text-xs tabular-nums",
-                              g.totaleMinuti === 0 && !we && "text-muted-foreground",
-                              g.totaleMinuti > 0 &&
-                                g.totaleMinuti < 5 * 60 &&
-                                "text-muted-foreground",
-                              we && "text-destructive"
+                              "tabular-nums",
+                              r.we && "text-destructive"
                             )}
                           >
-                            {formattaMinuti(g.totaleMinuti)}
+                            {format(new Date(r.giorno + "T12:00:00"), "dd/MM", { locale: it })}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-sm font-medium",
+                              r.we && "text-destructive"
+                            )}
+                          >
+                            {format(new Date(r.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
                           </span>
                         </div>
-                        {!we && (
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                            <span>
-                              1° turno: {g.entrata1 ?? "—"} – {g.uscita1 ?? "—"}
-                            </span>
-                            <span>
-                              2° turno: {g.entrata2 ?? "—"} – {g.uscita2 ?? "—"}
-                            </span>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                        <div className="flex items-center gap-2 text-xs tabular-nums">
+                          <span className={cn(r.totale > 0 && r.totale < 5 * 60 && "text-muted-foreground")}>
+                            {formattaMinuti(r.totale)}
+                          </span>
+                          <span className="text-muted-foreground">/</span>
+                          <span className="text-muted-foreground">
+                            {formattaMinuti(r.ordinario)}
+                          </span>
+                          <span
+                            className={cn(
+                              r.straordinario > 0 && "text-amber-600"
+                            )}
+                          >
+                            {formattaMinuti(r.straordinario)}
+                          </span>
+                        </div>
+                      </div>
+                      {!r.we && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          <span>
+                            1° turno: {r.entrata1?.slice(0, 5) ?? "—"} – {r.uscita1?.slice(0, 5) ?? "—"}
+                          </span>
+                          <span>
+                            2° turno: {r.entrata2?.slice(0, 5) ?? "—"} – {r.uscita2?.slice(0, 5) ?? "—"}
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </>
           )}
