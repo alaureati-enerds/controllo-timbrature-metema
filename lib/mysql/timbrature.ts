@@ -13,6 +13,7 @@ async function conn() {
     user: config.user,
     password: config.password,
     database: config.database,
+    dateStrings: true,
   })
 }
 
