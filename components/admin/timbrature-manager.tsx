@@ -337,16 +337,16 @@ export function TimbratureManager() {
                         <TableHead className="w-20 text-center tabular-nums font-normal">
                           Uscita
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
                           Entrata
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
                           Uscita
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
                           Entrata
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
                           Uscita
                         </TableHead>
                       </TableRow>
@@ -385,16 +385,16 @@ export function TimbratureManager() {
                           <TableCell className="text-center tabular-nums">
                             {r.uscita2?.slice(0, 5) ?? "—"}
                           </TableCell>
-                          <TableCell className="text-center tabular-nums text-muted-foreground">
+                          <TableCell className="text-center tabular-nums text-sky-600">
                             {r.ce1 ?? "—"}
                           </TableCell>
-                          <TableCell className="text-center tabular-nums text-muted-foreground">
+                          <TableCell className="text-center tabular-nums text-sky-600">
                             {r.cu1 ?? "—"}
                           </TableCell>
-                          <TableCell className="text-center tabular-nums text-muted-foreground">
+                          <TableCell className="text-center tabular-nums text-sky-600">
                             {r.ce2 ?? "—"}
                           </TableCell>
-                          <TableCell className="text-center tabular-nums text-muted-foreground">
+                          <TableCell className="text-center tabular-nums text-sky-600">
                             {r.cu2 ?? "—"}
                           </TableCell>
                           <TableCell
