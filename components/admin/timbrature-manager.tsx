@@ -41,6 +41,7 @@ import {
 import { cn } from "@/lib/utils"
 
 import type { Dipendente } from "@/lib/mysql/timbrature"
+import { arrotondaEntrata, arrotondaUscita } from "@/lib/timbrature/arrotondamento"
 import type { Giornata } from "@/app/api/admin/timbrature/route"
 
 const MESI = [
@@ -266,6 +267,12 @@ export function TimbratureManager() {
                           Timbrature reali
                         </TableHead>
                         <TableHead
+                          colSpan={4}
+                          className="text-center text-xs font-semibold text-muted-foreground border-l"
+                        >
+                          Timbrature corrette
+                        </TableHead>
+                        <TableHead
                           rowSpan={2}
                           className="w-24 text-right tabular-nums"
                         >
@@ -274,6 +281,18 @@ export function TimbratureManager() {
                       </TableRow>
                       <TableRow>
                         <TableHead className="w-20 text-center tabular-nums font-normal">
+                          Entrata
+                        </TableHead>
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
+                          Uscita
+                        </TableHead>
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
+                          Entrata
+                        </TableHead>
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
+                          Uscita
+                        </TableHead>
+                        <TableHead className="w-20 text-center tabular-nums font-normal border-l">
                           Entrata
                         </TableHead>
                         <TableHead className="w-20 text-center tabular-nums font-normal">
@@ -324,6 +343,18 @@ export function TimbratureManager() {
                             </TableCell>
                             <TableCell className="text-center tabular-nums">
                               {g.uscita2?.slice(0, 5) ?? (we ? "—" : "")}
+                            </TableCell>
+                            <TableCell className="text-center tabular-nums border-l">
+                              {g.entrata1 ? arrotondaEntrata(g.entrata1) : we ? "—" : ""}
+                            </TableCell>
+                            <TableCell className="text-center tabular-nums">
+                              {g.uscita1 ? arrotondaUscita(g.uscita1) : we ? "—" : ""}
+                            </TableCell>
+                            <TableCell className="text-center tabular-nums">
+                              {g.entrata2 ? arrotondaEntrata(g.entrata2) : we ? "—" : ""}
+                            </TableCell>
+                            <TableCell className="text-center tabular-nums">
+                              {g.uscita2 ? arrotondaUscita(g.uscita2) : we ? "—" : ""}
                             </TableCell>
                             <TableCell
                               className={cn(
