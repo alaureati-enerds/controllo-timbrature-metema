@@ -27,7 +27,6 @@ import {
   ComboboxItem,
   ComboboxList,
   ComboboxTrigger,
-  ComboboxValue,
 } from "@/components/ui/combobox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
@@ -156,7 +155,6 @@ export function TimbratureManager() {
                 items={dipendenti}
                 value={dipendente}
                 onValueChange={setDipendente}
-                itemToStringValue={(d) => d.descrizione || d.codice}
               >
                 <ComboboxTrigger
                   render={
@@ -167,7 +165,11 @@ export function TimbratureManager() {
                     />
                   }
                 >
-                  <ComboboxValue placeholder={loadingDip ? "Caricamento..." : "Seleziona dipendente"} />
+                  {dipendente
+                    ? dipendente.descrizione || dipendente.codice
+                    : loadingDip
+                      ? "Caricamento..."
+                      : "Seleziona dipendente"}
                 </ComboboxTrigger>
                 <ComboboxContent>
                   <ComboboxInput showTrigger={false} placeholder="Cerca dipendente..." />
