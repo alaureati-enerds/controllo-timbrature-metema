@@ -8,6 +8,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   RotateCcwIcon,
+  RotateCwIcon,
   SearchIcon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -221,6 +222,21 @@ export function TimbratureManager() {
       setCorrezioni(new Map(correzioni).set(giorno, next))
     } catch {
       toast.error("Errore salvataggio correzione")
+    }
+  }
+
+  async function resettaTutto() {
+    if (!dipendente || correzioni.size === 0) return
+    try {
+      const res = await fetch(
+        `/api/admin/timbrature/correzioni?dipendente=${dipendente.codice}&mese=${mese + 1}&anno=${anno}`,
+        { method: "DELETE" }
+      )
+      if (!res.ok) throw new Error()
+      setCorrezioni(new Map())
+      toast.success("Correzioni azzerate")
+    } catch {
+      toast.error("Errore reset correzioni")
     }
   }
 
@@ -440,6 +456,17 @@ export function TimbratureManager() {
                 <span>Totale: {formattaMinuti(totaliMese.totale)}</span>
                 <span>Ord.: {formattaMinuti(totaliMese.ordinario)}</span>
                 <span>Straord.: {formattaMinuti(totaliMese.straordinario)}</span>
+                {correzioni.size > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={resettaTutto}
+                    className="h-7 gap-1 text-xs font-normal text-muted-foreground"
+                  >
+                    <RotateCwIcon className="size-3" />
+                    Reset correzioni
+                  </Button>
+                )}
               </span>
             )}
           </CardTitle>
