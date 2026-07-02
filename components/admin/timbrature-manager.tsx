@@ -1,16 +1,16 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import {
-  endOfMonth,
-  format,
-  startOfMonth,
-} from "date-fns"
+import { endOfMonth, format } from "date-fns"
 import { it } from "date-fns/locale"
-import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from "lucide-react"
+import {
+  CalendarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  SearchIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -19,13 +19,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Table,
   TableBody,
@@ -64,13 +69,11 @@ function formattaMinuti(minuti: number): string {
 }
 
 export function TimbratureManager() {
-  const oggi = new Date()
   const def = meseCorrente()
   const [mese, setMese] = useState(def.mese)
   const [anno, setAnno] = useState(def.anno)
   const [dipendenti, setDipendenti] = useState<Dipendente[]>([])
-  const [dipOpen, setDipOpen] = useState(false)
-  const [dipendente, setDipendente] = useState("")
+  const [dipendente, setDipendente] = useState<Dipendente | null>(null)
   const [giornate, setGiornate] = useState<Giornata[]>([])
   const [orario, setOrario] = useState({
     primoIngresso: "08:00",
@@ -99,7 +102,7 @@ export function TimbratureManager() {
     if (!dipendente) return
     setLoading(true)
     const params = new URLSearchParams({
-      dipendente,
+      dipendente: dipendente.codice,
       mese: String(mese + 1),
       anno: String(anno),
     })
@@ -119,20 +122,13 @@ export function TimbratureManager() {
       })
   }, [dipendente, mese, anno])
 
-  const dipFiltered = useMemo(() => {
-    if (!dipendenti.length) return []
-    return dipendenti
-  }, [dipendenti])
-
-  const nomeDip = dipendenti.find((d) => d.codice === dipendente)?.descrizione ?? dipendente
-
   const totaleMese = useMemo(
     () => giornate.reduce((sum, g) => sum + g.totaleMinuti, 0),
     [giornate]
   )
 
   const meseLabel = `${MESI[mese]} ${anno}`
-  // Naviga mesi
+
   function meseSu() {
     if (mese === 11) { setMese(0); setAnno((a) => a + 1) }
     else setMese((m) => m + 1)
@@ -142,18 +138,6 @@ export function TimbratureManager() {
     else setMese((m) => m - 1)
   }
 
-  const giorniMese = useMemo(() => {
-    const inizio = startOfMonth(new Date(anno, mese))
-    const fine = endOfMonth(new Date(anno, mese))
-    const giorni: Date[] = []
-    let curr = new Date(inizio)
-    while (curr <= fine) {
-      giorni.push(new Date(curr))
-      curr.setDate(curr.getDate() + 1)
-    }
-    return giorni.map((d) => format(d, "yyyy-MM-dd"))
-  }, [anno, mese])
-
   const weekEnd = (g: string) => {
     const d = new Date(g + "T12:00:00")
     return d.getDay() === 0 || d.getDay() === 6
@@ -161,7 +145,6 @@ export function TimbratureManager() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Filtri */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
@@ -169,49 +152,35 @@ export function TimbratureManager() {
               <label className="mb-1.5 block text-sm font-medium">
                 Dipendente
               </label>
-              <Popover open={dipOpen} onOpenChange={setDipOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={dipOpen}
-                    className="w-full justify-between font-normal"
-                    disabled={loadingDip}
-                  >
-                    {dipendente
-                      ? nomeDip
-                      : loadingDip
-                        ? "Caricamento..."
-                        : "Seleziona dipendente"}
-                    <SearchIcon aria-hidden="true" className="ml-2 size-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                  <Command>
-                    <CommandInput placeholder="Cerca dipendente..." />
-                    <CommandList>
-                      <CommandEmpty>Nessun dipendente trovato.</CommandEmpty>
-                      <CommandGroup>
-                        {dipFiltered.map((d) => (
-                          <CommandItem
-                            key={d.codice}
-                            value={`${d.codice} ${d.descrizione}`}
-                            onSelect={() => {
-                              setDipendente(d.codice)
-                              setDipOpen(false)
-                            }}
-                          >
-                            {d.descrizione || d.codice}
-                            {dipendente === d.codice && (
-                              <span className="ml-auto text-primary">✓</span>
-                            )}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Combobox
+                items={dipendenti}
+                value={dipendente}
+                onValueChange={setDipendente}
+                itemToStringValue={(d) => d.descrizione || d.codice}
+              >
+                <ComboboxTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between font-normal"
+                      disabled={loadingDip}
+                    />
+                  }
+                >
+                  <ComboboxValue placeholder={loadingDip ? "Caricamento..." : "Seleziona dipendente"} />
+                </ComboboxTrigger>
+                <ComboboxContent>
+                  <ComboboxInput showTrigger={false} placeholder="Cerca dipendente..." />
+                  <ComboboxEmpty>Nessun dipendente trovato.</ComboboxEmpty>
+                  <ComboboxList>
+                    {(d) => (
+                      <ComboboxItem key={d.codice} value={d}>
+                        {d.descrizione || d.codice}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
             </div>
 
             <div className="flex items-end gap-2">
@@ -221,26 +190,24 @@ export function TimbratureManager() {
                 </label>
                 <div className="flex items-center gap-1">
                   <Button variant="outline" size="icon" onClick={meseGiu}>
-                    <ChevronLeftIcon aria-hidden="true" className="size-4" />
+                    <ChevronLeftIcon />
                   </Button>
                   <Button
                     variant="outline"
                     className="w-40 justify-start font-normal tabular-nums"
                     disabled
                   >
-                    <CalendarIcon
-                      data-icon="inline-start"
-                      aria-hidden="true"
-                    />
+                    <CalendarIcon data-icon="inline-start" />
                     {meseLabel}
                   </Button>
                   <Button variant="outline" size="icon" onClick={meseSu}>
-                    <ChevronRightIcon aria-hidden="true" className="size-4" />
+                    <ChevronRightIcon />
                   </Button>
                 </div>
               </div>
 
               <Button onClick={carica} disabled={!dipendente || loading}>
+                {loading ? <Spinner aria-hidden="true" /> : <SearchIcon data-icon="inline-start" />}
                 Carica
               </Button>
             </div>
@@ -248,7 +215,6 @@ export function TimbratureManager() {
         </CardContent>
       </Card>
 
-      {/* Tabella mensile */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -262,7 +228,7 @@ export function TimbratureManager() {
         </CardHeader>
         <CardContent className="p-0 sm:px-6 sm:pb-6">
           {loading ? (
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-10 w-full" />
               ))}
@@ -274,7 +240,6 @@ export function TimbratureManager() {
             </p>
           ) : (
             <>
-              {/* Desktop */}
               <div className="hidden md:block">
                 <div className="overflow-x-auto rounded-lg border">
                   <Table>
@@ -305,10 +270,15 @@ export function TimbratureManager() {
                           <TableRow
                             key={g.giorno}
                             className={cn(
-                              we && "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-300"
+                              we && "bg-destructive/10"
                             )}
                           >
-                            <TableCell className="tabular-nums">
+                            <TableCell
+                              className={cn(
+                                "tabular-nums",
+                                we && "text-destructive"
+                              )}
+                            >
                               {format(new Date(g.giorno + "T12:00:00"), "EEE dd/MM", { locale: it })}
                             </TableCell>
                             <TableCell className="text-center tabular-nums">
@@ -328,7 +298,7 @@ export function TimbratureManager() {
                                 "text-right tabular-nums",
                                 g.totaleMinuti > 0 &&
                                   g.totaleMinuti < 5 * 60 &&
-                                  "text-amber-600 dark:text-amber-400",
+                                  "text-muted-foreground",
                                 g.totaleMinuti === 0 && !we && "text-muted-foreground"
                               )}
                             >
@@ -342,7 +312,6 @@ export function TimbratureManager() {
                 </div>
               </div>
 
-              {/* Mobile */}
               <div className="flex flex-col gap-3 md:hidden">
                 {giornate.map((g) => {
                   const we = weekEnd(g.giorno)
@@ -350,16 +319,14 @@ export function TimbratureManager() {
                     <Card
                       key={g.giorno}
                       size="sm"
-                      className={cn(
-                        we && "bg-red-50 dark:bg-red-950"
-                      )}
+                      className={cn(we && "bg-destructive/10")}
                     >
                       <CardContent className="p-4">
                         <div className="mb-2 flex items-center justify-between">
                           <span
                             className={cn(
                               "text-sm font-medium tabular-nums",
-                              we && "text-red-800 dark:text-red-300"
+                              we && "text-destructive"
                             )}
                           >
                             {format(new Date(g.giorno + "T12:00:00"), "EEE dd/MM", { locale: it })}
@@ -368,7 +335,10 @@ export function TimbratureManager() {
                             className={cn(
                               "text-xs tabular-nums",
                               g.totaleMinuti === 0 && !we && "text-muted-foreground",
-                              we && "text-red-700 dark:text-red-400"
+                              g.totaleMinuti > 0 &&
+                                g.totaleMinuti < 5 * 60 &&
+                                "text-muted-foreground",
+                              we && "text-destructive"
                             )}
                           >
                             {formattaMinuti(g.totaleMinuti)}
