@@ -1,0 +1,341 @@
+import { CronExpressionParser } from "cron-parser"
+import cronstrue from "cronstrue/i18n"
+
+import type { Job, JobStatus, Prisma } from "@/lib/generated/prisma/client"
+import { ApiError } from "@/lib/api"
+import { getBoss, JOBS_QUEUE, SCHEDULE_QUEUE } from "@/lib/jobs/boss"
+import { getHandler } from "@/lib/jobs/registry"
+import { JobCancelledError, type JobContext } from "@/lib/jobs/types"
+import { logger } from "@/lib/logger"
+import { prisma } from "@/lib/prisma"
+
+// Superficie pubblica delle operazioni in background. Tutto il resto dell'app
+// (API, UI, cron) usa SOLO queste funzioni e non sa nulla di pg-boss: l'engine
+// resta sostituibile (vedi lib/jobs/boss.ts).
+
+// Forma serializzabile di un job per il client (Date → ISO string).
+export type JobView = {
+  id: string
+  type: string
+  status: JobStatus
+  progress: number
+  message: string | null
+  logs: string[]
+  error: string | null
+  cancelRequested: boolean
+  scheduleKey: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+function toView(job: Job): JobView {
+  return {
+    id: job.id,
+    type: job.type,
+    status: job.status,
+    progress: job.progress,
+    message: job.message,
+    logs: Array.isArray(job.logs) ? (job.logs as string[]) : [],
+    error: job.error,
+    cancelRequested: job.cancelRequested,
+    scheduleKey: job.scheduleKey,
+    createdAt: job.createdAt.toISOString(),
+    startedAt: job.startedAt?.toISOString() ?? null,
+    finishedAt: job.finishedAt?.toISOString() ?? null,
+  }
+}
+
+// Stati terminali: un job che li ha raggiunti non viene più eseguito né fermato.
+const TERMINAL: JobStatus[] = ["completed", "failed", "cancelled"]
+
+// Accoda una nuova operazione. Valida tipo e payload SUBITO (fail-fast): un
+// payload errato viene rifiutato qui, non a metà esecuzione. Crea la riga Job
+// (fonte di verità per la UI) e mette il lavoro nella coda pg-boss.
+export async function enqueue(
+  type: string,
+  payload: unknown,
+  options: { scheduleKey?: string } = {}
+): Promise<JobView> {
+  const handler = getHandler(type)
+  if (!handler) throw new ApiError(`Tipo di job sconosciuto: ${type}`, 400)
+  // parse() lancia ZodError su payload non valido → safeHandler lo traduce in 400.
+  const parsed = handler.parse(payload)
+
+  const job = await prisma.job.create({
+    data: {
+      type,
+      payload: parsed as Prisma.InputJsonValue,
+      scheduleKey: options.scheduleKey ?? null,
+    },
+  })
+
+  const boss = await getBoss()
+  await boss.send(JOBS_QUEUE, { jobId: job.id })
+  logger.info(`Job accodato: ${type}`, { jobId: job.id })
+  return toView(job)
+}
+
+// Richiede lo STOP di un job (cancellazione cooperativa). Imposta solo il flag:
+// se il job è in coda non partirà, se è in esecuzione si fermerà al prossimo
+// checkpoint dell'handler. No-op sui job già terminati.
+export async function cancel(id: string): Promise<JobView> {
+  const job = await prisma.job.findUnique({ where: { id } })
+  if (!job) throw new ApiError("Job non trovato", 404)
+  if (TERMINAL.includes(job.status)) return toView(job)
+  const updated = await prisma.job.update({
+    where: { id },
+    data: { cancelRequested: true },
+  })
+  return toView(updated)
+}
+
+export async function getJob(id: string): Promise<JobView | null> {
+  const job = await prisma.job.findUnique({ where: { id } })
+  return job ? toView(job) : null
+}
+
+export async function listJobs(
+  filter: {
+    status?: JobStatus
+    type?: string
+    limit?: number
+    offset?: number
+  } = {}
+): Promise<{ jobs: JobView[]; total: number }> {
+  const where = { status: filter.status, type: filter.type }
+  const [jobs, total] = await prisma.$transaction([
+    prisma.job.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: Math.min(filter.limit ?? 50, 200),
+      skip: filter.offset ?? 0,
+    }),
+    prisma.job.count({ where }),
+  ])
+  return { jobs: jobs.map(toView), total }
+}
+
+// ---------------------------------------------------------------------------
+// Schedulazioni cron (gestibili da UI). Una schedulazione NON esegue il lavoro:
+// allo scattare del cron accoda un job del tipo dato (il bridge in worker.ts).
+// Sono persistite da pg-boss e identificate da una `key`; il worker (unico con
+// lo scheduler attivo) le fa scattare anche se create dal processo web.
+// ---------------------------------------------------------------------------
+
+export type ScheduleView = {
+  key: string
+  type: string
+  cron: string
+  timezone: string
+  payload: unknown
+  // Arricchimenti per la UI: descrizione leggibile del cron (it), prossima
+  // esecuzione calcolata (ISO), ultima esecuzione dallo storico Job.
+  human: string | null
+  nextRun: string | null
+  lastRun: { status: JobStatus; at: string } | null
+}
+
+// Descrizione leggibile del cron in italiano (es. "Alle 03:00"). Difensiva: se
+// il cron fosse anomalo, non rompe la lista.
+function cronHuman(cron: string): string | null {
+  try {
+    return cronstrue.toString(cron, { locale: "it", use24HourTimeFormat: true })
+  } catch {
+    return null
+  }
+}
+
+// Prossima esecuzione calcolata dal cron nel fuso indicato (ora legale e mesi
+// gestiti dal parser). UTC se il fuso è assente.
+function cronNextRun(cron: string, timezone: string): string | null {
+  try {
+    const it = CronExpressionParser.parse(cron, { tz: timezone || "UTC" })
+    return it.next().toDate().toISOString()
+  } catch {
+    return null
+  }
+}
+
+// Crea o aggiorna (per `key`) una schedulazione. Valida tipo, payload e cron
+// SUBITO: input errati vengono rifiutati qui, non a notte fonda.
+export async function scheduleJob(input: {
+  type: string
+  payload: unknown
+  cron: string
+  key: string
+  tz?: string
+}): Promise<void> {
+  const handler = getHandler(input.type)
+  if (!handler) throw new ApiError(`Tipo di job sconosciuto: ${input.type}`, 400)
+  const parsed = handler.parse(input.payload)
+
+  const boss = await getBoss()
+  try {
+    await boss.schedule(
+      SCHEDULE_QUEUE,
+      input.cron,
+      { type: input.type, payload: parsed, scheduleKey: input.key },
+      { key: input.key, tz: input.tz }
+    )
+  } catch {
+    // pg-boss valida l'espressione cron e lancia se è malformata.
+    throw new ApiError(`Espressione cron non valida: ${input.cron}`, 400)
+  }
+  logger.info(`Schedulazione creata: ${input.type}`, {
+    key: input.key,
+    cron: input.cron,
+  })
+}
+
+export async function listSchedules(): Promise<ScheduleView[]> {
+  const boss = await getBoss()
+  // NB: getSchedules(name) filtrerebbe anche per key='' (una sola riga); senza
+  // argomenti torna TUTTO, poi filtriamo la nostra coda in JS.
+  const all = await boss.getSchedules()
+  const mine = all.filter((s) => s.name === SCHEDULE_QUEUE)
+
+  // Ultima esecuzione: l'ultimo Job con quello scheduleKey (lo storico ce
+  // l'abbiamo già). Una query per schedulazione, in parallelo.
+  return Promise.all(
+    mine.map(async (s) => {
+      const data = (s.data ?? {}) as { type?: string; payload?: unknown }
+      const last = await prisma.job.findFirst({
+        where: { scheduleKey: s.key },
+        orderBy: { createdAt: "desc" },
+        select: { status: true, finishedAt: true, createdAt: true },
+      })
+      return {
+        key: s.key,
+        type: data.type ?? "?",
+        cron: s.cron,
+        timezone: s.timezone,
+        payload: data.payload ?? {},
+        human: cronHuman(s.cron),
+        nextRun: cronNextRun(s.cron, s.timezone),
+        lastRun: last
+          ? {
+              status: last.status,
+              at: (last.finishedAt ?? last.createdAt).toISOString(),
+            }
+          : null,
+      }
+    })
+  )
+}
+
+export async function unscheduleJob(key: string): Promise<void> {
+  const boss = await getBoss()
+  await boss.unschedule(SCHEDULE_QUEUE, key)
+  logger.info("Schedulazione rimossa", { key })
+}
+
+// "Esegui ora": accoda subito un'esecuzione di una schedulazione, senza
+// aspettare il cron. Riusa il payload salvato e marca il job con lo scheduleKey,
+// così compare come esecuzione di quella schedulazione.
+export async function runScheduleNow(key: string): Promise<JobView> {
+  const boss = await getBoss()
+  const all = await boss.getSchedules()
+  const s = all.find((x) => x.name === SCHEDULE_QUEUE && x.key === key)
+  if (!s) throw new ApiError("Schedulazione non trovata", 404)
+  const data = (s.data ?? {}) as { type?: string; payload?: unknown }
+  if (!data.type) throw new ApiError("Schedulazione senza tipo", 400)
+  return enqueue(data.type, data.payload ?? {}, { scheduleKey: key })
+}
+
+// ---------------------------------------------------------------------------
+// Esecuzione (usata SOLO dal worker, vedi worker.ts). Carica la riga Job,
+// costruisce il contesto, esegue l'handler e traduce l'esito in stato.
+// ---------------------------------------------------------------------------
+
+export async function executeJob(jobId: string): Promise<void> {
+  const job = await prisma.job.findUnique({ where: { id: jobId } })
+  if (!job) {
+    logger.warn("Job inesistente ricevuto dalla coda", { jobId })
+    return
+  }
+  // Già finito o ri-consegnato: niente da fare.
+  if (TERMINAL.includes(job.status)) return
+  // Stop chiesto mentre era ancora in coda: parte già annullato.
+  if (job.cancelRequested) {
+    await prisma.job.update({
+      where: { id: jobId },
+      data: { status: "cancelled", finishedAt: new Date() },
+    })
+    return
+  }
+
+  const handler = getHandler(job.type)
+  if (!handler) {
+    await prisma.job.update({
+      where: { id: jobId },
+      data: {
+        status: "failed",
+        error: `Nessun handler per il tipo "${job.type}"`,
+        finishedAt: new Date(),
+      },
+    })
+    return
+  }
+
+  await prisma.job.update({
+    where: { id: jobId },
+    data: { status: "running", startedAt: new Date(), progress: 0 },
+  })
+
+  // Log accumulato in memoria e riscritto interamente a ogni riga: il job è
+  // gestito da un solo worker alla volta (batchSize 1), niente race.
+  const logs: string[] = Array.isArray(job.logs) ? [...(job.logs as string[])] : []
+  const stamp = (m: string) => `[${new Date().toISOString()}] ${m}`
+
+  const ctx: JobContext = {
+    jobId,
+    async report(progress, message) {
+      await prisma.job.update({
+        where: { id: jobId },
+        data: {
+          progress: Math.max(0, Math.min(100, Math.round(progress))),
+          message: message ?? null,
+        },
+      })
+    },
+    async log(message) {
+      logs.push(stamp(message))
+      await prisma.job.update({
+        where: { id: jobId },
+        data: { logs: logs as Prisma.InputJsonValue },
+      })
+    },
+    async throwIfCancelled() {
+      const fresh = await prisma.job.findUnique({
+        where: { id: jobId },
+        select: { cancelRequested: true },
+      })
+      if (fresh?.cancelRequested) throw new JobCancelledError()
+    },
+  }
+
+  try {
+    await handler.run(handler.parse(job.payload), ctx)
+    await prisma.job.update({
+      where: { id: jobId },
+      data: { status: "completed", progress: 100, finishedAt: new Date() },
+    })
+    logger.info(`Job completato: ${job.type}`, { jobId })
+  } catch (error) {
+    if (error instanceof JobCancelledError) {
+      await prisma.job.update({
+        where: { id: jobId },
+        data: { status: "cancelled", finishedAt: new Date() },
+      })
+      logger.info(`Job annullato: ${job.type}`, { jobId })
+      return
+    }
+    const message = error instanceof Error ? error.message : String(error)
+    await prisma.job.update({
+      where: { id: jobId },
+      data: { status: "failed", error: message, finishedAt: new Date() },
+    })
+    logger.error(`Job fallito: ${job.type}`, { jobId, error: message })
+  }
+}

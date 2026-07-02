@@ -1,0 +1,56 @@
+name: CI
+
+# Esegue i controlli a ogni push e a ogni Pull Request verso i branch
+# permanenti (main e develop). È la "rete di sicurezza" richiesta dal CLAUDE.md:
+# il merge va fatto solo con CI verde.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Annulla una run in corso sullo stesso branch/PR quando ne parte una nuova:
+# evita di sprecare minuti su commit ormai superati.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verifica:
+    name: Lint, tipi e build
+    runs-on: ubuntu-latest
+
+    # Valori PLACEHOLDER: lib/env.ts valida le variabili d'ambiente all'import
+    # (presenza/formato), non la raggiungibilità del DB. Tutte le pagine sono
+    # force-dynamic, quindi `next build` non si connette al database. Stessi
+    # valori del Dockerfile, per coerenza.
+    env:
+      DATABASE_URL: postgresql://build:build@localhost:5432/build?schema=public
+      BETTER_AUTH_SECRET: ci-placeholder-non-usato-a-runtime
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installa le dipendenze
+        run: npm ci
+
+      # Il client Prisma (lib/generated/prisma) è gitignored: va rigenerato qui,
+      # altrimenti typecheck e build non trovano i tipi.
+      - name: Genera il client Prisma
+        run: npm run db:generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Controllo dei tipi
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build

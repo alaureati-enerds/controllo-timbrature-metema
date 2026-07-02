@@ -1,0 +1,340 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// Autenticazione (Better Auth)
+// Questi modelli sono gestiti da Better Auth (vedi lib/auth.ts). I campi extra
+// `role`, `banned`, `banReason`, `banExpires`, `impersonatedBy` provengono dal
+// plugin admin (RBAC + gestione utenti). Il campo `twoFactorEnabled` e il
+// modello TwoFactor provengono dal plugin twoFactor (2FA via TOTP). Le password
+// sono salvate hashate nel modello Account, non nel modello User.
+// ============================================================================
+
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Plugin admin (RBAC + moderazione)
+  role       String?   @default("user")
+  banned     Boolean?  @default(false)
+  banReason  String?
+  banExpires DateTime?
+
+  // Plugin twoFactor (2FA): true quando l'utente ha attivato e verificato la 2FA
+  twoFactorEnabled Boolean? @default(false)
+
+  sessions      Session[]
+  accounts      Account[]
+  twoFactors    TwoFactor[]
+  notes         Note[]
+  files         File[]
+  notifications Notification[]
+  preference    UserPreference?
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Plugin admin: id dell'admin che sta impersonando l'utente
+  impersonatedBy String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  // Hash della password per il provider email+password
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
+
+// Plugin twoFactor: conserva il segreto TOTP e i codici di backup dell'utente
+// (cifrati da Better Auth). `verified` indica che il segreto è stato confermato
+// con un primo codice valido durante l'attivazione.
+model TwoFactor {
+  id          String   @id
+  secret      String
+  backupCodes String
+  verified    Boolean? @default(true)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("two_factor")
+}
+
+// ============================================================================
+// Dominio applicativo
+// ============================================================================
+
+/// Modello di esempio: una semplice nota testuale, ora di proprietà di un utente.
+/// Dimostra il flusso end-to-end protetto (UI -> route handler autenticato ->
+/// service -> Prisma -> Postgres) con autorizzazione per-utente (ownership).
+model Note {
+  id        String   @id @default(cuid())
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================================
+// Impostazioni
+// ============================================================================
+
+/// Impostazioni di SISTEMA (globali): nome del software, sottotitolo, ecc.
+/// Configurate solo dagli admin e lette da tutti. È un singleton: una sola riga,
+/// identificata da `id = 1`. Il contenuto vive in un unico blob `data` (Json)
+/// validato in app da uno schema Zod (vedi lib/settings/), così aggiungere una
+/// nuova impostazione non richiede una migrazione.
+///
+/// Le PREFERENZE PER-UTENTE (notifiche, lingua, ...) sono un concetto distinto,
+/// con autorizzazione per ownership e non per ruolo: vivranno in un modello
+/// gemello dedicato (es. UserPreference), non qui. Vedi docs/impostazioni-di-sistema.md.
+model SystemSetting {
+  id        Int      @id @default(1)
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  @@map("system_setting")
+}
+
+/// PREFERENZE PER-UTENTE: gemello di SystemSetting ma con autorizzazione per
+/// OWNERSHIP (una riga per utente, `userId` come chiave), non per ruolo. Il
+/// contenuto vive in un unico blob `data` (Json) validato in app da uno schema
+/// Zod (vedi lib/settings/user.ts), così aggiungere una preferenza non richiede
+/// una migrazione. Primo caso d'uso: la scelta dei canali di notifica per-tipo
+/// (vedi lib/notifications/). Vedi docs/impostazioni-di-sistema.md.
+model UserPreference {
+  userId    String   @id
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preference")
+}
+
+// ============================================================================
+// File caricati
+// ============================================================================
+
+/// Metadati di un file caricato. I BYTE non stanno qui: vivono nello storage
+/// (lib/storage/, oggi filesystem) sotto `storageKey`; questa riga è la fonte di
+/// verità per lookup e autorizzazione. L'accesso passa sempre da route
+/// autorizzate (app/api/files/), mai da link diretti.
+///
+/// Due tipi di proprietà, gli stessi due assi delle impostazioni:
+///  - `ownerType = "system"` (ownerId null): file globali condivisi. Solo gli
+///    admin li scrivono, tutti li leggono → autorizzazione per RBAC.
+///  - `ownerType = "user"`  (ownerId = userId): file dell'utente. Solo il
+///    proprietario li legge/scrive → autorizzazione per ownership (come Note).
+model File {
+  id           String   @id @default(cuid())
+  // Percorso opaco dell'oggetto nello storage (gestito da lib/files.ts).
+  storageKey   String   @unique
+  mimeType     String
+  size         Int
+  originalName String?
+  ownerType    String // "system" | "user"
+  ownerId      String? // userId per i file utente; null per i file di sistema
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner User? @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerType, ownerId])
+  @@map("file")
+}
+
+// ============================================================================
+// Operazioni in background (job)
+// ============================================================================
+
+/// Stato di un job. È uno STATO OSSERVATO, non richiesto: lo aggiorna solo il
+/// worker mentre esegue (vedi lib/jobs/). La richiesta di STOP da parte
+/// dell'utente vive invece nel flag `cancelRequested` (cancellazione cooperativa).
+enum JobStatus {
+  queued // in coda, non ancora preso in carico dal worker
+  running // in esecuzione
+  completed // terminato con successo
+  failed // terminato con errore (vedi `error`)
+  cancelled // interrotto su richiesta (cancelRequested)
+}
+
+/// Un'operazione eseguita in background dal worker (lib/jobs/, processo
+/// `worker.ts`). Questa riga è la FONTE DI VERITÀ per ciò che l'utente vede e
+/// controlla: tipo, avanzamento, log, esito. La CODA vera e propria (locking,
+/// retry, cron) è gestita da pg-boss nel proprio schema `pgboss.*`; qui
+/// trasportiamo solo `{ jobId }`. Cambiare engine (pg-boss → BullMQ/...) non
+/// tocca questo modello né la UI: vedi lib/jobs/boss.ts.
+///
+/// `type` è la chiave nel registry degli handler (lib/jobs/registry.ts):
+/// aggiungere un tipo di operazione = aggiungere un handler, senza migrazioni.
+model Job {
+  id   String @id @default(cuid())
+  type String // chiave nel registry (lib/jobs/registry.ts)
+  // Input dell'operazione, validato dall'handler con Zod. Forma libera per tipo.
+  payload Json @default("{}")
+
+  status   JobStatus @default(queued)
+  progress Int       @default(0) // 0..100, aggiornato dall'handler via ctx.report()
+  message  String? // breve nota di avanzamento (es. "elaboro 37/200")
+  // Righe di log accumulate durante l'esecuzione (array di stringhe in Json).
+  logs  Json    @default("[]")
+  error String? // messaggio d'errore se status = failed
+
+  // Cancellazione COOPERATIVA: la UI imposta questo flag, l'handler lo controlla
+  // a checkpoint (ctx.throwIfCancelled) e si ferma pulito → status = cancelled.
+  cancelRequested Boolean @default(false)
+
+  // Valorizzato quando il job è stato accodato da una schedulazione cron
+  // (lib/jobs, queue "schedule"): identifica la schedulazione di origine.
+  scheduleKey String?
+
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([type, createdAt])
+  @@map("job")
+}
+
+// ============================================================================
+// Audit log (tracciamento azioni)
+// ============================================================================
+
+/// Una riga del registro di audit: CHI ha fatto COSA, QUANDO, DA DOVE e con
+/// quale ESITO. È un log APPEND-ONLY: l'applicazione scrive (lib/audit/) e
+/// legge, ma non aggiorna né cancella mai una riga. L'unica cancellazione
+/// ammessa è il pruning di retention, eseguito dal worker (lib/jobs/handlers/
+/// audit-prune.ts) in base alla configurazione admin.
+///
+/// `action` è la chiave nel catalogo degli eventi (lib/audit/catalog.ts):
+/// aggiungere un evento da tracciare = aggiungere una voce al catalogo e una
+/// chiamata `audit(...)`, senza migrazioni. Vedi docs/audit-logging.md.
+///
+/// Alcuni campi sono DENORMALIZZATI di proposito (`actorEmail`, `target.label`):
+/// un audit log deve restare leggibile anche dopo che l'utente referenziato è
+/// stato eliminato, quindi non usiamo foreign key con cascade che ne
+/// cancellerebbero la storia.
+model AuditLog {
+  id       String @id @default(cuid())
+  action   String // chiave del catalogo, es. "auth.login.failure"
+  category String // "auth" | "account" | "users" | "system" | ...
+  outcome  String // "success" | "failure"
+
+  actorId    String? // id di chi ha agito (null = anonimo o azione di sistema)
+  actorEmail String? // email denormalizzata: leggibile anche dopo la cancellazione
+  target     Json? // su COSA si è agito: { type, id?, label? }
+  metadata   Json? // contesto extra (MAI segreti), es. { from, to } di un ruolo
+
+  ip        String? // indirizzo IP del richiedente
+  userAgent String? // user-agent del richiedente
+  requestId String? // correlazione tra eventi della stessa richiesta
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([category, createdAt])
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+  @@map("audit_log")
+}
+
+// ============================================================================
+// Notifiche
+// ============================================================================
+
+/// Una notifica IN-APP recapitata a un singolo utente. È la FONTE DI VERITÀ del
+/// canale in-app (come `Job` lo è per le operazioni): l'app la crea via
+/// `notify()` (lib/notifications/) e l'utente la legge dalla campanella in
+/// topbar. Gli altri canali (email, e in futuro push/realtime) NON vivono qui:
+/// sono recapiti paralleli decisi al momento dell'evento. Vedi docs/notifiche.md.
+///
+/// `type` è la chiave nel catalogo (lib/notifications/catalog.ts): aggiungere un
+/// tipo di notifica = una voce nel catalogo + una chiamata `notify()`, senza
+/// migrazioni. `data` è un blob libero per tipo (es. `{ url }` per il link).
+///
+/// RETENTION: il pruning (worker) cancella solo le notifiche GIÀ LETTE più
+/// vecchie del periodo configurato; le NON lette non scadono mai per età, così
+/// un utente assente a lungo non perde notifiche mai viste.
+model Notification {
+  id       String @id @default(cuid())
+  type     String // chiave del catalogo, es. "auth.login.new_device"
+  category String // raggruppamento, derivato dalla `type`
+
+  title String // titolo breve mostrato nella campanella
+  body  String // corpo della notifica (testo)
+  data  Json? // contesto extra per il rendering, es. { url, target }
+
+  // Lettura: null = non letta. Marcata dall'utente (mark-as-read). Indicizzata
+  // per il conteggio dei "non letti" (badge) e per il pruning di retention.
+  readAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, createdAt])
+  @@map("notification")
+}

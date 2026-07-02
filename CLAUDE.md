@@ -5,6 +5,170 @@ Code sia agli altri sviluppatori del team.
 
 ---
 
+## Documentazione
+
+Guide di riferimento del progetto (cartella [`docs/`](docs/)):
+
+- [Come creare un nuovo tema](docs/creare-un-tema.md) — aggiungere una palette
+  selezionabile dall'utente (token CSS, `next-themes`, selettore).
+- [Come creare una voce di menu della sidebar](docs/creare-voce-menu-sidebar.md) —
+  aggiungere voci semplici o con sotto-voci, funzionanti anche da collassata.
+- [Ricerca globale (topbar)](docs/ricerca-globale.md) — la palette ⌘K con
+  scorciatoie ai menu e ai record; come registrare una nuova fonte di ricerca.
+- [Autenticazione, ruoli e gestione utenti](docs/autenticazione-e-ruoli.md) —
+  Better Auth: proteggere pagine/API, aggiungere ruoli e permessi (RBAC), admin.
+- [Impostazioni di sistema e preferenze per-utente](docs/impostazioni-di-sistema.md) —
+  configurazione globale (nome, icona) vs preferenze personali; come aggiungerne.
+- [Gestione dei file (storage e accesso)](docs/gestione-file.md) — come si
+  salvano/servono i file (driver intercambiabile), file di sistema vs utente.
+- [Invio email (driver e template)](docs/email.md) — backend email
+  intercambiabile (console/SMTP), template come stringhe editor-ready.
+- [Operazioni in background (job e cron)](docs/operazioni-in-background.md) —
+  job lunghi con avanzamento e stop, worker dedicato (`npm run worker`),
+  schedulazioni cron; come aggiungere un nuovo tipo di operazione.
+- [Audit logging](docs/audit-logging.md) — registro append-only delle azioni di
+  sicurezza, configurabile dall'admin (toggle per evento, retention); come
+  aggiungere un evento al log.
+- [Notifiche](docs/notifiche.md) — avvisi all'utente (in app + email via worker),
+  con canali estendibili (push/realtime), config admin e preferenze per-utente;
+  come aggiungere un tipo o un canale.
+- [PWA (installabilità)](docs/pwa.md) — manifest dinamico, service worker,
+  icone generate e prompt di installazione; come testare e come estendere con
+  notifiche push e supporto offline.
+- [Deploy in produzione con Docker](docs/deploy-docker.md) — immagine unica per
+  web/worker/migrate dietro un NGINX reverse proxy esterno; come provare in
+  locale, configurare le variabili e fare gli aggiornamenti.
+
+---
+
+## Linee guida UI
+
+Convenzioni vincolanti per ogni interfaccia del progetto. Servono a mantenere
+coerenza e a non ripetere errori già corretti.
+
+### Componenti
+
+- **Usa sempre i componenti shadcn** in [`components/ui/`](components/ui/). Non
+  introdurre input, bottoni, dialog o tabelle "a mano": se manca un componente,
+  aggiungilo via shadcn invece di reinventarlo.
+- I bottoni icona usano le size dedicate (`icon`, `icon-sm`, `icon-xs`), non un
+  bottone normale con dentro solo un'icona.
+
+### Layout delle pagine
+
+- Le **pagine di impostazioni/configurazione** usano un layout **a larghezza
+  piena**: card impilate in colonna singola, ciascuna `w-full`. Niente card
+  strette (`max-w-*`) né griglie di card affiancate, che creano colonne di
+  altezze diverse e spazio vuoto sgradevole a destra.
+- Dentro una card, **raggruppa i campi correlati** invece di accodarli in una
+  lista piatta: usa `FieldSet` + `FieldLegend` per i gruppi e `FieldSeparator`
+  per separarli. Campi brevi e affini (es. host+porta, utente+password) stanno
+  su una **griglia** (`grid sm:grid-cols-2`) per sfruttare la larghezza.
+
+### Azioni e bottoni
+
+- I bottoni con **label di testo** hanno **sempre anche un'icona** (lucide) a
+  sinistra del testo. Durante un'operazione asincrona l'icona è sostituita dallo
+  `Spinner` (`{busy ? <Spinner /> : <Icon />}`), così il bottone non «salta».
+- Le **azioni a fondo form** vanno in un `CardFooter`, **allineate a destra**
+  (`justify-end`); l'azione primaria è la più a destra. Per tenere il submit nel
+  footer ma dentro il `<form>`, avvolgi con `<form className="contents">`.
+- **Niente bottoni con label di testo dentro le righe di tabella.** Le azioni di
+  riga sono **bottoni solo-icona** (`size="icon-sm"`, `variant="ghost"`) con
+  `aria-label` **e** un `Tooltip` che ripete l'etichetta. Evita di ripetere la
+  stessa parola (es. «Log», «Elimina») su ogni riga: occupa spazio inutile.
+- Le **azioni a livello di card** (aggiorna, ecc.) vanno come bottone solo-icona
+  dentro `CardAction`, in alto a destra nell'header della card.
+- Ogni bottone solo-icona **deve** avere un nome accessibile (`aria-label` o
+  `sr-only`): il tooltip da solo non basta per gli screen reader.
+- Il `TooltipProvider` è già montato nel layout della dashboard: usa `Tooltip`
+  direttamente, senza riavvolgerlo.
+
+### Conferme
+
+- Le azioni con effetti reali o distruttive (eliminare, fermare, «esegui ora»,
+  ecc.) **devono** chiedere conferma con un `AlertDialog`. Quelle distruttive
+  usano `variant="destructive"` sull'azione di conferma.
+- Le azioni di compilazione deliberata (es. avviare un'operazione da un form già
+  riempito) non richiedono conferma.
+
+### Stile e dettagli
+
+- **Non tagliare mai il focus ring.** I componenti usano un anello di `3px`
+  (`focus-visible:ring-3`): i contenitori con `overflow-hidden` (accordion,
+  carosello, ecc.) devono avere abbastanza padding perché il glow non venga
+  tagliato ai bordi. Caso tipico: input a larghezza piena dentro un
+  `AccordionContent` — serve un padding orizzontale sul contenuto.
+- Usa `tabular-nums` per date, orari, percentuali e contatori nelle tabelle, così
+  le cifre restano allineate in verticale.
+- Copy in **italiano**, voce attiva, sentence case: il bottone dice cosa succede
+  («Ferma», «Elimina») e il toast conferma con lo stesso verbo.
+
+### Mobile
+
+Convenzioni per rendere ogni pagina fruibile da telefono. Questa sezione cresce
+man mano che rivediamo le pagine: ogni nuova regola va annotata qui.
+
+- **Soglia unica mobile/desktop: `md` (768px).** È il breakpoint di `useIsMobile`
+  ([`hooks/use-mobile.ts`](hooks/use-mobile.ts)) e quello a cui la sidebar diventa
+  uno `Sheet`. Usa `md:` per i passaggi mobile→desktop, non `sm:` (640px), così
+  non si crea una fascia 640–768px incoerente.
+- **Safe area (notch e home indicator).** Il `viewport` è impostato con
+  `viewport-fit=cover` ([`app/layout.tsx`](app/layout.tsx)); i bordi dello schermo
+  vanno rispettati con `env(safe-area-inset-*)`. Già applicato a inset superiore
+  della shell ([`app/(dashboard)/layout.tsx`](app/(dashboard)/layout.tsx)), bordo
+  inferiore del contenuto, `Sheet` della sidebar e bottom bar. Ogni nuova barra
+  fissa (header/footer sticky) deve aggiungere il padding di safe-area. Nota: in
+  PWA standalone su iOS `env(safe-area-inset-top)` vale 0 (la status bar è già
+  riservata dal sistema); quel padding serve invece in Safari browser.
+- **Topbar sticky.** L'header della dashboard è dentro un contenitore `sticky
+  top-0 z-10 bg-background` (con il `pt` di safe-area), così resta in alto durante
+  lo scroll; lo sfondo opaco evita che il contenuto traspaia sotto la barra. Su
+  **mobile** mostra a sinistra il **branding** (icona + nome, link alla home) al
+  posto del breadcrumb — il titolo della pagina è già nell'`<h1>` sotto — e
+  nasconde il selettore tema (`hidden md:flex`; è nelle impostazioni utente):
+  restano solo ricerca e notifiche.
+- **Navigazione mobile = bottom bar + pagina `/menu`.** Su mobile la navigazione
+  è la `MobileBottomNav`
+  ([`components/mobile-bottom-nav.tsx`](components/mobile-bottom-nav.tsx)): barra
+  fissa in basso con 5 voci (4 destinazioni **role-aware** + «Menu»). Il 5° slot
+  apre `/menu` ([`components/mobile-menu.tsx`](components/mobile-menu.tsx)) con la
+  navigazione completa e le azioni account. La **sidebar è la navigazione del solo
+  desktop**: su mobile l'hamburger in topbar è nascosto (`hidden md:flex`) e il
+  contenuto ha `pb` extra per non finire sotto la barra. Usa `flex`+`flex-1` (non
+  `grid-cols-5`) per le colonne della barra. Le voci sono **solo icona** (con
+  `aria-label` per l'accessibilità); la voce attiva è evidenziata dal colore
+  primario e da una barretta sotto l'icona (le voci inattive tengono una
+  barretta trasparente, così le icone non saltano al cambio di rotta).
+- **Tabelle → card sotto `md`.** Le tabelle dense non si usano in scroll
+  orizzontale su mobile. Pattern: la `Table` esistente con `className="hidden
+  md:table"` e, accanto, una lista di `Card` `md:hidden` che riusa gli stessi dati
+  e azioni. Le azioni di riga restano bottoni solo-icona con `aria-label` +
+  `Tooltip`. (Niente DataTable generico: si applica per-pagina.)
+- **Toolbar di filtri.** Niente `flex-wrap` con tanti controlli larghi: su mobile
+  i filtri si impilano a larghezza piena (`flex-col` → `sm:flex-row`) oppure si
+  raccolgono dietro un trigger «Filtri» (`Sheet`/`Collapsible`/`Drawer`). Quando i
+  filtri sono molti, il **`Drawer`** (bottom-sheet `vaul`,
+  [`components/ui/drawer.tsx`](components/ui/drawer.tsx)) è preferibile al `Sheet`
+  laterale: `max-h-[80vh]` scrollabile e padding di safe-area li ospitano spaziati
+  bene. Esempio: filtri dell'Audit Log
+  ([`components/admin/audit-log.tsx`](components/admin/audit-log.tsx)).
+- **Niente larghezze fisse che sforano.** Evita `w-64`, `min-w-*` ecc. che su
+  schermi stretti causano scroll orizzontale: usa `w-full` con `sm:`/`md:` per le
+  larghezze maggiori. La regola d'oro: il `body` non deve mai scrollare in
+  orizzontale.
+- **Dialog alti → valuta `Sheet` su mobile.** I `Dialog` sono già dimensionati
+  bene (`max-w-[calc(100%-2rem)]`), ma un form alto (es. CronBuilder) su mobile
+  conviene presentarlo in un `Sheet` o garantire lo scroll interno.
+
+---
+
+### TODO — Da ricontrollare
+
+- **Pagina Audit Log** (`components/admin/audit-log.tsx`): redesign mobile completato (Drawer, card list, paginazione). Ricontrollare a freddo per eventuali regressioni su desktop (tabella, filtri in linea, paginazione).
+
+---
+
 ## Linee guida per il versionamento
 
 Il progetto usa **Git Flow** come strategia di branching e

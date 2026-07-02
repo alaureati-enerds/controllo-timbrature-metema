@@ -7,6 +7,12 @@
       "skillPath": "skills/frontend-design/SKILL.md",
       "computedHash": "4eabc66183767153e404b39d1b839b1c37f2d82d86f0a0d7e880a579d8d62336"
     },
+    "ponytail": {
+      "source": "dietrichgebert/ponytail",
+      "sourceType": "github",
+      "skillPath": "skills/ponytail/SKILL.md",
+      "computedHash": "9c2a14a09838e12a6bc248e054529fe494060c0d8b78a7ff8e1696a980a12eee"
+    },
     "prisma-cli": {
       "source": "prisma/skills",
       "sourceType": "github",

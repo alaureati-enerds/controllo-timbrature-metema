@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: shadcn-starter-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-app}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Mailpit: server SMTP "trappola" per lo SVILUPPO. Cattura tutte le email senza
+  # spedirle davvero e le mostra in una UI web. Serve a verificare i flussi email
+  # in locale (vedi docs/email.md). NON va usato in produzione.
+  # Come per Postgres (5433), le porte host sono sfasate per non collidere con
+  # altri Mailpit locali; internamente il container usa comunque 1025/8025.
+  #   - SMTP   su localhost:1026  -> da mettere in .env (SMTP_HOST/SMTP_PORT)
+  #   - WebUI  su http://localhost:8026  -> qui leggi le mail catturate
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: shadcn-starter-mail
+    restart: unless-stopped
+    ports:
+      - "1026:1025" # SMTP
+      - "8026:8025" # interfaccia web
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

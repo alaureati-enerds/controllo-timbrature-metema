@@ -20,6 +20,11 @@
 # Ambiente
 .env
 .env*.local
+# Segreti di produzione (usa .env.production.example come template)
+/.env.production
+
+# Storage dei file caricati (vedi STORAGE_DIR)
+/storage/
 
 # Log
 npm-debug.log*
@@ -41,3 +46,7 @@ next-env.d.ts
 
 # Vercel
 .vercel
+
+/lib/generated/prisma
+
+certificates
