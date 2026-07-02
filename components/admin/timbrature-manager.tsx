@@ -247,22 +247,43 @@ export function TimbratureManager() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-16 tabular-nums">Data</TableHead>
-                        <TableHead className="tabular-nums">Giorno</TableHead>
-                        <TableHead className="w-20 text-center tabular-nums">
+                        <TableHead
+                          rowSpan={2}
+                          className="w-16 tabular-nums"
+                        >
+                          Data
+                        </TableHead>
+                        <TableHead
+                          rowSpan={2}
+                          className="tabular-nums"
+                        >
+                          Giorno
+                        </TableHead>
+                        <TableHead
+                          colSpan={4}
+                          className="text-center text-xs font-semibold text-muted-foreground"
+                        >
+                          Timbrature reali
+                        </TableHead>
+                        <TableHead
+                          rowSpan={2}
+                          className="w-24 text-right tabular-nums"
+                        >
+                          Totale
+                        </TableHead>
+                      </TableRow>
+                      <TableRow>
+                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
                           {orario.primoIngresso}
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums">
+                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
                           {orario.primaUscita}
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums">
+                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
                           {orario.secondoIngresso}
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums">
+                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
                           {orario.secondaUscita}
-                        </TableHead>
-                        <TableHead className="w-24 text-right tabular-nums">
-                          Totale
                         </TableHead>
                       </TableRow>
                     </TableHeader>
