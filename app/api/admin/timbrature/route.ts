@@ -35,23 +35,15 @@ function formattaOra(minuti: number): string {
 
 /**
  * Assegna i turni (entrata1/uscita1, entrata2/uscita2) dalle timbrature
- * grezze accoppiando E con U in ordine e distribuendo le coppie nelle
- * finestre orarie.
+ * grezze. Per ogni finestra (mattina / pomeriggio) scandisce le timbrature
+ * in ordine e assegna:
  *
- * ## Algoritmo
- * 1. Separo le timbrature per tipo: `es` e `us`.
- * 2. Accoppio in ordine: 1ª E → 1ª U dopo di essa, 2ª E → 2ª U dopo.
- *    Ogni coppia finisce in una finestra in base all'orario della E:
- *    finestra mattina (prima di `separazione`) → turno1,
- *    finestra pomeriggio (dopo `separazione`) → turno2.
- * 3. Il tipo non viene mai alterato: una U non diventa mai una E e
- *    viceversa. Timbrature senza accoppiamento vengono ignorate.
+ * - Prima E → entrata della finestra
+ * - Prima U dopo la prima E → uscita della finestra
+ * - Se non c'è E ma c'è una U → uscita della finestra (senza entrata)
+ * - Entrata e uscita sono indipendenti: si può avere solo l'una o solo l'altra
  *
- * ## Esempio
- * Finestre: 08:00–12:00 e 14:00–18:00. Separazione = 13:00.
- * Timbrature: E 07:58, U 12:02, E 13:50, U 18:01
- * - E 07:58 → U 12:02 → coppia 1, 07:58 < 13:00 → turno1 ✓
- * - E 13:50 → U 18:01 → coppia 2, 13:50 ≥ 13:00 → turno2 ✓
+ * Il tipo E/U non viene mai alterato. Timbrature in eccedenza ignorate.
  */
 function assegnaTurni(
   timbrature: { ora: string; tipologia: string }[],
@@ -67,40 +59,44 @@ function assegnaTurni(
     (minutiFromOra(orario.primaUscita) + minutiFromOra(orario.secondoIngresso)) / 2
   )
 
-  // Separa per tipo
-  const es = timbrature.filter((t) => t.tipologia === "E")
-  const us = timbrature.filter((t) => t.tipologia === "U")
+  // Separa per finestra
+  const mattino = timbrature.filter((t) => minutiFromOra(t.ora) < separazione)
+  const pom = timbrature.filter((t) => minutiFromOra(t.ora) >= separazione)
 
-  // Accoppia in ordine: 1ª E → 1ª U dopo di essa, 2ª E → 2ª U dopo
-  let ui = 0
-  for (const e of es) {
-    if (ui >= us.length) break
+  // Assegna una finestra: entrata → prima E, uscita → prima U dopo la prima E
+  function assegna(
+    lista: { ora: string; tipologia: string }[]
+  ): { entrata: string | null; uscita: string | null } {
+    let entrata: string | null = null
+    let uscita: string | null = null
 
-    // Trova la prima U dopo questa E
-    while (ui < us.length && minutiFromOra(us[ui].ora) <= minutiFromOra(e.ora)) {
-      ui++
-    }
-    if (ui >= us.length) break
-
-    const coppia: { entrata: string; uscita: string } = {
-      entrata: e.ora,
-      uscita: us[ui].ora,
-    }
-    ui++
-
-    // Assegna alla finestra giusta in base all'orario della E
-    if (minutiFromOra(e.ora) < separazione) {
-      if (!entrata1) {
-        entrata1 = coppia.entrata
-        uscita1 = coppia.uscita
-      }
-    } else {
-      if (!entrata2) {
-        entrata2 = coppia.entrata
-        uscita2 = coppia.uscita
+    for (const t of lista) {
+      if (t.tipologia === "E" && !entrata) {
+        entrata = t.ora
+      } else if (t.tipologia === "U" && !uscita && entrata) {
+        // U dopo la prima E
+        if (minutiFromOra(t.ora) > minutiFromOra(entrata)) {
+          uscita = t.ora
+        }
       }
     }
+
+    // Se non c'è E ma c'è una U, segna l'uscita (indipendente)
+    if (!entrata) {
+      const primaU = lista.find((t) => t.tipologia === "U")
+      if (primaU) uscita = primaU.ora
+    }
+
+    return { entrata, uscita }
   }
+
+  const t1 = assegna(mattino)
+  entrata1 = t1.entrata
+  uscita1 = t1.uscita
+
+  const t2 = assegna(pom)
+  entrata2 = t2.entrata
+  uscita2 = t2.uscita
 
   let totaleMinuti = 0
   if (entrata1 && uscita1) {
