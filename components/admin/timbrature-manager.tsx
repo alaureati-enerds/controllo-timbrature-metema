@@ -7,7 +7,6 @@ import {
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  RotateCcwIcon,
   RotateCwIcon,
   SearchIcon,
 } from "lucide-react"
@@ -99,22 +98,18 @@ function CorrettaCell({
   giorno,
   campo,
   valore,
-  modificato,
   editing,
   setEditing,
   editRef,
   onSave,
-  onReset,
 }: {
   giorno: string
   campo: string
   valore: string | null
-  modificato: boolean
   editing: { giorno: string; campo: string } | null
   setEditing: (k: { giorno: string; campo: string } | null) => void
   editRef: React.RefObject<HTMLInputElement | null>
   onSave: (giorno: string, campo: string, v: string | null) => void
-  onReset: (giorno: string, campo: string) => void
 }) {
   const isEditing = editing?.giorno === giorno && editing?.campo === campo
 
@@ -126,10 +121,7 @@ function CorrettaCell({
   function commit() {
     const v = editRef.current?.value.trim()
     setEditing(null)
-    if (!v || v === valore) {
-      if (modificato && !v) onReset(giorno, campo)
-      return
-    }
+    if (!v || v === valore) return
     onSave(giorno, campo, v)
   }
 
@@ -158,18 +150,7 @@ function CorrettaCell({
       onClick={startEdit}
       title="Clicca per modificare"
     >
-      <span className="inline-flex items-center gap-1">
-        {valore ?? "—"}
-        {modificato && (
-          <RotateCcwIcon
-            className="ml-0.5 inline size-3 cursor-pointer opacity-50 hover:opacity-100"
-            onClick={(e) => {
-              e.stopPropagation()
-              onReset(giorno, campo)
-            }}
-          />
-        )}
-      </span>
+      {valore ?? "—"}
     </TableCell>
   )
 }
@@ -194,10 +175,6 @@ export function TimbratureManager() {
   type EditingKey = { giorno: string; campo: string }
   const [editing, setEditing] = useState<EditingKey | null>(null)
   const editRef = useRef<HTMLInputElement>(null)
-
-  function isModificato(giorno: string, campo: string) {
-    return correzioni.get(giorno)?.[campo] !== undefined
-  }
 
   async function salvaCorrezione(
     giorno: string,
@@ -237,40 +214,6 @@ export function TimbratureManager() {
       toast.success("Correzioni azzerate")
     } catch {
       toast.error("Errore reset correzioni")
-    }
-  }
-
-  async function resettaCorrezione(giorno: string, campo: string) {
-    if (!dipendente) return
-    const prev = correzioni.get(giorno)
-    if (!prev) return
-
-    const { [campo]: _, ...rest } = prev
-    const keys = Object.keys(rest)
-
-    try {
-      if (keys.length === 0) {
-        await fetch(
-          `/api/admin/timbrature/correzioni?dipendente=${dipendente.codice}&giorno=${giorno}`,
-          { method: "DELETE" }
-        )
-        const next = new Map(correzioni)
-        next.delete(giorno)
-        setCorrezioni(next)
-      } else {
-        await fetch("/api/admin/timbrature/correzioni", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            dipendente: dipendente.codice,
-            giorno,
-            ...rest,
-          }),
-        })
-        setCorrezioni(new Map(correzioni).set(giorno, rest))
-      }
-    } catch {
-      toast.error("Errore reset correzione")
     }
   }
 
@@ -598,45 +541,37 @@ export function TimbratureManager() {
                             giorno={r.giorno}
                             campo="entrata1"
                             valore={r.ce1}
-                            modificato={isModificato(r.giorno, "entrata1")}
                             editing={editing}
                             setEditing={setEditing}
                             editRef={editRef}
                             onSave={salvaCorrezione}
-                            onReset={resettaCorrezione}
                           />
                           <CorrettaCell
                             giorno={r.giorno}
                             campo="uscita1"
                             valore={r.cu1}
-                            modificato={isModificato(r.giorno, "uscita1")}
                             editing={editing}
                             setEditing={setEditing}
                             editRef={editRef}
                             onSave={salvaCorrezione}
-                            onReset={resettaCorrezione}
                           />
                           <CorrettaCell
                             giorno={r.giorno}
                             campo="entrata2"
                             valore={r.ce2}
-                            modificato={isModificato(r.giorno, "entrata2")}
                             editing={editing}
                             setEditing={setEditing}
                             editRef={editRef}
                             onSave={salvaCorrezione}
-                            onReset={resettaCorrezione}
                           />
                           <CorrettaCell
                             giorno={r.giorno}
                             campo="uscita2"
                             valore={r.cu2}
-                            modificato={isModificato(r.giorno, "uscita2")}
                             editing={editing}
                             setEditing={setEditing}
                             editRef={editRef}
                             onSave={salvaCorrezione}
-                            onReset={resettaCorrezione}
                           />
                           <TableCell
                             className={cn(
