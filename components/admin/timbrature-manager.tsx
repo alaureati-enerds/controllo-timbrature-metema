@@ -290,7 +290,7 @@ export function TimbratureManager() {
                                 we && "text-destructive"
                               )}
                             >
-                              {format(new Date(g.giorno + "T12:00:00"), "EEEE", { locale: it })}
+                              {format(new Date(g.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
                             </TableCell>
                             <TableCell className="text-center tabular-nums">
                               {g.entrata1 ?? (we ? "—" : "")}
@@ -349,7 +349,7 @@ export function TimbratureManager() {
                                 we && "text-destructive"
                               )}
                             >
-                              {format(new Date(g.giorno + "T12:00:00"), "EEEE", { locale: it })}
+                              {format(new Date(g.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
                             </span>
                           </div>
                           <span
