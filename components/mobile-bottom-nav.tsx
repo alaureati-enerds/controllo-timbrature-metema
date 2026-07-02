@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   BellIcon,
+  ClockIcon,
   FolderIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
@@ -33,7 +34,7 @@ const userItems: BottomNavItem[] = [
 const adminItems: BottomNavItem[] = [
   { label: "Home", url: "/", icon: LayoutDashboardIcon },
   { label: "Utenti", url: "/admin/users", icon: UsersIcon },
-  { label: "Operazioni", url: "/admin/jobs", icon: ListChecksIcon },
+  { label: "Timbrature", url: "/admin/timbrature", icon: ClockIcon },
   { label: "Audit", url: "/admin/audit", icon: ScrollTextIcon },
 ]
 

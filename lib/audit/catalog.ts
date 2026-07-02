@@ -62,6 +62,7 @@ export const auditCatalog = [
   { action: "system.email.update", category: "system", label: "Config email modificata" },
   { action: "system.notifications.update", category: "system", label: "Config notifiche modificata" },
   { action: "system.mysql.update", category: "system", label: "Config MySQL modificata" },
+  { action: "system.orario.update", category: "system", label: "Config orario modificata" },
 ] as const satisfies readonly AuditEventDef[]
 
 // Tutte le `action` conosciute, come tipo stretto: dà autocompletamento e
