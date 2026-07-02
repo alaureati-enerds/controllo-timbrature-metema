@@ -64,9 +64,9 @@ function formattaOra(minuti: number): string {
  * | E,U,U,U (07:28, 12:30, 13:57, 17:01) | entrata1=07:28, uscita1=12:30, entrata2=13:57(U→accettata), uscita2=17:01 |
  * | E,U,U (07:28, 12:30, 13:57) | entrata1=07:28, uscita1=12:30, entrata2=13:57 (senza uscita2) |
  * | E,U (07:28, 17:01) | entrata1=07:28, uscita1=17:01 (turno unico) |
- * | E,E,U,U (07:28, 08:15, 12:30, 17:01) | entrata1=07:28, uscita1=12:30 (seconda E ignorata, dopo uscita1 non c'è finestra valida) |
- * | E,U,E,U,U (07:28, 12:30, 14:00, 16:00, 17:30) | entrata1=07:28, uscita1=12:30, entrata2=14:00, uscita2=17:30 (U=16:00 ignorata) |
- * | U,U (12:30, 17:01) | entrata1=12:30 (U→accettata), uscita1=17:01 (turno unico) |
+ * | E,E,U,U (07:28, 08:15, 12:30, 17:01) | entrata1=07:28, uscita1=12:30 (seconda E ignorata) |
+ * | E,U,E,U,U (07:28, 12:30, 14:00, 16:00, 17:30) | entrata1=07:28, uscita1=12:30, entrata2=14:00(E), uscita2=17:30(U=16:00 ignorata) |
+ * | U,U (12:30, 17:01) | nessun turno (manca E mattino), ma entrata2=12:30(U→accettata), uscita2=17:01 se in finestra pomeriggio |
  */
 function assegnaTurni(
   timbrature: { ora: string; tipologia: string }[],
@@ -89,20 +89,18 @@ function assegnaTurni(
   const t1Min = pIngresso - 60
   const t1Max = pUscita + 30
 
+  // entrata1 richiede una timbratura di tipo E reale (non inventiamo dati).
   const inT1 = timbrature.filter((t) => {
     const m = minutiFromOra(t.ora)
     return m >= t1Min && m <= t1Max
   })
 
-  if (inT1.length > 0) {
-    // entrata1: E più vicina a primoIngresso
-    const e1Candidati = inT1.filter((t) => t.tipologia === "E")
-    entrata1 = e1Candidati.length > 0
-      ? e1Candidati.reduce((a, b) =>
-          Math.abs(minutiFromOra(a.ora) - pIngresso) <
-          Math.abs(minutiFromOra(b.ora) - pIngresso) ? a : b
-        ).ora
-      : inT1[0].ora
+  const e1Candidati = inT1.filter((t) => t.tipologia === "E")
+  if (e1Candidati.length > 0) {
+    entrata1 = e1Candidati.reduce((a, b) =>
+      Math.abs(minutiFromOra(a.ora) - pIngresso) <
+      Math.abs(minutiFromOra(b.ora) - pIngresso) ? a : b
+    ).ora
 
     // uscita1: U più vicina a primaUscita, dopo entrata1
     const dopoE1 = inT1.filter(
@@ -114,30 +112,33 @@ function assegnaTurni(
           Math.abs(minutiFromOra(a.ora) - pUscita) <
           Math.abs(minutiFromOra(b.ora) - pUscita) ? a : b
         ).ora
-      : dopoE1.length > 0
-        ? dopoE1[dopoE1.length - 1].ora
-        : null
+      : null
   }
 
-  // --- Gap pomeriggio ---
+  // --- Gap pomeriggio: dopo uscita1 (o a metà mattina se non uscita1) ---
   const gap = uscita1
     ? minutiFromOra(uscita1) + 10
-    : pUscita + 10
+    : entrata1
+      ? pUscita + 10
+      : pIngresso + 240 // metà giornata se nessun turno1
 
   // --- Turno 2: finestra [gap, secondaUscita + 30min] ---
-  const t2Min = gap
   const t2Max = sUscita + 30
 
+  // entrata2: prima E nella finestra. Se non c'è E ma ci sono altre
+  // timbrature, accetta la prima (es. U battuta per errore come entrata).
   const inT2 = timbrature.filter((t) => {
     const m = minutiFromOra(t.ora)
-    return m >= t2Min && m <= t2Max
+    return m >= gap && m <= t2Max
   })
 
   if (inT2.length > 0) {
-    // entrata2: prima timbratura di qualunque tipo nella finestra
-    entrata2 = inT2[0].ora
+    const e2Candidati = inT2.filter((t) => t.tipologia === "E")
+    entrata2 = e2Candidati.length > 0
+      ? e2Candidati[0].ora
+      : inT2[0].ora
 
-    // uscita2: ultima timbratura U nella finestra dopo entrata2
+    // uscita2: ultima timbratura dopo entrata2 (preferendo U)
     const dopoE2 = inT2.filter(
       (t) => minutiFromOra(t.ora) > minutiFromOra(entrata2!)
     )
