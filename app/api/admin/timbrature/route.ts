@@ -34,28 +34,24 @@ function formattaOra(minuti: number): string {
 }
 
 /**
- * Assegna i turni (entrata1/uscita1, entrata2/uscita2) dalle timbrature grezze
- * scorrendole in ordine cronologico e assegnando ogni timbratura alla finestra
- * oraria corrispondente.
+ * Assegna i turni (entrata1/uscita1, entrata2/uscita2) dalle timbrature
+ * grezze accoppiando E con U in ordine e distribuendo le coppie nelle
+ * finestre orarie.
  *
  * ## Algoritmo
- * Per ogni timbratura (in ordine crescente), determino se appartiene alla
- * finestra del mattino o del pomeriggio confrontando l'orario con il punto
- * di separazione (metà strada tra `primaUscita` e `secondoIngresso`).
- * Assegno la timbratura al primo slot libero della finestra: prima entrata,
- * poi uscita. Se lo slot è già occupato, ignoro la timbratura.
- *
- * L'algoritmo è volutamente semplice: non guarda la tipologia E/U, non
- * cerca il matching più vicino, non fa finestre di tolleranza. Ogni
- * timbratura va allo slot successivo della finestra giusta, punto.
+ * 1. Separo le timbrature per tipo: `es` e `us`.
+ * 2. Accoppio in ordine: 1ª E → 1ª U dopo di essa, 2ª E → 2ª U dopo.
+ *    Ogni coppia finisce in una finestra in base all'orario della E:
+ *    finestra mattina (prima di `separazione`) → turno1,
+ *    finestra pomeriggio (dopo `separazione`) → turno2.
+ * 3. Il tipo non viene mai alterato: una U non diventa mai una E e
+ *    viceversa. Timbrature senza accoppiamento vengono ignorate.
  *
  * ## Esempio
  * Finestre: 08:00–12:00 e 14:00–18:00. Separazione = 13:00.
  * Timbrature: E 07:58, U 12:02, E 13:50, U 18:01
- * - 07:58 < 13:00 → mattino → entrata1 = 07:58
- * - 12:02 < 13:00 → mattino → uscita1 = 12:02
- * - 13:50 ≥ 13:00 → pomeriggio → entrata2 = 13:50
- * - 18:01 ≥ 13:00 → pomeriggio → uscita2 = 18:01
+ * - E 07:58 → U 12:02 → coppia 1, 07:58 < 13:00 → turno1 ✓
+ * - E 13:50 → U 18:01 → coppia 2, 13:50 ≥ 13:00 → turno2 ✓
  */
 function assegnaTurni(
   timbrature: { ora: string; tipologia: string }[],
@@ -66,23 +62,43 @@ function assegnaTurni(
   let entrata2: string | null = null
   let uscita2: string | null = null
 
-  // Punto di separazione tra mattino e pomeriggio: metà strada tra
-  // l'uscita del mattino e l'entrata del pomeriggio standard.
+  // Punto di separazione tra finestra mattino e pomeriggio
   const separazione = Math.floor(
     (minutiFromOra(orario.primaUscita) + minutiFromOra(orario.secondoIngresso)) / 2
   )
 
-  for (const t of timbrature) {
-    const m = minutiFromOra(t.ora)
+  // Separa per tipo
+  const es = timbrature.filter((t) => t.tipologia === "E")
+  const us = timbrature.filter((t) => t.tipologia === "U")
 
-    if (m < separazione) {
-      // Mattino
-      if (!entrata1) entrata1 = t.ora
-      else if (!uscita1) uscita1 = t.ora
+  // Accoppia in ordine: 1ª E → 1ª U dopo di essa, 2ª E → 2ª U dopo
+  let ui = 0
+  for (const e of es) {
+    if (ui >= us.length) break
+
+    // Trova la prima U dopo questa E
+    while (ui < us.length && minutiFromOra(us[ui].ora) <= minutiFromOra(e.ora)) {
+      ui++
+    }
+    if (ui >= us.length) break
+
+    const coppia: { entrata: string; uscita: string } = {
+      entrata: e.ora,
+      uscita: us[ui].ora,
+    }
+    ui++
+
+    // Assegna alla finestra giusta in base all'orario della E
+    if (minutiFromOra(e.ora) < separazione) {
+      if (!entrata1) {
+        entrata1 = coppia.entrata
+        uscita1 = coppia.uscita
+      }
     } else {
-      // Pomeriggio
-      if (!entrata2) entrata2 = t.ora
-      else if (!uscita2) uscita2 = t.ora
+      if (!entrata2) {
+        entrata2 = coppia.entrata
+        uscita2 = coppia.uscita
+      }
     }
   }
 
