@@ -273,17 +273,17 @@ export function TimbratureManager() {
                         </TableHead>
                       </TableRow>
                       <TableRow>
-                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
-                          {orario.primoIngresso}
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
+                          Entrata
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
-                          {orario.primaUscita}
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
+                          Uscita
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
-                          {orario.secondoIngresso}
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
+                          Entrata
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
-                          {orario.secondaUscita}
+                        <TableHead className="w-20 text-center tabular-nums font-normal">
+                          Uscita
                         </TableHead>
                       </TableRow>
                     </TableHeader>
