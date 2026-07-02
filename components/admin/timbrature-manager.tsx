@@ -247,7 +247,8 @@ export function TimbratureManager() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-28 tabular-nums">Giorno</TableHead>
+                        <TableHead className="w-16 tabular-nums">Data</TableHead>
+                        <TableHead className="tabular-nums">Giorno</TableHead>
                         <TableHead className="w-20 text-center tabular-nums">
                           {orario.primoIngresso}
                         </TableHead>
@@ -281,7 +282,15 @@ export function TimbratureManager() {
                                 we && "text-destructive"
                               )}
                             >
-                              {format(new Date(g.giorno + "T12:00:00"), "EEE dd/MM", { locale: it })}
+                              {format(new Date(g.giorno + "T12:00:00"), "dd/MM", { locale: it })}
+                            </TableCell>
+                            <TableCell
+                              className={cn(
+                                "tabular-nums",
+                                we && "text-destructive"
+                              )}
+                            >
+                              {format(new Date(g.giorno + "T12:00:00"), "EEEE", { locale: it })}
                             </TableCell>
                             <TableCell className="text-center tabular-nums">
                               {g.entrata1 ?? (we ? "—" : "")}
@@ -325,14 +334,24 @@ export function TimbratureManager() {
                     >
                       <CardContent className="p-4">
                         <div className="mb-2 flex items-center justify-between">
-                          <span
-                            className={cn(
-                              "text-sm font-medium tabular-nums",
-                              we && "text-destructive"
-                            )}
-                          >
-                            {format(new Date(g.giorno + "T12:00:00"), "EEE dd/MM", { locale: it })}
-                          </span>
+                          <div className="flex items-baseline gap-2">
+                            <span
+                              className={cn(
+                                "tabular-nums",
+                                we && "text-destructive"
+                              )}
+                            >
+                              {format(new Date(g.giorno + "T12:00:00"), "dd/MM", { locale: it })}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-sm font-medium",
+                                we && "text-destructive"
+                              )}
+                            >
+                              {format(new Date(g.giorno + "T12:00:00"), "EEEE", { locale: it })}
+                            </span>
+                          </div>
                           <span
                             className={cn(
                               "text-xs tabular-nums",
