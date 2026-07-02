@@ -301,7 +301,7 @@ export function TimbratureManager() {
                         </TableHead>
                         <TableHead
                           colSpan={4}
-                          className="text-center text-xs font-semibold text-muted-foreground bg-muted/30"
+                          className="text-center text-xs font-semibold text-muted-foreground"
                         >
                           Timbrature corrette
                         </TableHead>
@@ -337,16 +337,16 @@ export function TimbratureManager() {
                         <TableHead className="w-20 text-center tabular-nums font-normal">
                           Uscita
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal bg-muted/30">
+                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
                           Entrata
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal bg-muted/30">
+                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
                           Uscita
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal bg-muted/30">
+                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
                           Entrata
                         </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal bg-muted/30">
+                        <TableHead className="w-20 text-center tabular-nums font-normal text-muted-foreground">
                           Uscita
                         </TableHead>
                       </TableRow>
@@ -385,16 +385,16 @@ export function TimbratureManager() {
                           <TableCell className="text-center tabular-nums">
                             {r.uscita2?.slice(0, 5) ?? "—"}
                           </TableCell>
-                          <TableCell className="text-center tabular-nums bg-muted/30">
+                          <TableCell className="text-center tabular-nums text-muted-foreground">
                             {r.ce1 ?? "—"}
                           </TableCell>
-                          <TableCell className="text-center tabular-nums bg-muted/30">
+                          <TableCell className="text-center tabular-nums text-muted-foreground">
                             {r.cu1 ?? "—"}
                           </TableCell>
-                          <TableCell className="text-center tabular-nums bg-muted/30">
+                          <TableCell className="text-center tabular-nums text-muted-foreground">
                             {r.ce2 ?? "—"}
                           </TableCell>
-                          <TableCell className="text-center tabular-nums bg-muted/30">
+                          <TableCell className="text-center tabular-nums text-muted-foreground">
                             {r.cu2 ?? "—"}
                           </TableCell>
                           <TableCell
