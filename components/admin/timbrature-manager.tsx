@@ -314,16 +314,16 @@ export function TimbratureManager() {
                               {format(new Date(g.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
                             </TableCell>
                             <TableCell className="text-center tabular-nums">
-                              {g.entrata1 ?? (we ? "—" : "")}
+                              {g.entrata1?.slice(0, 5) ?? (we ? "—" : "")}
                             </TableCell>
                             <TableCell className="text-center tabular-nums">
-                              {g.uscita1 ?? (we ? "—" : "")}
+                              {g.uscita1?.slice(0, 5) ?? (we ? "—" : "")}
                             </TableCell>
                             <TableCell className="text-center tabular-nums">
-                              {g.entrata2 ?? (we ? "—" : "")}
+                              {g.entrata2?.slice(0, 5) ?? (we ? "—" : "")}
                             </TableCell>
                             <TableCell className="text-center tabular-nums">
-                              {g.uscita2 ?? (we ? "—" : "")}
+                              {g.uscita2?.slice(0, 5) ?? (we ? "—" : "")}
                             </TableCell>
                             <TableCell
                               className={cn(
