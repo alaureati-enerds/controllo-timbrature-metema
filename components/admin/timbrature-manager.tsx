@@ -39,6 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 
 import type { Dipendente } from "@/lib/mysql/timbrature"
@@ -175,6 +176,61 @@ export function TimbratureManager() {
   type EditingKey = { giorno: string; campo: string }
   const [editing, setEditing] = useState<EditingKey | null>(null)
   const editRef = useRef<HTMLInputElement>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  function toggleSelect(giorno: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(giorno)) next.delete(giorno)
+      else next.add(giorno)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === righe.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(righe.map((r) => r.giorno)))
+    }
+  }
+
+  async function applicaOrarioStandard() {
+    if (!dipendente || selected.size === 0) return
+    const preset = {
+      entrata1: "08:30",
+      uscita1: "12:30",
+      entrata2: "14:30",
+      uscita2: "18:30",
+    }
+
+    try {
+      await Promise.all(
+        Array.from(selected).map((giorno) =>
+          fetch("/api/admin/timbrature/correzioni", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              dipendente: dipendente.codice,
+              giorno,
+              ...preset,
+            }),
+          }).then((r) => {
+            if (!r.ok) throw new Error()
+          })
+        )
+      )
+      setCorrezioni((prev) => {
+        const next = new Map(prev)
+        for (const giorno of selected) next.set(giorno, preset)
+        return next
+      })
+      toast.success(`Orario standard applicato a ${selected.size} giornata/e`)
+      setSelected(new Set())
+    } catch {
+      toast.error("Errore applicazione preset")
+    }
+  }
 
   async function salvaCorrezione(
     giorno: string,
@@ -235,6 +291,7 @@ export function TimbratureManager() {
     if (!dipendente) return
     setLoading(true)
     setCorrezioni(new Map())
+    setSelected(new Set())
     const params = new URLSearchParams({
       dipendente: dipendente.codice,
       mese: String(mese + 1),
@@ -395,21 +452,32 @@ export function TimbratureManager() {
           <CardTitle className="flex items-center justify-between">
             <span className="tabular-nums">{meseLabel}</span>
             {righe.length > 0 && (
-              <span className="flex items-center gap-3 text-base font-normal text-muted-foreground tabular-nums">
+              <span className="flex flex-wrap items-center gap-3 text-base font-normal text-muted-foreground tabular-nums">
                 <span>Totale: {formattaMinuti(totaliMese.totale)}</span>
                 <span>Ord.: {formattaMinuti(totaliMese.ordinario)}</span>
                 <span>Straord.: {formattaMinuti(totaliMese.straordinario)}</span>
-                {correzioni.size > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={resettaTutto}
-                    className="h-7 gap-1 text-xs font-normal text-muted-foreground"
-                  >
-                    <RotateCwIcon className="size-3" />
-                    Reset correzioni
-                  </Button>
-                )}
+                <span className="flex items-center gap-2">
+                  {selected.size > 0 && (
+                    <Button
+                      size="sm"
+                      onClick={applicaOrarioStandard}
+                      className="h-7 gap-1 text-xs"
+                    >
+                      Orario standard ({selected.size})
+                    </Button>
+                  )}
+                  {correzioni.size > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resettaTutto}
+                      className="h-7 gap-1 text-xs font-normal text-muted-foreground"
+                    >
+                      <RotateCwIcon className="size-3" />
+                      Reset correzioni
+                    </Button>
+                  )}
+                </span>
               </span>
             )}
           </CardTitle>
@@ -433,6 +501,13 @@ export function TimbratureManager() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead rowSpan={2} className="w-10 text-center">
+                          <Checkbox
+                            checked={righe.length > 0 && selected.size === righe.length}
+                            onCheckedChange={toggleSelectAll}
+                            aria-label="Seleziona tutto"
+                          />
+                        </TableHead>
                         <TableHead
                           rowSpan={2}
                           className="w-16 tabular-nums"
@@ -509,6 +584,13 @@ export function TimbratureManager() {
                           key={r.giorno}
                           className={cn(r.we && "bg-destructive/10")}
                         >
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={selected.has(r.giorno)}
+                              onCheckedChange={() => toggleSelect(r.giorno)}
+                              aria-label={`Seleziona ${r.giorno}`}
+                            />
+                          </TableCell>
                           <TableCell
                             className={cn(
                               "tabular-nums",
