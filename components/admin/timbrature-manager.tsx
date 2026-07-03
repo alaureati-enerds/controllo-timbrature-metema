@@ -653,10 +653,9 @@ export function TimbratureManager() {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   disabled={selected.size === 0 || resetting}
-                  className="gap-1.5 text-muted-foreground"
                 >
                   {resetting ? <Spinner aria-hidden="true" /> : <RotateCwIcon data-icon="inline-start" />}
                   Ricalcola selezione
