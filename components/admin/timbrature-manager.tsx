@@ -54,6 +54,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -382,17 +383,27 @@ export function TimbratureManager() {
     }
   }
 
-  async function resettaTutto() {
-    if (!dipendente || correzioni.size === 0) return
+  async function resettaSelezionate() {
+    if (!dipendente || selected.size === 0) return
     setResetting(true)
     try {
-      const res = await fetch(
-        `/api/admin/timbrature/correzioni?dipendente=${dipendente.codice}&mese=${mese + 1}&anno=${anno}`,
-        { method: "DELETE" }
+      await Promise.all(
+        Array.from(selected).map((giorno) =>
+          fetch(
+            `/api/admin/timbrature/correzioni?dipendente=${dipendente.codice}&giorno=${giorno}`,
+            { method: "DELETE" }
+          ).then((r) => {
+            if (!r.ok) throw new Error()
+          })
+        )
       )
-      if (!res.ok) throw new Error()
-      setCorrezioni(new Map())
-      toast.success("Correzioni azzerate")
+      setCorrezioni((prev) => {
+        const next = new Map(prev)
+        for (const giorno of selected) next.delete(giorno)
+        return next
+      })
+      toast.success(`Correzioni azzerate per ${selected.size} giornata/e`)
+      setSelected(new Set())
     } catch {
       toast.error("Errore reset correzioni")
     } finally {
@@ -600,68 +611,58 @@ export function TimbratureManager() {
         </CardContent>
       </Card>
 
-      {dipendente && righe.length > 0 && (
+      {dipendente && selected.size > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Correzioni rapide</CardTitle>
             <CardDescription>
-              {selected.size > 0
-                ? `${selected.size} giorno/i selezionato/i.`
-                : "Seleziona una o più righe nella tabella per applicare un preset."}
+              {selected.size} giorno/i selezionato/i.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Select
-                value=""
-                onValueChange={applicaPreset}
-                disabled={selected.size === 0 || applyingPreset}
+          <CardContent className="flex flex-wrap items-center gap-3">
+            <Select
+              value=""
+              onValueChange={applicaPreset}
+              disabled={applyingPreset}
+            >
+              <SelectTrigger
+                className="w-full tabular-nums sm:w-56"
+                aria-label="Applica preset alle righe selezionate"
               >
-                <SelectTrigger
-                  className="w-full tabular-nums sm:w-56"
-                  aria-label="Applica preset alle righe selezionate"
-                >
-                  {applyingPreset ? (
-                    <Spinner aria-hidden="true" />
-                  ) : null}
-                  <SelectValue
-                    placeholder={
-                      selected.size > 0
-                        ? `Applica preset (${selected.size})`
-                        : "Applica preset"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {presetsApplicabili.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                {applyingPreset ? (
+                  <Spinner aria-hidden="true" />
+                ) : null}
+                <SelectValue placeholder={`Applica preset (${selected.size})`} />
+              </SelectTrigger>
+              <SelectContent>
+                {presetsApplicabili.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  disabled={correzioni.size === 0 || resetting}
+                  disabled={resetting}
                   className="gap-1.5 text-muted-foreground"
                 >
                   {resetting ? <Spinner aria-hidden="true" /> : <RotateCwIcon data-icon="inline-start" />}
-                  Reset correzioni
+                  Ricalcola selezione
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>
-                    Azzerare tutte le correzioni del mese?
+                    Azzerare le correzioni selezionate?
                   </AlertDialogTitle>
                   <AlertDialogDescription>
-                    Tutte le correzioni di{" "}
-                    {dipendente?.descrizione || dipendente?.codice} per{" "}
-                    {meseLabel} verranno eliminate in modo permanente.
+                    Le correzioni di {selected.size} giornata/e selezionata/e
+                    per {dipendente?.descrizione || dipendente?.codice}{" "}
+                    verranno eliminate in modo permanente.
                     L&apos;operazione non è reversibile.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -669,7 +670,7 @@ export function TimbratureManager() {
                   <AlertDialogCancel>Annulla</AlertDialogCancel>
                   <AlertDialogAction
                     variant="destructive"
-                    onClick={resettaTutto}
+                    onClick={resettaSelezionate}
                   >
                     Azzera correzioni
                   </AlertDialogAction>
@@ -682,16 +683,7 @@ export function TimbratureManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span className="tabular-nums">{meseLabel}</span>
-            {righe.length > 0 && (
-              <span className="flex flex-wrap items-center gap-3 text-base font-normal text-muted-foreground tabular-nums">
-                <span>Totale: {formattaMinuti(totaliMese.totale)}</span>
-                <span>Ord.: {formattaMinuti(totaliMese.ordinario)}</span>
-                <span>Straord.: {formattaMinuti(totaliMese.straordinario)}</span>
-              </span>
-            )}
-          </CardTitle>
+          <CardTitle className="tabular-nums">{meseLabel}</CardTitle>
         </CardHeader>
         <CardContent className="p-0 sm:px-6 sm:pb-6">
           {loading ? (
@@ -891,6 +883,29 @@ export function TimbratureManager() {
                         </TableRow>
                       ))}
                     </TableBody>
+                    {righe.length > 0 && (
+                      <TableFooter>
+                        <TableRow>
+                          <TableCell colSpan={11} className="text-right">
+                            Totale mese
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {formattaMinuti(totaliMese.totale)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {formattaMinuti(totaliMese.ordinario)}
+                          </TableCell>
+                          <TableCell
+                            className={cn(
+                              "text-right tabular-nums",
+                              totaliMese.straordinario > 0 && "text-amber-600"
+                            )}
+                          >
+                            {formattaMinuti(totaliMese.straordinario)}
+                          </TableCell>
+                        </TableRow>
+                      </TableFooter>
+                    )}
                   </Table>
                 </div>
               </div>
@@ -952,6 +967,29 @@ export function TimbratureManager() {
                     </CardContent>
                   </Card>
                 ))}
+                {righe.length > 0 && (
+                  <Card size="sm">
+                    <CardContent className="flex items-center justify-between p-4 text-sm">
+                      <span className="font-medium">Totale mese</span>
+                      <div className="flex items-center gap-2 text-xs tabular-nums">
+                        <span className="font-medium">
+                          {formattaMinuti(totaliMese.totale)}
+                        </span>
+                        <span className="text-muted-foreground">/</span>
+                        <span className="text-muted-foreground">
+                          {formattaMinuti(totaliMese.ordinario)}
+                        </span>
+                        <span
+                          className={cn(
+                            totaliMese.straordinario > 0 && "text-amber-600"
+                          )}
+                        >
+                          {formattaMinuti(totaliMese.straordinario)}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </>
           )}
