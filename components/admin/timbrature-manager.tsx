@@ -611,19 +611,21 @@ export function TimbratureManager() {
         </CardContent>
       </Card>
 
-      {dipendente && selected.size > 0 && (
+      {dipendente && righe.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Correzioni rapide</CardTitle>
             <CardDescription>
-              {selected.size} giorno/i selezionato/i.
+              {selected.size > 0
+                ? `${selected.size} giorno/i selezionato/i.`
+                : "Seleziona una riga per abilitare le modifiche."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-3">
             <Select
               value=""
               onValueChange={applicaPreset}
-              disabled={applyingPreset}
+              disabled={selected.size === 0 || applyingPreset}
             >
               <SelectTrigger
                 className="w-full tabular-nums sm:w-56"
@@ -632,7 +634,13 @@ export function TimbratureManager() {
                 {applyingPreset ? (
                   <Spinner aria-hidden="true" />
                 ) : null}
-                <SelectValue placeholder={`Applica preset (${selected.size})`} />
+                <SelectValue
+                  placeholder={
+                    selected.size > 0
+                      ? `Applica preset (${selected.size})`
+                      : "Applica preset"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {presetsApplicabili.map((p) => (
@@ -647,7 +655,7 @@ export function TimbratureManager() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  disabled={resetting}
+                  disabled={selected.size === 0 || resetting}
                   className="gap-1.5 text-muted-foreground"
                 >
                   {resetting ? <Spinner aria-hidden="true" /> : <RotateCwIcon data-icon="inline-start" />}
