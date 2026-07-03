@@ -1,4 +1,5 @@
 import {
+  CalendarClockIcon,
   ClockIcon,
   FolderIcon,
   HourglassIcon,
@@ -34,6 +35,7 @@ export const adminNavItems: NavItem[] = [
   { title: "Gestione utenti", url: "/admin/users", icon: UsersIcon },
   { title: "Operazioni in background", url: "/admin/jobs", icon: ListChecksIcon },
   { title: "Timbrature", url: "/admin/timbrature", icon: ClockIcon },
+  { title: "Orari di lavoro", url: "/admin/orari-lavoro", icon: CalendarClockIcon },
   { title: "Audit log", url: "/admin/audit", icon: ScrollTextIcon },
   { title: "Impostazioni di sistema", url: "/admin/settings", icon: SettingsIcon },
 ]

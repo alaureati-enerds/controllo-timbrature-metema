@@ -7,7 +7,6 @@ import {
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ClockIcon,
   RotateCwIcon,
   SearchIcon,
 } from "lucide-react"
@@ -42,6 +41,13 @@ import {
   ComboboxTrigger,
 } from "@/components/ui/combobox"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import {
@@ -58,6 +64,7 @@ import { cn } from "@/lib/utils"
 
 import type { Dipendente } from "@/lib/mysql/timbrature"
 import { arrotondaEntrata, arrotondaUscita } from "@/lib/timbrature/arrotondamento"
+import { ORARIO_REGEX, mascheraOrario } from "@/lib/timbrature/ora"
 import type { Giornata } from "@/app/api/admin/timbrature/route"
 
 const MESI = [
@@ -65,27 +72,26 @@ const MESI = [
   "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
 ]
 
-const ORARIO_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/
+// Un preset di orario applicabile: quelli personalizzati vengono dall'API,
+// l'Orario Standard è derivato dalle impostazioni di sistema (stato `orario`).
+type Preset = {
+  id: string
+  nome: string
+  entrata1: string | null
+  uscita1: string | null
+  entrata2: string | null
+  uscita2: string | null
+}
 
-// Maschera "guidata" per l'input orario: accetta solo cifre, le raggruppa in
-// HH:MM inserendo i due punti in automatico e scarta ogni cifra che
-// renderebbe l'ora (>23) o i minuti (>59) non validi, così l'utente non può
-// digitare un formato scorretto.
-function mascheraOrario(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 4)
-  let hh = ""
-  let mm = ""
-  for (const d of digits) {
-    if (hh.length < 2) {
-      if (hh.length === 0 && Number(d) > 2) break
-      if (hh.length === 1 && hh === "2" && Number(d) > 3) break
-      hh += d
-    } else if (mm.length < 2) {
-      if (mm.length === 0 && Number(d) > 5) break
-      mm += d
-    }
-  }
-  return mm ? `${hh}:${mm}` : hh
+const STANDARD_ID = "__standard__"
+
+// Riga di correzione come arriva dall'API (i turni non corretti sono null).
+type CorrezioneRaw = {
+  giorno: string
+  entrata1?: string | null
+  uscita1?: string | null
+  entrata2?: string | null
+  uscita2?: string | null
 }
 
 function meseCorrente() {
@@ -243,10 +249,11 @@ export function TimbratureManager() {
     secondaUscita: "17:30",
   })
   const [loading, setLoading] = useState(false)
-  const [loadingDip, setLoadingDip] = useState(false)
+  const [loadingDip, setLoadingDip] = useState(true)
   const [correzioni, setCorrezioni] = useState<Map<string, Record<string, string | null>>>(new Map())
   const [applyingPreset, setApplyingPreset] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [presets, setPresets] = useState<Preset[]>([])
 
   type EditingKey = { giorno: string; campo: string }
   const [editing, setEditing] = useState<EditingKey | null>(null)
@@ -270,13 +277,35 @@ export function TimbratureManager() {
     }
   }
 
-  async function applicaOrarioStandard() {
+  // Preset applicabili: l'Orario Standard (dalle impostazioni di sistema, così
+  // resta allineato) seguito dai preset personalizzati.
+  const presetsApplicabili = useMemo<Preset[]>(
+    () => [
+      {
+        id: STANDARD_ID,
+        nome: "Orario Standard",
+        entrata1: orario.primoIngresso,
+        uscita1: orario.primaUscita,
+        entrata2: orario.secondoIngresso,
+        uscita2: orario.secondaUscita,
+      },
+      ...presets,
+    ],
+    [orario, presets]
+  )
+
+  // Applica un preset alle giornate selezionate. I campi valorizzati del preset
+  // diventano la correzione del giorno; i turni vuoti vengono azzerati sul
+  // server (null) e ricadono sul calcolo dal dato reale.
+  async function applicaPreset(id: string) {
     if (!dipendente || selected.size === 0) return
-    const preset = {
-      entrata1: "08:30",
-      uscita1: "12:30",
-      entrata2: "14:30",
-      uscita2: "18:30",
+    const preset = presetsApplicabili.find((p) => p.id === id)
+    if (!preset) return
+    const campi = {
+      entrata1: preset.entrata1 || null,
+      uscita1: preset.uscita1 || null,
+      entrata2: preset.entrata2 || null,
+      uscita2: preset.uscita2 || null,
     }
 
     setApplyingPreset(true)
@@ -289,19 +318,24 @@ export function TimbratureManager() {
             body: JSON.stringify({
               dipendente: dipendente.codice,
               giorno,
-              ...preset,
+              ...campi,
             }),
           }).then((r) => {
             if (!r.ok) throw new Error()
           })
         )
       )
+      // Nello stato locale teniamo solo i campi valorizzati (come al reload),
+      // così i turni vuoti tornano a mostrare il dato reale calcolato.
+      const soloValorizzati = Object.fromEntries(
+        Object.entries(campi).filter(([, v]) => v !== null)
+      ) as Record<string, string>
       setCorrezioni((prev) => {
         const next = new Map(prev)
-        for (const giorno of selected) next.set(giorno, preset)
+        for (const giorno of selected) next.set(giorno, soloValorizzati)
         return next
       })
-      toast.success(`Orario standard applicato a ${selected.size} giornata/e`)
+      toast.success(`Preset «${preset.nome}» applicato a ${selected.size} giornata/e`)
       setSelected(new Set())
     } catch {
       toast.error("Errore applicazione preset")
@@ -355,7 +389,13 @@ export function TimbratureManager() {
   }
 
   useEffect(() => {
-    setLoadingDip(true)
+    fetch("/api/admin/presets")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setPresets(data as Preset[]))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     fetch("/api/admin/timbrature/dipendenti")
       .then((res) => res.json())
       .then((data) => {
@@ -388,15 +428,15 @@ export function TimbratureManager() {
         .catch(() => []),
     ])
       .then(
-        ([
-          data,
-          correzioniRaw,
-        ]: [{ giornate: Giornata[]; orario: typeof orario }, any[]]) => {
+        ([data, correzioniRaw]: [
+          { giornate: Giornata[]; orario: typeof orario },
+          CorrezioneRaw[],
+        ]) => {
           setGiornate(data.giornate)
           setOrario(data.orario)
           setCorrezioni(
             new Map(
-              (correzioniRaw as { giorno: string; entrata1?: string | null; uscita1?: string | null; entrata2?: string | null; uscita2?: string | null }[]).map(
+              correzioniRaw.map(
                 (c) => [
                   c.giorno,
                   {
@@ -560,14 +600,34 @@ export function TimbratureManager() {
           </CardHeader>
           <CardContent className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
+              <Select
+                value=""
+                onValueChange={applicaPreset}
                 disabled={selected.size === 0 || applyingPreset}
-                onClick={applicaOrarioStandard}
               >
-                {applyingPreset ? <Spinner aria-hidden="true" /> : <ClockIcon data-icon="inline-start" />}
-                Orario standard{selected.size > 0 ? ` (${selected.size})` : ""}
-              </Button>
+                <SelectTrigger
+                  className="w-full tabular-nums sm:w-56"
+                  aria-label="Applica preset alle righe selezionate"
+                >
+                  {applyingPreset ? (
+                    <Spinner aria-hidden="true" />
+                  ) : null}
+                  <SelectValue
+                    placeholder={
+                      selected.size > 0
+                        ? `Applica preset (${selected.size})`
+                        : "Applica preset"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {presetsApplicabili.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>

@@ -101,6 +101,13 @@ silenzioso (oggi non raggiungibile dalla UI attuale, ma l'endpoint resta
 pubblico e chiamabile così).
 
 ### 1.6 "Orario standard" applica un preset hardcoded, disallineato dalle Impostazioni
+
+**✅ Risolto** — il preset hardcoded è stato rimosso: la pagina Timbrature ora
+applica i preset tramite un select "Applica preset" che elenca l'**Orario
+Standard** (derivato in tempo reale dalle Impostazioni di sistema, quindi
+sempre allineato) più i **preset personalizzati** gestiti nella nuova pagina
+**Orari di lavoro** (`/admin/orari-lavoro`). Vedi [Stato avanzamento](#stato-avanzamento).
+
 `applicaOrarioStandard()` (righe 198-233) usa un preset fisso
 (`08:30/12:30/14:30/18:30`, righe 200-205) invece dell'orario di lavoro
 realmente configurato dall'admin in Impostazioni
@@ -222,8 +229,10 @@ dettagliato — da usare come base per decidere cosa affrontare:
    `.reset` nel catalogo `lib/audit/catalog.ts` + chiamata `audit()` nelle
    route PUT/DELETE) — chiude il gap di accountability (1.3), pattern già
    pronto nel progetto, basso sforzo.
-4. **Disallineamento preset "Orario standard"** — usare l'`orario` già
-   fetchato invece del preset hardcoded (1.6), bug comportamentale reale.
+4. ✅ **Disallineamento preset "Orario standard"** — rimosso il preset
+   hardcoded (1.6); introdotta la pagina **Orari di lavoro** (CRUD dei preset)
+   e un select "Applica preset" che usa l'Orario Standard reale dalle
+   Impostazioni. *Fatto.*
 5. **Editing/correzione anche da mobile** — la lacuna di prodotto più
    visibile (3.1), richiede più lavoro di design (quale UX per editing
    inline su card?).
@@ -285,6 +294,32 @@ o un minuto fuori range. L'`Input` della cella è passato da non controllato
 (`defaultValue` + lettura da `ref` al commit) a controllato (`value`/
 `onChange` con la maschera); il controllo con regex al blur resta come
 rete di sicurezza per i valori incompleti (es. `"08:3"`).
+
+**2026-07-03 (4)** — Preset "Orari di lavoro" e fix del disallineamento
+(problema 1.6, punto 4 della lista priorità):
+
+- Nuova pagina admin **Orari di lavoro** (`/admin/orari-lavoro`): CRUD dei
+  preset di orario (nome + due turni, ciascuno lasciabile vuoto), con tabella
+  desktop, card list mobile, dialog di creazione/modifica, conferma di
+  eliminazione (`AlertDialog`) e input orario "guidato" (`mascheraOrario`,
+  estratta in `lib/timbrature/ora.ts` e condivisa con la pagina Timbrature).
+  Modello Prisma `TimbraturaPreset`, service `lib/timbrature/preset.ts`,
+  risorsa RBAC dedicata `presets` (`lib/permissions.ts` +
+  `lib/timbrature/preset-authz.ts`), route `app/api/admin/presets/**` con
+  audit log (`timbrature.preset.create/update/delete`).
+- **Orario Standard**: resta la fonte di verità nelle Impostazioni di sistema
+  (guida anche il calcolo dei turni); nella pagina Orari di lavoro compare come
+  voce di sola lettura, con link alle Impostazioni. Nessuna migrazione del
+  setting, nessuna modifica alla logica di calcolo.
+- **Pagina Timbrature**: rimosso il preset hardcoded
+  (`08:30/12:30/14:30/18:30`); le azioni bulk usano ora un select "Applica
+  preset" che elenca l'Orario Standard (dal valore reale delle Impostazioni) e
+  i preset personalizzati. I turni vuoti di un preset azzerano la correzione e
+  ricadono sul dato reale calcolato.
+
+Verificato con `npm run typecheck` e `npm run lint` puliti (nessun nuovo
+errore) e con le route API/pagina che compilano e applicano le guard
+(401/redirect senza sessione).
 
 **Prossimo intervento**: audit log sulle correzioni (punto 3 della lista
 priorità, problema 1.3).

@@ -30,6 +30,10 @@ const statement = {
   // sistema) perché in futuro potrebbe essere concessa a un ruolo più
   // granulare (es. "HR") senza dargli accesso a SMTP/MySQL/config.
   timbrature: ["read", "update"],
+  // Preset di orario (collezione di record, con create/delete reali): risorsa
+  // dedicata, distinta da `timbrature` (che è sola lettura + upsert delle
+  // correzioni). Vedi lib/timbrature/preset.ts e docs/analisi-timbrature-correzioni.md.
+  presets: ["read", "create", "update", "delete"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -48,6 +52,7 @@ export const admin = ac.newRole({
   jobs: ["read", "create", "cancel"],
   audit: ["read", "configure"],
   timbrature: ["read", "update"],
+  presets: ["read", "create", "update", "delete"],
 })
 
 // Ruoli esposti all'app. La chiave è il valore salvato in `user.role`.

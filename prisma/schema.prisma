@@ -360,3 +360,20 @@ model TimbraturaCorretta {
   @@unique([dipendente, giorno])
   @@map("timbratura_corretta")
 }
+
+/// Preset di orario applicabile in blocco alle correzioni timbrature (es.
+/// "Turno unico", "Part-time pomeriggio"). L'"Orario Standard" NON è qui: resta
+/// nelle impostazioni di sistema (SystemSetting.orario), perché guida anche il
+/// calcolo. Ogni turno può essere lasciato vuoto (entrambe le ore null).
+model TimbraturaPreset {
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  entrata1  String?  // HH:MM
+  uscita1   String?
+  entrata2  String?
+  uscita2   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("timbratura_preset")
+}
