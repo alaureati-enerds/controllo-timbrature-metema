@@ -10,9 +10,10 @@ const getSchema = z.object({
   anno: z.coerce.number().int().min(2000).max(2100),
 })
 
+// Accetta HH:MM oppure "" (turno azzerato esplicitamente dalla correzione).
 const oraSchema = z
   .string()
-  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Formato orario non valido, usa HH:MM")
+  .regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, "Formato orario non valido, usa HH:MM")
   .nullable()
   .optional()
 

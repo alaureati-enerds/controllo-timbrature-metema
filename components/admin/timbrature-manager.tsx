@@ -118,14 +118,30 @@ function minutiDaOra(ora: string): number {
   return h * 60 + m
 }
 
+// Valore corretto di un turno:
+// - stringa vuota nell'override = turno azzerato esplicitamente dalla
+//   correzione (es. preset senza secondo turno): resta vuoto, NON ricade sul
+//   dato reale;
+// - valore presente = quello corretto;
+// - assente/undefined = nessuna correzione su quel campo: dato reale arrotondato.
+function corretto(
+  ov: string | null | undefined,
+  raw: string | null,
+  round: (o: string) => string
+): string | null {
+  if (ov === "") return null
+  if (ov != null) return ov
+  return raw ? round(raw) : null
+}
+
 function calcolaCorretti(
   g: Giornata,
   override?: Record<string, string | null>
 ) {
-  const ce1 = override?.entrata1 ?? (g.entrata1 ? arrotondaEntrata(g.entrata1) : null)
-  const cu1 = override?.uscita1 ?? (g.uscita1 ? arrotondaUscita(g.uscita1) : null)
-  const ce2 = override?.entrata2 ?? (g.entrata2 ? arrotondaEntrata(g.entrata2) : null)
-  const cu2 = override?.uscita2 ?? (g.uscita2 ? arrotondaUscita(g.uscita2) : null)
+  const ce1 = corretto(override?.entrata1, g.entrata1, arrotondaEntrata)
+  const cu1 = corretto(override?.uscita1, g.uscita1, arrotondaUscita)
+  const ce2 = corretto(override?.entrata2, g.entrata2, arrotondaEntrata)
+  const cu2 = corretto(override?.uscita2, g.uscita2, arrotondaUscita)
 
   const minuti = (ce1 && cu1 ? minutiDaOra(cu1) - minutiDaOra(ce1) : 0)
     + (ce2 && cu2 ? minutiDaOra(cu2) - minutiDaOra(ce2) : 0)
@@ -294,18 +310,19 @@ export function TimbratureManager() {
     [orario, presets]
   )
 
-  // Applica un preset alle giornate selezionate. I campi valorizzati del preset
-  // diventano la correzione del giorno; i turni vuoti vengono azzerati sul
-  // server (null) e ricadono sul calcolo dal dato reale.
+  // Applica un preset alle giornate selezionate. La correzione riflette
+  // esattamente il preset: i turni valorizzati diventano il valore corretto, i
+  // turni vuoti vengono azzerati con stringa vuota (`""`), così sovrascrivono
+  // anche il dato reale invece di ricadervi.
   async function applicaPreset(id: string) {
     if (!dipendente || selected.size === 0) return
     const preset = presetsApplicabili.find((p) => p.id === id)
     if (!preset) return
     const campi = {
-      entrata1: preset.entrata1 || null,
-      uscita1: preset.uscita1 || null,
-      entrata2: preset.entrata2 || null,
-      uscita2: preset.uscita2 || null,
+      entrata1: preset.entrata1 ?? "",
+      uscita1: preset.uscita1 ?? "",
+      entrata2: preset.entrata2 ?? "",
+      uscita2: preset.uscita2 ?? "",
     }
 
     setApplyingPreset(true)
@@ -325,14 +342,9 @@ export function TimbratureManager() {
           })
         )
       )
-      // Nello stato locale teniamo solo i campi valorizzati (come al reload),
-      // così i turni vuoti tornano a mostrare il dato reale calcolato.
-      const soloValorizzati = Object.fromEntries(
-        Object.entries(campi).filter(([, v]) => v !== null)
-      ) as Record<string, string>
       setCorrezioni((prev) => {
         const next = new Map(prev)
-        for (const giorno of selected) next.set(giorno, soloValorizzati)
+        for (const giorno of selected) next.set(giorno, campi)
         return next
       })
       toast.success(`Preset «${preset.nome}» applicato a ${selected.size} giornata/e`)
