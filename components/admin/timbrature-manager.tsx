@@ -1,22 +1,34 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { endOfMonth, format } from "date-fns"
+import { format } from "date-fns"
 import { it } from "date-fns/locale"
 import {
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ClockIcon,
   RotateCwIcon,
   SearchIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardFooter,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -29,6 +41,7 @@ import {
   ComboboxList,
   ComboboxTrigger,
 } from "@/components/ui/combobox"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import {
@@ -39,6 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 
@@ -50,6 +64,29 @@ const MESI = [
   "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
   "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
 ]
+
+const ORARIO_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/
+
+// Maschera "guidata" per l'input orario: accetta solo cifre, le raggruppa in
+// HH:MM inserendo i due punti in automatico e scarta ogni cifra che
+// renderebbe l'ora (>23) o i minuti (>59) non validi, così l'utente non può
+// digitare un formato scorretto.
+function mascheraOrario(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 4)
+  let hh = ""
+  let mm = ""
+  for (const d of digits) {
+    if (hh.length < 2) {
+      if (hh.length === 0 && Number(d) > 2) break
+      if (hh.length === 1 && hh === "2" && Number(d) > 3) break
+      hh += d
+    } else if (mm.length < 2) {
+      if (mm.length === 0 && Number(d) > 5) break
+      mm += d
+    }
+  }
+  return mm ? `${hh}:${mm}` : hh
+}
 
 function meseCorrente() {
   const oggi = new Date()
@@ -113,17 +150,35 @@ function CorrettaCell({
   onSave: (giorno: string, campo: string, v: string | null) => void
 }) {
   const isEditing = editing?.giorno === giorno && editing?.campo === campo
+  const [invalid, setInvalid] = useState(false)
+  const [draft, setDraft] = useState(valore ?? "")
 
   function startEdit() {
+    setInvalid(false)
+    setDraft(valore ?? "")
     setEditing({ giorno, campo })
     requestAnimationFrame(() => editRef.current?.select())
   }
 
   function commit() {
-    const v = editRef.current?.value.trim()
+    const v = draft.trim()
+    if (!v || v === valore) {
+      setEditing(null)
+      return
+    }
+    if (!ORARIO_REGEX.test(v)) {
+      setInvalid(true)
+      toast.error("Formato orario non valido: usa HH:MM (es. 08:30)")
+      editRef.current?.focus()
+      return
+    }
     setEditing(null)
-    if (!v || v === valore) return
     onSave(giorno, campo, v)
+  }
+
+  function onChangeDraft(e: React.ChangeEvent<HTMLInputElement>) {
+    setInvalid(false)
+    setDraft(mascheraOrario(e.target.value))
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -131,28 +186,46 @@ function CorrettaCell({
     if (e.key === "Escape") setEditing(null)
   }
 
+  function onCellKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      startEdit()
+    }
+  }
+
   if (isEditing) {
     return (
-      <TableCell className="p-0 text-center">
-        <input
+      <TableCell className="p-1 text-center">
+        <Input
           ref={editRef}
-          defaultValue={valore ?? ""}
-          className="w-full bg-transparent px-2 py-2 text-center tabular-nums text-sky-600 outline-none"
+          value={draft}
+          inputMode="numeric"
+          placeholder="HH:MM"
+          aria-invalid={invalid}
+          className="h-8 px-2 text-center tabular-nums text-sky-600"
           onBlur={commit}
           onKeyDown={onKeyDown}
+          onChange={onChangeDraft}
         />
       </TableCell>
     )
   }
 
   return (
-    <TableCell
-      className="cursor-pointer text-center tabular-nums text-sky-600 hover:bg-muted/20"
-      onClick={startEdit}
-      title="Clicca per modificare"
-    >
-      {valore ?? "—"}
-    </TableCell>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <TableCell
+          role="button"
+          tabIndex={0}
+          className="cursor-pointer text-center tabular-nums text-sky-600 outline-none hover:bg-muted/20 focus-visible:ring-3 focus-visible:ring-ring/50"
+          onClick={startEdit}
+          onKeyDown={onCellKeyDown}
+        >
+          {valore ?? "—"}
+        </TableCell>
+      </TooltipTrigger>
+      <TooltipContent>Clicca per modificare</TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -172,6 +245,8 @@ export function TimbratureManager() {
   const [loading, setLoading] = useState(false)
   const [loadingDip, setLoadingDip] = useState(false)
   const [correzioni, setCorrezioni] = useState<Map<string, Record<string, string | null>>>(new Map())
+  const [applyingPreset, setApplyingPreset] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   type EditingKey = { giorno: string; campo: string }
   const [editing, setEditing] = useState<EditingKey | null>(null)
@@ -204,6 +279,7 @@ export function TimbratureManager() {
       uscita2: "18:30",
     }
 
+    setApplyingPreset(true)
     try {
       await Promise.all(
         Array.from(selected).map((giorno) =>
@@ -229,6 +305,8 @@ export function TimbratureManager() {
       setSelected(new Set())
     } catch {
       toast.error("Errore applicazione preset")
+    } finally {
+      setApplyingPreset(false)
     }
   }
 
@@ -260,6 +338,7 @@ export function TimbratureManager() {
 
   async function resettaTutto() {
     if (!dipendente || correzioni.size === 0) return
+    setResetting(true)
     try {
       const res = await fetch(
         `/api/admin/timbrature/correzioni?dipendente=${dipendente.codice}&mese=${mese + 1}&anno=${anno}`,
@@ -270,6 +349,8 @@ export function TimbratureManager() {
       toast.success("Correzioni azzerate")
     } catch {
       toast.error("Errore reset correzioni")
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -421,20 +502,40 @@ export function TimbratureManager() {
                   Periodo
                 </label>
                 <div className="flex items-center gap-1">
-                  <Button variant="outline" size="icon" onClick={meseGiu}>
-                    <ChevronLeftIcon />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label="Mese precedente"
+                        onClick={meseGiu}
+                      >
+                        <ChevronLeftIcon />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Mese precedente</TooltipContent>
+                  </Tooltip>
                   <Button
                     variant="outline"
-                    className="w-40 justify-start font-normal tabular-nums"
+                    className="min-w-0 flex-1 justify-start font-normal tabular-nums sm:w-40 sm:flex-none"
                     disabled
                   >
                     <CalendarIcon data-icon="inline-start" />
                     {meseLabel}
                   </Button>
-                  <Button variant="outline" size="icon" onClick={meseSu}>
-                    <ChevronRightIcon />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label="Mese successivo"
+                        onClick={meseSu}
+                      >
+                        <ChevronRightIcon />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Mese successivo</TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
 
@@ -447,6 +548,66 @@ export function TimbratureManager() {
         </CardContent>
       </Card>
 
+      {dipendente && righe.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Correzioni rapide</CardTitle>
+            <CardDescription>
+              {selected.size > 0
+                ? `${selected.size} giorno/i selezionato/i.`
+                : "Seleziona una o più righe nella tabella per applicare un preset."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                disabled={selected.size === 0 || applyingPreset}
+                onClick={applicaOrarioStandard}
+              >
+                {applyingPreset ? <Spinner aria-hidden="true" /> : <ClockIcon data-icon="inline-start" />}
+                Orario standard{selected.size > 0 ? ` (${selected.size})` : ""}
+              </Button>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={correzioni.size === 0 || resetting}
+                  className="gap-1.5 text-muted-foreground"
+                >
+                  {resetting ? <Spinner aria-hidden="true" /> : <RotateCwIcon data-icon="inline-start" />}
+                  Reset correzioni
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Azzerare tutte le correzioni del mese?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tutte le correzioni di{" "}
+                    {dipendente?.descrizione || dipendente?.codice} per{" "}
+                    {meseLabel} verranno eliminate in modo permanente.
+                    L&apos;operazione non è reversibile.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    onClick={resettaTutto}
+                  >
+                    Azzera correzioni
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -456,28 +617,6 @@ export function TimbratureManager() {
                 <span>Totale: {formattaMinuti(totaliMese.totale)}</span>
                 <span>Ord.: {formattaMinuti(totaliMese.ordinario)}</span>
                 <span>Straord.: {formattaMinuti(totaliMese.straordinario)}</span>
-                <span className="flex items-center gap-2">
-                  {selected.size > 0 && (
-                    <Button
-                      size="sm"
-                      onClick={applicaOrarioStandard}
-                      className="h-7 gap-1 text-xs"
-                    >
-                      Orario standard ({selected.size})
-                    </Button>
-                  )}
-                  {correzioni.size > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={resettaTutto}
-                      className="h-7 gap-1 text-xs font-normal text-muted-foreground"
-                    >
-                      <RotateCwIcon className="size-3" />
-                      Reset correzioni
-                    </Button>
-                  )}
-                </span>
               </span>
             )}
           </CardTitle>
