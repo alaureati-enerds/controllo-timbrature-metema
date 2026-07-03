@@ -6,7 +6,8 @@ della logica di correzione/salvataggio. Nessuna modifica al codice è stata
 fatta contestualmente a questa analisi: è una base per decidere cosa e in
 che ordine sistemare.
 
-Data: 2026-07-02.
+Data: 2026-07-02. Vedi [Stato avanzamento](#stato-avanzamento) in fondo per
+cosa è stato sistemato dopo la review.
 
 File coinvolti:
 - `components/admin/timbrature-manager.tsx` (751 righe, client component)
@@ -44,6 +45,11 @@ possibile**: la vista a card è sola lettura.
 ## 1. Problemi ad alta severità
 
 ### 1.1 "Reset correzioni" è distruttivo e irreversibile, senza conferma
+
+**✅ Risolto** (conferma via `AlertDialog` — vedi [Stato avanzamento](#stato-avanzamento)).
+Resta valido il resto del paragrafo: lato server il `DELETE` è ancora una
+cancellazione fisica non recuperabile (vedi 1.4, non ancora affrontato).
+
 `timbrature-manager.tsx:469-479` — il bottone chiama `resettaTutto()`
 (righe 261-274) direttamente su `onClick`, che fa una `DELETE` di **tutte**
 le correzioni del mese per il dipendente. Nessun `AlertDialog`, nessun modo
@@ -52,6 +58,10 @@ distruttive. Aggrava il problema il fatto che lato server il `DELETE` è una
 cancellazione fisica (vedi 1.4) — non recuperabile nemmeno dal DB.
 
 ### 1.2 Nessuna validazione del formato orario, né client né server
+
+**✅ Risolto** — regex `HH:MM` sia in `CorrettaCell.commit()` (client) sia
+in `putSchema` (server, `correzioni/route.ts`). Vedi [Stato avanzamento](#stato-avanzamento).
+
 - Client: `CorrettaCell.commit()` (righe 122-127) fa solo `trim()` +
   controllo "non vuoto/diverso dal precedente", nessun check `HH:MM`.
 - Server: `putSchema` in `correzioni/route.ts:13-20` valida `giorno` con
@@ -121,16 +131,16 @@ raro/singolo admin) ma non gestito nemmeno a livello difensivo minimo.
 
 ## 2. Violazioni delle linee guida UI (CLAUDE.md)
 
-| # | Problema | Riferimento |
-|---|---|---|
-| A | Reset senza `AlertDialog` (vedi 1.1) | righe 469-479 |
-| B | Bottoni icona ‹‹›› periodo senza `aria-label`/`Tooltip` | righe 424, 435 |
-| C | Azioni bulk ("Orario standard", "Reset correzioni") infilate in `CardTitle` invece di `CardAction`/`CardFooter`; `CardFooter` è importato (riga 19) ma mai usato | righe 460-479 |
-| D | Editing inline con `<input>` HTML nudo invece del componente `Input` shadcn | righe 137-143 |
-| E | `title="Clicca per modificare"` al posto di `Tooltip`; cella cliccabile (`onClick` su `TableCell`) senza `role`/`tabIndex`/gestione tastiera per **entrare** in editing — solo il mouse funziona, nessun accesso da tastiera/screen reader | riga 152 |
-| F | `w-40` fisso sul bottone periodo dentro un gruppo che non stacca mai in colonna su mobile — rischio overflow orizzontale sotto ~375px | riga 429 |
-| G | Icona `RotateCwIcon` a `size-3` (12px), fuori dalla convenzione standard (16px/`size-4`) | riga 476 |
-| H | Doppio meccanismo di autorizzazione: pagina con `requireRole("admin")`, API con `requireSettingsPermission` (permesso `settings`, pensato per configurazioni globali). Oggi coincidono solo perché `settings` è concesso esclusivamente al ruolo `admin` in `lib/permissions.ts` — nessuna garanzia esplicita nel codice che resti così se in futuro si introduce un ruolo più granulare (es. "HR" senza accesso a SMTP/MySQL/config) | `lib/permissions.ts`, `lib/settings/authz.ts` |
+| # | Problema | Riferimento | Stato |
+|---|---|---|---|
+| A | Reset senza `AlertDialog` (vedi 1.1) | righe 469-479 | ✅ Risolto — bottone dentro `AlertDialog` (`variant="destructive"`) |
+| B | Bottoni icona ‹‹›› periodo senza `aria-label`/`Tooltip` | righe 424, 435 | ✅ Risolto — `aria-label` + `Tooltip` su entrambi |
+| C | Azioni bulk ("Orario standard", "Reset correzioni") infilate in `CardTitle` invece di `CardAction`/`CardFooter`; `CardFooter` è importato (riga 19) ma mai usato | righe 460-479 | ✅ Risolto, con un affinamento rispetto alla proposta iniziale: invece di spostarle a fondo card in un `CardFooter` (costringeva a scrollare la tabella per raggiungerle), ora vivono in una **card dedicata "Correzioni rapide"** sopra la tabella, pensata per ospitare altri preset futuri |
+| D | Editing inline con `<input>` HTML nudo invece del componente `Input` shadcn | righe 137-143 | ✅ Risolto |
+| E | `title="Clicca per modificare"` al posto di `Tooltip`; cella cliccabile (`onClick` su `TableCell`) senza `role`/`tabIndex`/gestione tastiera per **entrare** in editing — solo il mouse funziona, nessun accesso da tastiera/screen reader | riga 152 | ✅ Risolto — `Tooltip`, `role="button"`, `tabIndex`, Invio/Spazio per entrare in editing |
+| F | `w-40` fisso sul bottone periodo dentro un gruppo che non stacca mai in colonna su mobile — rischio overflow orizzontale sotto ~375px | riga 429 | ✅ Risolto — `flex-1` che si restringe sotto `sm`, `w-40` solo da tablet in su |
+| G | Icona `RotateCwIcon` a `size-3` (12px), fuori dalla convenzione standard (16px/`size-4`) | riga 476 | ✅ Risolto |
+| H | Doppio meccanismo di autorizzazione: pagina con `requireRole("admin")`, API con `requireSettingsPermission` (permesso `settings`, pensato per configurazioni globali). Oggi coincidono solo perché `settings` è concesso esclusivamente al ruolo `admin` in `lib/permissions.ts` — nessuna garanzia esplicita nel codice che resti così se in futuro si introduce un ruolo più granulare (es. "HR" senza accesso a SMTP/MySQL/config) | `lib/permissions.ts`, `lib/settings/authz.ts` | ✅ Risolto — nuova risorsa RBAC dedicata `timbrature: ["read", "update"]` in `lib/permissions.ts` + `lib/timbrature/authz.ts` (`requireTimbraturePermission`), usata nelle tre route al posto di `requireSettingsPermission` |
 
 **Cose fatte bene:** uso sistematico di `tabular-nums`, skeleton di
 caricamento, pattern icona↔spinner sul bottone "Carica", struttura
@@ -204,10 +214,10 @@ senza che nessun test se ne accorga.
 Ordine suggerito per impatto/rischio, non un piano di implementazione
 dettagliato — da usare come base per decidere cosa affrontare:
 
-1. **Validazione formato orario** (client + `putSchema` con regex `HH:MM`) —
-   previene dati corrotti (1.2), rischio concreto e facile da chiudere.
-2. **`AlertDialog` di conferma su "Reset correzioni"** — allineamento diretto
-   a una regola vincolante di CLAUDE.md (1.1), piccola modifica.
+1. ✅ **Validazione formato orario** (client + `putSchema` con regex `HH:MM`) —
+   previene dati corrotti (1.2), rischio concreto e facile da chiudere. *Fatto.*
+2. ✅ **`AlertDialog` di conferma su "Reset correzioni"** — allineamento diretto
+   a una regola vincolante di CLAUDE.md (1.1), piccola modifica. *Fatto.*
 3. **Audit log sulle correzioni** (`timbrature.correzione.upsert` /
    `.reset` nel catalogo `lib/audit/catalog.ts` + chiamata `audit()` nelle
    route PUT/DELETE) — chiude il gap di accountability (1.3), pattern già
@@ -217,7 +227,64 @@ dettagliato — da usare come base per decidere cosa affrontare:
 5. **Editing/correzione anche da mobile** — la lacuna di prodotto più
    visibile (3.1), richiede più lavoro di design (quale UX per editing
    inline su card?).
-6. Il resto (accessibilità tastiera sulla cella, `Input` shadcn invece di
-   `<input>` nudo, fallimento parziale del bulk apply, reset singola cella)
-   è ragionevole da affrontare a seguire, con priorità minore rispetto ai
-   punti 1-3 che toccano integrità e tracciabilità del dato.
+6. Il resto: accessibilità tastiera sulla cella ✅, `Input` shadcn invece di
+   `<input>` nudo ✅, permesso RBAC dedicato ✅ — fatti insieme alle altre
+   violazioni CLAUDE.md. Restano aperti: fallimento parziale del bulk apply
+   (1.7) e reset singola cella (3.2), priorità minore rispetto ai punti 1-3
+   che toccano integrità e tracciabilità del dato.
+
+---
+
+## Stato avanzamento
+
+**2026-07-03** — Sistemate tutte le violazioni CLAUDE.md della sezione 2
+(A-H) su `components/admin/timbrature-manager.tsx` e sulle route
+`app/api/admin/timbrature/**`:
+
+- Reset correzioni dietro `AlertDialog` di conferma (destructive).
+- `aria-label` + `Tooltip` sui bottoni ‹/› del selettore periodo.
+- Editing inline con `Input` shadcn (non più `<input>` nudo), cella
+  navigabile/attivabile da tastiera (`role="button"`, `tabIndex`,
+  Invio/Spazio) con `Tooltip` al posto di `title`.
+- Icona reset portata a `size-4` (16px), in linea con la convenzione.
+- Permesso RBAC dedicato `timbrature` (`lib/permissions.ts`,
+  `lib/timbrature/authz.ts`) al posto di `settings` nelle tre route API.
+- **Riposizionamento controlli**: le azioni bulk ("Orario standard",
+  "Reset correzioni") sono state spostate dal `CardTitle` a una **card
+  dedicata "Correzioni rapide" sopra la tabella** (non in un `CardFooter` a
+  fondo pagina come da proposta iniziale in tabella): visibili senza
+  scroll con molte righe, disabilitate invece di sparire quando non
+  applicabili, e con spazio pronto per altri preset futuri. Aggiunto anche
+  il pattern icona↔spinner (`ClockIcon`/`RotateCwIcon` ↔ `Spinner`) durante
+  le rispettive operazioni asincrone, mancante in precedenza.
+
+Verificato con `npm run typecheck` e `npm run lint` puliti (nessun nuovo
+errore/warning introdotto; anzi risolti tre warning preesistenti di import
+inutilizzati: `endOfMonth`, `CardFooter`, `ApiError`).
+
+**2026-07-03 (2)** — Validazione formato orario `HH:MM` (punto 1 della
+lista priorità, problema 1.2):
+
+- Client: `CorrettaCell.commit()` verifica il valore con la regex
+  `^([01]\d|2[0-3]):[0-5]\d$` prima di salvare. Se non valido: toast di
+  errore, il campo resta in editing con `aria-invalid` (bordo rosso, stile
+  shadcn) e il focus torna sull'`Input` invece di chiudersi silenziosamente.
+  Un valore vuoto o invariato chiude l'editing senza salvare (comportamento
+  di "annulla" preesistente, non cambiato).
+- Server: `putSchema` in `correzioni/route.ts` applica la stessa regex a
+  `entrata1/uscita1/entrata2/uscita2` (nullable/optional, invariati per il
+  resto); una richiesta con formato non valido ora fallisce con `400` invece
+  di essere scritta as-is in `TimbraturaCorretta`.
+
+**2026-07-03 (3)** — Input orario "guidato" invece di sola validazione a
+posteriori: `mascheraOrario()` filtra ogni cifra digitata (accetta solo
+`0-2` come prima cifra dell'ora, `0-3` come seconda se la prima è `2`,
+`0-5` come prima cifra dei minuti) e inserisce i due punti in automatico
+dopo la seconda cifra, così l'utente non può materialmente digitare un'ora
+o un minuto fuori range. L'`Input` della cella è passato da non controllato
+(`defaultValue` + lettura da `ref` al commit) a controllato (`value`/
+`onChange` con la maschera); il controllo con regex al blur resta come
+rete di sicurezza per i valori incompleti (es. `"08:3"`).
+
+**Prossimo intervento**: audit log sulle correzioni (punto 3 della lista
+priorità, problema 1.3).
