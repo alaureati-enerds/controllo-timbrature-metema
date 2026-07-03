@@ -1,7 +1,7 @@
 import { z } from "zod"
 
-import { ApiError, ok, safeHandler } from "@/lib/api"
-import { requireSettingsPermission } from "@/lib/settings/authz"
+import { ok, safeHandler } from "@/lib/api"
+import { requireTimbraturePermission } from "@/lib/timbrature/authz"
 import { prisma } from "@/lib/prisma"
 
 const getSchema = z.object({
@@ -10,13 +10,19 @@ const getSchema = z.object({
   anno: z.coerce.number().int().min(2000).max(2100),
 })
 
+const oraSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Formato orario non valido, usa HH:MM")
+  .nullable()
+  .optional()
+
 const putSchema = z.object({
   dipendente: z.string().min(1),
   giorno: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  entrata1: z.string().nullable().optional(),
-  uscita1: z.string().nullable().optional(),
-  entrata2: z.string().nullable().optional(),
-  uscita2: z.string().nullable().optional(),
+  entrata1: oraSchema,
+  uscita1: oraSchema,
+  entrata2: oraSchema,
+  uscita2: oraSchema,
 })
 
 const deleteSchema = z.object({
@@ -29,7 +35,7 @@ const deleteSchema = z.object({
 // GET /api/admin/timbrature/correzioni?dipendente=X&mese=5&anno=2026
 // Restituisce tutte le correzioni per il dipendente nel mese
 export const GET = safeHandler(async (request) => {
-  await requireSettingsPermission("read")
+  await requireTimbraturePermission("read")
 
   const params = Object.fromEntries(new URL(request.url).searchParams)
   const { dipendente, mese, anno } = getSchema.parse(params)
@@ -57,7 +63,7 @@ export const GET = safeHandler(async (request) => {
 // PUT /api/admin/timbrature/correzioni
 // Crea o aggiorna una correzione per un giorno specifico
 export const PUT = safeHandler(async (request) => {
-  await requireSettingsPermission("update")
+  await requireTimbraturePermission("update")
 
   const body = await request.json()
   const { dipendente, giorno, ...campi } = putSchema.parse(body)
@@ -75,7 +81,7 @@ export const PUT = safeHandler(async (request) => {
 // Elimina correzioni: ?dipendente=X&giorno=2026-05-06 (singolo giorno)
 // oppure ?dipendente=X&mese=5&anno=2026 (tutto il mese)
 export const DELETE = safeHandler(async (request) => {
-  await requireSettingsPermission("update")
+  await requireTimbraturePermission("update")
 
   const params = Object.fromEntries(new URL(request.url).searchParams)
   const { dipendente, giorno, mese, anno } = deleteSchema.parse(params)

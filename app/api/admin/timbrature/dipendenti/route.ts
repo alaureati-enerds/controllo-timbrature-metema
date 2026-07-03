@@ -1,9 +1,9 @@
 import { ApiError, ok, safeHandler } from "@/lib/api"
-import { requireSettingsPermission } from "@/lib/settings/authz"
+import { requireTimbraturePermission } from "@/lib/timbrature/authz"
 import { listDipendenti } from "@/lib/mysql/timbrature"
 
 export const GET = safeHandler(async () => {
-  await requireSettingsPermission("read")
+  await requireTimbraturePermission("read")
   try {
     return ok(await listDipendenti())
   } catch (error) {

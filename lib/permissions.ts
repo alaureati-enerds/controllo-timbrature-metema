@@ -25,6 +25,11 @@ const statement = {
   // è un'azione utente (avviene server-side via lib/audit/), quindi non c'è un
   // permesso "create". Vedi lib/audit/ e docs/audit-logging.md.
   audit: ["read", "configure"],
+  // Timbrature dei dipendenti (dato MySQL esterno) e relative correzioni
+  // locali: risorsa dedicata, distinta da `settings` (impostazioni globali di
+  // sistema) perché in futuro potrebbe essere concessa a un ruolo più
+  // granulare (es. "HR") senza dargli accesso a SMTP/MySQL/config.
+  timbrature: ["read", "update"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -42,6 +47,7 @@ export const admin = ac.newRole({
   settings: ["read", "update"],
   jobs: ["read", "create", "cancel"],
   audit: ["read", "configure"],
+  timbrature: ["read", "update"],
 })
 
 // Ruoli esposti all'app. La chiave è il valore salvato in `user.role`.

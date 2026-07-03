@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 import { ApiError, ok, safeHandler } from "@/lib/api"
-import { requireSettingsPermission } from "@/lib/settings/authz"
+import { requireTimbraturePermission } from "@/lib/timbrature/authz"
 import { getPresenze } from "@/lib/mysql/timbrature"
 import { getOrarioSettingsForAdmin } from "@/lib/settings/orario"
 import {
@@ -120,7 +120,7 @@ export type Giornata = {
 }
 
 export const GET = safeHandler(async (request) => {
-  await requireSettingsPermission("read")
+  await requireTimbraturePermission("read")
 
   const params = Object.fromEntries(new URL(request.url).searchParams)
   const { dipendente, mese, anno } = paramsSchema.parse(params)
