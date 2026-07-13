@@ -35,7 +35,7 @@ function currentTitle(pathname: string) {
   return segment.charAt(0).toUpperCase() + segment.slice(1)
 }
 
-export function AppBreadcrumb() {
+export function AppBreadcrumb({ appName }: { appName: string }) {
   const pathname = usePathname()
   const title = currentTitle(pathname)
 
@@ -43,7 +43,7 @@ export function AppBreadcrumb() {
     <Breadcrumb className="min-w-0">
       <BreadcrumbList className="flex-nowrap">
         <BreadcrumbItem className="hidden md:block">
-          <BreadcrumbLink href="/">shadcn starter</BreadcrumbLink>
+          <BreadcrumbLink href="/">{appName}</BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator className="hidden md:block" />
         <BreadcrumbItem className="min-w-0">

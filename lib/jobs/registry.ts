@@ -1,5 +1,4 @@
 import { auditPruneHandler } from "@/lib/jobs/handlers/audit-prune"
-import { creaNotaHandler } from "@/lib/jobs/handlers/crea-nota"
 import { demoHandler } from "@/lib/jobs/handlers/demo"
 import { notificationEmailHandler } from "@/lib/jobs/handlers/notification-email"
 import { notificationPruneHandler } from "@/lib/jobs/handlers/notification-prune"
@@ -16,7 +15,6 @@ import type { JobHandler } from "@/lib/jobs/types"
 // docs/operazioni-in-background.md per la guida completa.
 const handlers: JobHandler[] = [
   demoHandler,
-  creaNotaHandler,
   auditPruneHandler,
   notificationEmailHandler,
   notificationPruneHandler,

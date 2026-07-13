@@ -35,7 +35,7 @@ export const POST = safeHandler(async (request) => {
   const session = await getSession() // non-null: il permesso lo garantisce
   const { type, payload, cron, tz, name } = await parseJson(request, createSchema)
   // `userId` dalla SESSIONE (non dal client): i job schedulati che operano su
-  // dati utente (es. crea-nota) opereranno per conto di chi ha schedulato.
+  // dati utente (es. notification-email) opereranno per conto di chi ha schedulato.
   await scheduleJob({
     type,
     payload: { ...(payload ?? {}), userId: session!.user.id },

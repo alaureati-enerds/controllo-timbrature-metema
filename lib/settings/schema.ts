@@ -87,6 +87,30 @@ export const mysqlSettingsSchema = z.object({
 
 export type MySqlSettings = z.infer<typeof mysqlSettingsSchema>
 
+// Config ORARIO DI LAVORO STANDARD persistita nel blob del singleton.
+// Server-only (mai in toPublicSettings). Definisce le fasce orarie per
+// assegnare le timbrature al primo/secondo turno.
+export const orarioLavoroSettingsSchema = z.object({
+  primoIngresso: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  primaUscita: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  secondoIngresso: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  secondaUscita: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+})
+
+export type OrarioLavoroSettings = z.infer<typeof orarioLavoroSettingsSchema>
+
+// Input del form ORARIO (admin → server): stessi campi ma sempre stringa.
+export const orarioLavoroSettingsInputSchema = z.object({
+  primoIngresso: z.string().regex(/^\d{2}:\d{2}$/),
+  primaUscita: z.string().regex(/^\d{2}:\d{2}$/),
+  secondoIngresso: z.string().regex(/^\d{2}:\d{2}$/),
+  secondaUscita: z.string().regex(/^\d{2}:\d{2}$/),
+})
+
+export type OrarioLavoroSettingsInput = z.infer<typeof orarioLavoroSettingsInputSchema>
+
+export type OrarioLavoroSettingsAdmin = OrarioLavoroSettingsInput
+
 export const systemSettingsSchema = z.object({
   // Nome del software, mostrato nell'header della sidebar e nel <title>.
   appName: z.string().trim().min(1).default("shadcn starter"),
@@ -107,6 +131,9 @@ export const systemSettingsSchema = z.object({
   // Config MySQL esterna (server-only, vedi sopra). Default = i default dello
   // schema (password cifrata con lib/crypto.ts).
   mysql: mysqlSettingsSchema.default({}),
+  // Config orario di lavoro standard (server-only). Default = i default dello
+  // schema (fasce orarie predefinite).
+  orario: orarioLavoroSettingsSchema.default({}),
 })
 
 export type SystemSettings = z.infer<typeof systemSettingsSchema>
@@ -130,7 +157,13 @@ export function toPublicSettings(s: SystemSettings): PublicSystemSettings {
 // opzionali (patch parziale). `email`, `audit`, `notifications` e `mysql` sono
 // esclusi di proposito — si aggiornano solo dai rispettivi endpoint dedicati.
 export const systemSettingsPatchSchema = systemSettingsSchema
-  .omit({ email: true, audit: true, notifications: true, mysql: true })
+  .omit({
+    email: true,
+    audit: true,
+    notifications: true,
+    mysql: true,
+    orario: true,
+  })
   .partial()
 
 export type SystemSettingsPatch = z.infer<typeof systemSettingsPatchSchema>

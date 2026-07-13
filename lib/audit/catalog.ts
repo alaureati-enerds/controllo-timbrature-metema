@@ -21,6 +21,7 @@ export const auditCategories = [
   "account",
   "users",
   "system",
+  "timbrature",
 ] as const
 
 export type AuditCategory = (typeof auditCategories)[number] | (string & {})
@@ -62,6 +63,12 @@ export const auditCatalog = [
   { action: "system.email.update", category: "system", label: "Config email modificata" },
   { action: "system.notifications.update", category: "system", label: "Config notifiche modificata" },
   { action: "system.mysql.update", category: "system", label: "Config MySQL modificata" },
+  { action: "system.orario.update", category: "system", label: "Config orario modificata" },
+
+  // --- Timbrature (preset di orario) ---------------------------------------
+  { action: "timbrature.preset.create", category: "timbrature", label: "Preset orario creato" },
+  { action: "timbrature.preset.update", category: "timbrature", label: "Preset orario modificato" },
+  { action: "timbrature.preset.delete", category: "timbrature", label: "Preset orario eliminato" },
 ] as const satisfies readonly AuditEventDef[]
 
 // Tutte le `action` conosciute, come tipo stretto: dà autocompletamento e
@@ -98,6 +105,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   account: "Account",
   users: "Gestione utenti",
   system: "Configurazione di sistema",
+  timbrature: "Timbrature",
 }
 
 export function categoryLabel(category: string): string {

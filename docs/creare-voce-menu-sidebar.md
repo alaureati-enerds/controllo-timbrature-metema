@@ -41,7 +41,7 @@ import { SettingsIcon } from "lucide-react"
 
 export const navItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboardIcon },
-  { title: "Note", url: "/notes", icon: NotebookPenIcon },
+  { title: "I miei file", url: "/files", icon: FolderIcon },
   { title: "Impostazioni", url: "/settings", icon: SettingsIcon }, // ← nuova voce
 ]
 ```
@@ -64,8 +64,8 @@ raccomandato è **ibrido**, perché deve funzionare in entrambi gli stati:
 
 La scelta tra i due rami avviene a runtime con l'hook `useSidebar()`.
 
-Vedi l'implementazione di riferimento nel componente `NavExample` dentro
-[components/app-sidebar.tsx](../components/app-sidebar.tsx). I passi:
+Segue un esempio completo (voce fittizia "Impostazioni" con due sotto-voci). I
+passi:
 
 ### 1. Definisci le sotto-voci
 
@@ -185,8 +185,5 @@ sulla rotta attiva), **collassata su desktop** (dropdown a fianco dell'icona),
 
 ## Riferimenti
 
-- Implementazione live: `NavExample` in
-  [components/app-sidebar.tsx](../components/app-sidebar.tsx) (voce dimostrativa,
-  rimuovibile).
 - Documentazione shadcn: componente
   [Sidebar](https://ui.shadcn.com/docs/components/radix/sidebar).

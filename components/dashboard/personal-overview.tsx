@@ -8,7 +8,6 @@ import {
   FolderIcon,
   KeyRoundIcon,
   MailIcon,
-  NotebookPenIcon,
   ShieldCheckIcon,
 } from "lucide-react"
 
@@ -32,7 +31,6 @@ import {
 } from "@/components/ui/empty"
 import { Separator } from "@/components/ui/separator"
 import { formatSize, nf } from "@/lib/dashboard/utils"
-import { listNotes } from "@/lib/notes"
 import { listUserFiles } from "@/lib/files"
 import { listNotifications } from "@/lib/notifications"
 
@@ -51,36 +49,17 @@ export async function PersonalOverview({
   userId: string
   user: SecurityUser
 }) {
-  const [notes, files, notifs] = await Promise.all([
-    listNotes(userId),
+  const [files, notifs] = await Promise.all([
     listUserFiles(userId),
     listNotifications(userId, { limit: 5 }),
   ])
   const filesTotalSize = files.reduce((sum, f) => sum + f.size, 0)
-  const recentNotes = notes.slice(0, 5)
   const allSecure = user.emailVerified && user.twoFactorEnabled
 
   return (
     <div className="flex flex-col gap-4">
       {/* KPI personali */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Le mie note</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">
-              {nf.format(notes.length)}
-            </CardTitle>
-            <CardAction>
-              <NotebookPenIcon className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <KpiFooter href="/notes" label="Apri le note">
-            {notes.length > 0
-              ? `Ultima il ${format(notes[0].createdAt, "d MMM", { locale: it })}`
-              : "Nessuna nota ancora"}
-          </KpiFooter>
-        </Card>
-
+      <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
             <CardDescription>I miei file</CardDescription>
@@ -160,105 +139,62 @@ export async function PersonalOverview({
         </CardContent>
       </Card>
 
-      {/* Note recenti + ultime notifiche */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Note recenti</CardTitle>
-            <CardDescription>Le tue ultime note</CardDescription>
-            <CardAction>
-              <NotebookPenIcon className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            {recentNotes.length === 0 ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <NotebookPenIcon />
-                  </EmptyMedia>
-                  <EmptyTitle>Nessuna nota</EmptyTitle>
-                  <EmptyDescription>
-                    Le note che crei compariranno qui.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {recentNotes.map((note) => (
-                  <li key={note.id}>
-                    <Link
-                      href={`/notes/${note.id}`}
-                      className="flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent"
-                    >
-                      <span className="min-w-0 truncate">{note.text}</span>
-                      <span className="shrink-0 tabular-nums text-muted-foreground">
-                        {format(note.createdAt, "d MMM", { locale: it })}
+      {/* Ultime notifiche */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Ultime notifiche</CardTitle>
+          <CardDescription>Gli avvisi più recenti</CardDescription>
+          <CardAction>
+            <BellIcon className="text-muted-foreground" />
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          {notifs.entries.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <BellIcon />
+                </EmptyMedia>
+                <EmptyTitle>Nessuna notifica</EmptyTitle>
+                <EmptyDescription>
+                  Qui vedrai gli avvisi che ti riguardano.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {notifs.entries.map((n) => {
+                const inner = (
+                  <>
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <span className="truncate font-medium">{n.title}</span>
+                      <span className="truncate text-muted-foreground">
+                        {n.body}
                       </span>
-                    </Link>
+                    </div>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      {format(parseISO(n.createdAt), "d MMM", { locale: it })}
+                    </span>
+                  </>
+                )
+                const cls =
+                  "flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm"
+                return (
+                  <li key={n.id}>
+                    {n.url ? (
+                      <Link href={n.url} className={`${cls} hover:bg-accent`}>
+                        {inner}
+                      </Link>
+                    ) : (
+                      <div className={cls}>{inner}</div>
+                    )}
                   </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Ultime notifiche</CardTitle>
-            <CardDescription>Gli avvisi più recenti</CardDescription>
-            <CardAction>
-              <BellIcon className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            {notifs.entries.length === 0 ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <BellIcon />
-                  </EmptyMedia>
-                  <EmptyTitle>Nessuna notifica</EmptyTitle>
-                  <EmptyDescription>
-                    Qui vedrai gli avvisi che ti riguardano.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {notifs.entries.map((n) => {
-                  const inner = (
-                    <>
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="truncate font-medium">{n.title}</span>
-                        <span className="truncate text-muted-foreground">
-                          {n.body}
-                        </span>
-                      </div>
-                      <span className="shrink-0 tabular-nums text-muted-foreground">
-                        {format(parseISO(n.createdAt), "d MMM", { locale: it })}
-                      </span>
-                    </>
-                  )
-                  const cls =
-                    "flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm"
-                  return (
-                    <li key={n.id}>
-                      {n.url ? (
-                        <Link href={n.url} className={`${cls} hover:bg-accent`}>
-                          {inner}
-                        </Link>
-                      ) : (
-                        <div className={cls}>{inner}</div>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                )
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -4,12 +4,14 @@ import { AuditSettingsForm } from "@/components/admin/audit-settings-form"
 import { EmailSettingsForm } from "@/components/admin/email-settings-form"
 import { MySqlSettingsForm } from "@/components/admin/mysql-settings-form"
 import { NotificationSettingsForm } from "@/components/admin/notification-settings-form"
+import { OrarioSettingsForm } from "@/components/admin/orario-settings-form"
 import { SystemSettingsForm } from "@/components/admin/system-settings-form"
 import { requireRole } from "@/lib/auth-helpers"
 import { getAuditSettings } from "@/lib/settings/audit"
 import { getEmailSettingsForAdmin } from "@/lib/settings/email"
 import { getMySqlSettingsForAdmin } from "@/lib/settings/mysql"
 import { getNotificationSettings } from "@/lib/settings/notifications"
+import { getOrarioSettingsForAdmin } from "@/lib/settings/orario"
 import { getSystemSettings } from "@/lib/settings/system"
 
 export const metadata: Metadata = { title: "Impostazioni di sistema" }
@@ -22,12 +24,14 @@ export default async function AdminSettingsPage() {
     auditSettings,
     notificationSettings,
     mysqlSettings,
+    orarioSettings,
   ] = await Promise.all([
     getSystemSettings(),
     getEmailSettingsForAdmin(),
     getAuditSettings(),
     getNotificationSettings(),
     getMySqlSettingsForAdmin(),
+    getOrarioSettingsForAdmin(),
   ])
 
   return (
@@ -38,13 +42,14 @@ export default async function AdminSettingsPage() {
         </h1>
         <p className="text-sm text-muted-foreground">
           Configurazione globale dell&apos;applicazione: branding, email, MySQL,
-          audit log e notifiche.
+          orario di lavoro, audit log e notifiche.
         </p>
       </header>
 
       <SystemSettingsForm initial={settings} />
       <EmailSettingsForm initial={emailSettings} />
       <MySqlSettingsForm initial={mysqlSettings} />
+      <OrarioSettingsForm initial={orarioSettings} />
       <AuditSettingsForm initial={auditSettings} />
       <NotificationSettingsForm initial={notificationSettings} />
     </div>

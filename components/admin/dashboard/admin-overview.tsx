@@ -5,7 +5,6 @@ import {
   ArrowRightIcon,
   FolderIcon,
   ListChecksIcon,
-  NotebookPenIcon,
   ScrollTextIcon,
   ShieldCheckIcon,
   UsersIcon,
@@ -58,12 +57,12 @@ const JOB_STATUS: { key: JobStatus; label: string }[] = [
 // È un Server Component: riceve i dati già aggregati (getAdminStats) e renderizza
 // markup statico; solo i grafici sono client (Recharts).
 export function AdminOverview({ stats }: { stats: AdminStats }) {
-  const { users, notes, files, jobs, notifications, daily, recentAudit } = stats
+  const { users, files, jobs, notifications, daily, recentAudit } = stats
 
   return (
     <div className="flex flex-col gap-4">
       {/* Riga di KPI */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardDescription>Utenti</CardDescription>
@@ -114,23 +113,6 @@ export function AdminOverview({ stats }: { stats: AdminStats }) {
           </CardHeader>
           <KpiFooter href="/files" label="I miei file">
             {formatSize(files.totalSize)} occupati nello storage
-          </KpiFooter>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>Note</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">
-              {nf.format(notes.total)}
-            </CardTitle>
-            <CardAction>
-              <NotebookPenIcon className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <KpiFooter href="/notes" label="Note">
-            {notes.newLast7 > 0
-              ? `+${nf.format(notes.newLast7)} negli ultimi 7 giorni`
-              : "Nessuna nota recente"}
           </KpiFooter>
         </Card>
       </div>
