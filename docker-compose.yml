@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16
-    container_name: metema-presenze-db
+    container_name: controllo-timbrature-metema-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-app}
@@ -30,7 +30,7 @@ services:
   #   - WebUI  su http://localhost:8026  -> qui leggi le mail catturate
   mailpit:
     image: axllent/mailpit:latest
-    container_name: metema-presenze-mailpit
+    container_name: controllo-timbrature-metema-mailpit
     restart: unless-stopped
     ports:
       - "1026:1025" # SMTP
