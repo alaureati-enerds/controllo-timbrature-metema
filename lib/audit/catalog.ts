@@ -64,11 +64,15 @@ export const auditCatalog = [
   { action: "system.notifications.update", category: "system", label: "Config notifiche modificata" },
   { action: "system.mysql.update", category: "system", label: "Config MySQL modificata" },
   { action: "system.orario.update", category: "system", label: "Config orario modificata" },
+  { action: "system.stampa.update", category: "system", label: "Template di stampa predefinito modificato" },
 
   // --- Timbrature (preset di orario) ---------------------------------------
   { action: "timbrature.preset.create", category: "timbrature", label: "Preset orario creato" },
   { action: "timbrature.preset.update", category: "timbrature", label: "Preset orario modificato" },
   { action: "timbrature.preset.delete", category: "timbrature", label: "Preset orario eliminato" },
+
+  // --- Timbrature (stampa) --------------------------------------------------
+  { action: "timbrature.stampa", category: "timbrature", label: "Registro presenze stampato" },
 ] as const satisfies readonly AuditEventDef[]
 
 // Tutte le `action` conosciute, come tipo stretto: dà autocompletamento e

@@ -37,6 +37,9 @@ const nextConfig: NextConfig = {
   devIndicators: {
     position: "bottom-right",
   },
+  // Generatore PDF (stampa del registro presenze): gira SOLO nel route handler
+  // e non va bundlato da webpack/turbopack — usa binari/wasm propri.
+  serverExternalPackages: ["@react-pdf/renderer"],
   // Origini ammesse per gli asset di sviluppo quando si accede al dev server
   // da un dispositivo diverso (es. smartphone via IP del PC sulla LAN).
   allowedDevOrigins: [

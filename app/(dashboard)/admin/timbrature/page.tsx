@@ -2,11 +2,16 @@ import type { Metadata } from "next"
 
 import { TimbratureManager } from "@/components/admin/timbrature-manager"
 import { requireRole } from "@/lib/auth-helpers"
+import { getStampaSettings } from "@/lib/settings/stampa"
 
 export const metadata: Metadata = { title: "Timbrature" }
 
 export default async function AdminTimbraturePage() {
   await requireRole("admin")
+
+  // Template di stampa predefinito: lo leggiamo qui (server) così il dialog lo
+  // ha già pronto e non deve fare un fetch all'apertura.
+  const { templateId } = await getStampaSettings()
 
   return (
     <div className="flex flex-col gap-6">
@@ -18,7 +23,7 @@ export default async function AdminTimbraturePage() {
           Consulta le timbrature dei dipendenti dal database MySQL esterno.
         </p>
       </header>
-      <TimbratureManager />
+      <TimbratureManager templatePredefinito={templateId} />
     </div>
   )
 }

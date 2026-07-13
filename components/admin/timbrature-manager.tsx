@@ -71,10 +71,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 
+import { TimbratureStampaDialog } from "@/components/admin/timbrature-stampa-dialog"
 import type { Dipendente } from "@/lib/mysql/timbrature"
-import { arrotondaEntrata, arrotondaUscita } from "@/lib/timbrature/arrotondamento"
+import {
+  calcolaCorretti,
+  calcolaTotaliMese,
+  isWeekend,
+} from "@/lib/timbrature/calcolo"
+import type { Giornata } from "@/lib/timbrature/giornate"
 import { ORARIO_REGEX, mascheraOrario } from "@/lib/timbrature/ora"
-import type { Giornata } from "@/app/api/admin/timbrature/route"
+import type { StampaTemplateId } from "@/lib/timbrature/stampa/catalog"
 
 const MESI = [
   "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
@@ -120,47 +126,6 @@ function formattaMinuti(minuti: number): string {
   const h = Math.floor(minuti / 60)
   const m = minuti % 60
   return `${h}h ${m}m`
-}
-
-function minutiDaOra(ora: string): number {
-  const [h, m] = ora.split(":").map(Number)
-  return h * 60 + m
-}
-
-// Valore corretto di un turno:
-// - stringa vuota nell'override = turno azzerato esplicitamente dalla
-//   correzione (es. preset senza secondo turno): resta vuoto, NON ricade sul
-//   dato reale;
-// - valore presente = quello corretto;
-// - assente/undefined = nessuna correzione su quel campo: dato reale arrotondato.
-function corretto(
-  ov: string | null | undefined,
-  raw: string | null,
-  round: (o: string) => string
-): string | null {
-  if (ov === "") return null
-  if (ov != null) return ov
-  return raw ? round(raw) : null
-}
-
-function calcolaCorretti(
-  g: Giornata,
-  override?: Record<string, string | null>
-) {
-  const ce1 = corretto(override?.entrata1, g.entrata1, arrotondaEntrata)
-  const cu1 = corretto(override?.uscita1, g.uscita1, arrotondaUscita)
-  const ce2 = corretto(override?.entrata2, g.entrata2, arrotondaEntrata)
-  const cu2 = corretto(override?.uscita2, g.uscita2, arrotondaUscita)
-
-  const minuti = (ce1 && cu1 ? minutiDaOra(cu1) - minutiDaOra(ce1) : 0)
-    + (ce2 && cu2 ? minutiDaOra(cu2) - minutiDaOra(ce2) : 0)
-
-  return {
-    ce1, cu1, ce2, cu2,
-    totale: minuti,
-    ordinario: Math.min(minuti, 480),
-    straordinario: Math.max(minuti - 480, 0),
-  }
 }
 
 function CorrettaCell({
@@ -260,7 +225,11 @@ function CorrettaCell({
   )
 }
 
-export function TimbratureManager() {
+export function TimbratureManager({
+  templatePredefinito,
+}: {
+  templatePredefinito: StampaTemplateId
+}) {
   const def = meseCorrente()
   const [mese, setMese] = useState(def.mese)
   const [anno, setAnno] = useState(def.anno)
@@ -509,29 +478,15 @@ export function TimbratureManager() {
     else setMese((m) => m - 1)
   }
 
-  const weekEnd = (g: string) => {
-    const d = new Date(g + "T12:00:00")
-    return d.getDay() === 0 || d.getDay() === 6
-  }
+  // Ricalcolo a ogni render: sono al massimo 31 righe di aritmetica, e un
+  // useMemo qui impedirebbe al React Compiler di ottimizzare il componente.
+  const righe = giornate.map((g) => ({
+    ...g,
+    ...calcolaCorretti(g, correzioni.get(g.giorno)),
+    we: isWeekend(g.giornoSettimana),
+  }))
 
-  const righe = useMemo(
-    () =>
-      giornate.map((g) => ({
-        ...g,
-        ...calcolaCorretti(g, correzioni.get(g.giorno)),
-        we: weekEnd(g.giorno),
-      })),
-    [giornate, correzioni]
-  )
-
-  const totaliMese = useMemo(
-    () => ({
-      totale: righe.reduce((s, r) => s + r.totale, 0),
-      ordinario: righe.reduce((s, r) => s + r.ordinario, 0),
-      straordinario: righe.reduce((s, r) => s + r.straordinario, 0),
-    }),
-    [righe]
-  )
+  const totaliMese = calcolaTotaliMese(righe)
 
   return (
     <div className="flex flex-col gap-6">
@@ -633,6 +588,15 @@ export function TimbratureManager() {
                 </TooltipTrigger>
                 <TooltipContent>Aggiorna</TooltipContent>
               </Tooltip>
+
+              <TimbratureStampaDialog
+                dipendente={dipendente}
+                mese={mese + 1}
+                anno={anno}
+                meseLabel={meseLabel}
+                templatePredefinito={templatePredefinito}
+                disabled={loading}
+              />
             </div>
           </div>
         </CardContent>

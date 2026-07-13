@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import { BRANDING_ICON_NAMES, DEFAULT_BRANDING_ICON } from "@/lib/settings/icons"
+import { stampaTemplateIds } from "@/lib/timbrature/stampa/catalog"
 
 // Registro delle impostazioni di SISTEMA (globali). È la fonte di verità: ogni
 // impostazione è un campo di questo schema Zod, con il suo `.default()`. Lo
@@ -111,6 +112,26 @@ export type OrarioLavoroSettingsInput = z.infer<typeof orarioLavoroSettingsInput
 
 export type OrarioLavoroSettingsAdmin = OrarioLavoroSettingsInput
 
+// Config della STAMPA del registro presenze persistita nel blob del singleton.
+// Server-only (mai in toPublicSettings). Tiene solo il template predefinito,
+// che l'admin fissa dal dialog di stampa. Gli id validi vengono dal catalogo
+// (lib/timbrature/stampa/catalog.ts): un template rimosso dal catalogo fa
+// ricadere l'impostazione sul default, senza migrazioni.
+export const stampaSettingsSchema = z.object({
+  templateId: z.enum(stampaTemplateIds).optional(),
+})
+
+export type StampaSettings = z.infer<typeof stampaSettingsSchema>
+
+// Input del form/dialog STAMPA (admin → server): il template è obbligatorio.
+export const stampaSettingsInputSchema = z.object({
+  templateId: z.enum(stampaTemplateIds),
+})
+
+export type StampaSettingsInput = z.infer<typeof stampaSettingsInputSchema>
+
+export type StampaSettingsAdmin = StampaSettingsInput
+
 export const systemSettingsSchema = z.object({
   // Nome del software, mostrato nell'header della sidebar e nel <title>.
   appName: z.string().trim().min(1).default("shadcn starter"),
@@ -134,6 +155,9 @@ export const systemSettingsSchema = z.object({
   // Config orario di lavoro standard (server-only). Default = i default dello
   // schema (fasce orarie predefinite).
   orario: orarioLavoroSettingsSchema.default({}),
+  // Config della stampa del registro presenze (server-only). Default {}: il
+  // template ricade su DEFAULT_TEMPLATE_ID (vedi lib/settings/stampa.ts).
+  stampa: stampaSettingsSchema.default({}),
 })
 
 export type SystemSettings = z.infer<typeof systemSettingsSchema>
@@ -154,8 +178,9 @@ export function toPublicSettings(s: SystemSettings): PublicSystemSettings {
 }
 
 // Schema per gli aggiornamenti dal form admin del BRANDING: tutti i campi
-// opzionali (patch parziale). `email`, `audit`, `notifications` e `mysql` sono
-// esclusi di proposito — si aggiornano solo dai rispettivi endpoint dedicati.
+// opzionali (patch parziale). `email`, `audit`, `notifications`, `mysql`,
+// `orario` e `stampa` sono esclusi di proposito — si aggiornano solo dai
+// rispettivi endpoint dedicati.
 export const systemSettingsPatchSchema = systemSettingsSchema
   .omit({
     email: true,
@@ -163,6 +188,7 @@ export const systemSettingsPatchSchema = systemSettingsSchema
     notifications: true,
     mysql: true,
     orario: true,
+    stampa: true,
   })
   .partial()
 
