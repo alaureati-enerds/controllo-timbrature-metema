@@ -37,6 +37,21 @@ export async function listDipendenti(): Promise<Dipendente[]> {
   }
 }
 
+/** Un singolo dipendente per codice (null se non esiste o è obsoleto). */
+export async function getDipendente(codice: string): Promise<Dipendente | null> {
+  const c = await conn()
+  try {
+    const [rows] = await c.execute<mysql.RowDataPacket[]>(
+      "SELECT CODICE, DESCRIZIONE FROM dip WHERE CODICE = ? LIMIT 1",
+      [codice]
+    )
+    const r = (rows as { CODICE: string; DESCRIZIONE: string }[])[0]
+    return r ? { codice: r.CODICE, descrizione: r.DESCRIZIONE ?? "" } : null
+  } finally {
+    await c.end().catch(() => {})
+  }
+}
+
 export type Timbratura = {
   data: string // YYYY-MM-DD
   ora: string // HH:mm:ss
