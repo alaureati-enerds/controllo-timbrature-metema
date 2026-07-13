@@ -19,7 +19,7 @@ lib/jobs/
   registry.ts              registro { type → handler } — il punto di estendibilità
   handlers/
     demo.ts                handler dimostrativo (lavoro simulato a step)
-    crea-nota.ts           handler d'esempio REALE: crea una nota (riusa lib/notes)
+    notification-email.ts  handler REALE: invia l'email di una notifica (usa userId)
   index.ts                 FACADE: enqueue / cancel / getJob / listJobs +
                            scheduleJob / listSchedules / unscheduleJob / executeJob
 app/api/admin/jobs/        API admin (RBAC): list+enqueue, get, cancel, schedules/
@@ -171,8 +171,8 @@ Regole d'oro:
   (Zod). Vanno tenute coerenti — è il prezzo (voluto) di avere etichette/aiuti
   che lo schema non contiene.
 - I campi **iniettati dal server** (es. `userId` preso dalla sessione, vedi
-  [crea-nota.ts](../lib/jobs/handlers/crea-nota.ts)) NON vanno in `fields`: li
-  aggiunge la route API, non l'utente.
+  [notification-email.ts](../lib/jobs/handlers/notification-email.ts)) NON
+  vanno in `fields`: li aggiunge la route API, non l'utente.
 - Un'operazione senza parametri ha `fields: []` (nessun form mostrato).
 
 ## Schedulare con un cron
@@ -196,7 +196,7 @@ schedulazioni vivono **solo nel database**. Sotto, la UI usa la facade:
 ```ts
 import { scheduleJob, listSchedules, unscheduleJob, runScheduleNow } from "@/lib/jobs"
 
-await scheduleJob({ type: "crea-nota", payload: { text: "..." }, cron: "0 9 * * *", tz: "Europe/Rome", key: "promemoria" })
+await scheduleJob({ type: "demo", payload: { steps: 5 }, cron: "0 9 * * *", tz: "Europe/Rome", key: "promemoria" })
 await listSchedules()   // → { human, nextRun, lastRun, ... }
 await runScheduleNow("promemoria") // accoda subito un'esecuzione
 await unscheduleJob("promemoria")

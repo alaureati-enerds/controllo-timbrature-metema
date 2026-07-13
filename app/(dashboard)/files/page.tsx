@@ -14,8 +14,8 @@ import { listUserFiles } from "@/lib/files"
 export const metadata: Metadata = { title: "I miei file" }
 
 // Pagina "I miei file": esempio end-to-end del sottosistema file sull'asse
-// OWNERSHIP (ogni utente vede e gestisce solo i propri file). Stesso modello di
-// autorizzazione delle note. Vedi docs/gestione-file.md.
+// OWNERSHIP (ogni utente vede e gestisce solo i propri file). Vedi
+// docs/gestione-file.md.
 export default async function FilesPage() {
   const session = await requireUser()
   const files = await listUserFiles(session.user.id)

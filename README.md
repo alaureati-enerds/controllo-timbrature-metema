@@ -3,8 +3,7 @@
 Base di partenza per sviluppi web full-stack: **frontend Next.js + shadcn/ui**,
 **backend** integrato come Route Handlers e **database PostgreSQL** con **Prisma**.
 
-Lo scaffold è volutamente **leggero ma funzionante end-to-end**: include una slice di
-esempio (le "note") che attraversa tutti i livelli, dalla UI al database e ritorno.
+Lo scaffold è volutamente **leggero ma funzionante end-to-end**.
 
 ## Stack
 
@@ -80,17 +79,14 @@ Le tre che userai quasi sempre: `npm run dev`, `docker compose up -d`, `npm run 
 app/
   api/
     health/route.ts    # GET /api/health -> { status: "ok" }
-    notes/route.ts      # GET lista note, POST crea nota
-  page.tsx              # home: legge le note (Server Component) + form
+  page.tsx              # home: dashboard (Server Component)
 components/
-  note-form.tsx         # form client che chiama /api/notes
   ui/                   # componenti shadcn/ui
 lib/
   prisma.ts             # singleton Prisma Client (adapter pg)
-  notes.ts              # logica di dominio (listNotes, createNote)
   generated/prisma/     # Prisma Client generato (ignorato da git)
 prisma/
-  schema.prisma         # modello Note
+  schema.prisma
   migrations/           # storia delle migration
 docker-compose.yml      # servizio PostgreSQL
 ```

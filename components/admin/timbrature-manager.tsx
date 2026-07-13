@@ -7,8 +7,9 @@ import {
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  RefreshCwIcon,
   RotateCwIcon,
-  SearchIcon,
+  UserIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -40,6 +41,13 @@ import {
   ComboboxList,
   ComboboxTrigger,
 } from "@/components/ui/combobox"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -276,6 +284,7 @@ export function TimbratureManager() {
   const [editing, setEditing] = useState<EditingKey | null>(null)
   const editRef = useRef<HTMLInputElement>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const richiestaRef = useRef(0)
 
   function toggleSelect(giorno: string) {
     setSelected((prev) => {
@@ -433,6 +442,7 @@ export function TimbratureManager() {
 
   const carica = useCallback(() => {
     if (!dipendente) return
+    const richiesta = ++richiestaRef.current
     setLoading(true)
     setCorrezioni(new Map())
     setSelected(new Set())
@@ -455,6 +465,7 @@ export function TimbratureManager() {
           { giornate: Giornata[]; orario: typeof orario },
           CorrezioneRaw[],
         ]) => {
+          if (richiesta !== richiestaRef.current) return
           setGiornate(data.giornate)
           setOrario(data.orario)
           setCorrezioni(
@@ -476,10 +487,16 @@ export function TimbratureManager() {
         }
       )
       .catch(() => {
+        if (richiesta !== richiestaRef.current) return
         toast.error("Impossibile caricare le timbrature")
         setLoading(false)
       })
   }, [dipendente, mese, anno])
+
+  useEffect(() => {
+    const timer = setTimeout(() => carica(), 0)
+    return () => clearTimeout(timer)
+  }, [carica])
 
   const meseLabel = `${MESI[mese]} ${anno}`
 
@@ -602,10 +619,20 @@ export function TimbratureManager() {
                 </div>
               </div>
 
-              <Button onClick={carica} disabled={!dipendente || loading}>
-                {loading ? <Spinner aria-hidden="true" /> : <SearchIcon data-icon="inline-start" />}
-                Carica
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Aggiorna"
+                    onClick={carica}
+                    disabled={!dipendente || loading}
+                  >
+                    {loading ? <Spinner aria-hidden="true" /> : <RefreshCwIcon />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Aggiorna</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </CardContent>
@@ -700,10 +727,18 @@ export function TimbratureManager() {
               ))}
             </div>
           ) : !dipendente ? (
-            <p className="p-6 text-center text-sm text-muted-foreground">
-              Seleziona un dipendente e clicca <strong>Carica</strong> per
-              visualizzare le timbrature.
-            </p>
+            <Empty className="border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <UserIcon />
+                </EmptyMedia>
+                <EmptyTitle>Nessun dipendente selezionato</EmptyTitle>
+                <EmptyDescription>
+                  Seleziona un dipendente per visualizzare le timbrature del
+                  periodo.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <>
               <div className="hidden md:block">

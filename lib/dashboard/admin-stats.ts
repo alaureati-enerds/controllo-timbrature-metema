@@ -30,7 +30,6 @@ export type AdminStats = {
     banned: number
     newLast7: number
   }
-  notes: { total: number; newLast7: number }
   files: { total: number; totalSize: number }
   jobs: {
     active: number
@@ -64,8 +63,6 @@ export async function getAdminStats(days = 14): Promise<AdminStats> {
     usersTwoFactor,
     usersBanned,
     usersNew7,
-    notesTotal,
-    notesNew7,
     filesAgg,
     jobsActive,
     jobsFailed7,
@@ -79,8 +76,6 @@ export async function getAdminStats(days = 14): Promise<AdminStats> {
     prisma.user.count({ where: { twoFactorEnabled: true } }),
     prisma.user.count({ where: { banned: true } }),
     prisma.user.count({ where: { createdAt: { gte: last7 } } }),
-    prisma.note.count(),
-    prisma.note.count({ where: { createdAt: { gte: last7 } } }),
     prisma.file.aggregate({ _count: true, _sum: { size: true } }),
     prisma.job.count({ where: { status: { in: ["queued", "running"] } } }),
     prisma.job.count({
@@ -148,7 +143,6 @@ export async function getAdminStats(days = 14): Promise<AdminStats> {
       banned: usersBanned,
       newLast7: usersNew7,
     },
-    notes: { total: notesTotal, newLast7: notesNew7 },
     files: { total: filesAgg._count, totalSize: filesAgg._sum.size ?? 0 },
     jobs: { active: jobsActive, failedLast7: jobsFailed7, byStatus },
     notifications: { unread },

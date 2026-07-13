@@ -9,7 +9,6 @@ import {
   LayoutDashboardIcon,
   ListChecksIcon,
   MenuIcon,
-  NotebookPenIcon,
   ScrollTextIcon,
   UsersIcon,
   type LucideIcon,
@@ -26,7 +25,6 @@ type BottomNavItem = { label: string; url: string; icon: LucideIcon }
 // e apre la pagina con la navigazione completa.
 const userItems: BottomNavItem[] = [
   { label: "Home", url: "/", icon: LayoutDashboardIcon },
-  { label: "Note", url: "/notes", icon: NotebookPenIcon },
   { label: "File", url: "/files", icon: FolderIcon },
   { label: "Notifiche", url: "/notifications", icon: BellIcon },
 ]
@@ -40,8 +38,8 @@ const adminItems: BottomNavItem[] = [
 
 const menuItem: BottomNavItem = { label: "Menu", url: "/menu", icon: MenuIcon }
 
-// La voce è attiva sulla rotta esatta o su una sua sotto-rotta (es. /notes/123
-// tiene attiva "Note"); per la Home solo sul match esatto, altrimenti sarebbe
+// La voce è attiva sulla rotta esatta o su una sua sotto-rotta (es. /files/123
+// tiene attiva "File"); per la Home solo sul match esatto, altrimenti sarebbe
 // sempre attiva.
 function isActive(pathname: string, url: string) {
   if (url === "/") return pathname === "/"

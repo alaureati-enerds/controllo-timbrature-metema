@@ -27,7 +27,7 @@ const enqueueSchema = z.object({
 
 // Inietta `userId` dalla SESSIONE nel payload: l'identità non si prende mai dal
 // client. Gli handler che non la dichiarano (es. demo) la ignorano (Zod la
-// scarta); quelli che operano su dati dell'utente (es. crea-nota) la usano.
+// scarta); quelli che operano su dati dell'utente (es. notification-email) la usano.
 function withUser(
   payload: Record<string, unknown> | undefined,
   userId: string

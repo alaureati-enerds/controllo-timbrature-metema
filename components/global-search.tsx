@@ -32,8 +32,7 @@ type Groups = Record<string, SearchResult[]>
 
 // Ricerca globale in topbar: un trigger che apre una palette (CommandDialog)
 // con le fonti registrate in lib/search/sources.ts. Il filtro è disattivato in
-// cmdk (`shouldFilter={false}`) perché ogni fonte decide da sé i risultati —
-// la navigazione filtra in memoria, le note cercano lato server.
+// cmdk (`shouldFilter={false}`) perché ogni fonte decide da sé i risultati.
 export function GlobalSearch() {
   const router = useRouter()
   const { data: session } = authClient.useSession()
@@ -137,12 +136,12 @@ export function GlobalSearch() {
         open={open}
         onOpenChange={setOpen}
         title="Ricerca globale"
-        description="Cerca tra le voci di menu e i tuoi record."
+        description="Cerca tra le voci di menu."
         className="top-[calc(env(safe-area-inset-top)+0.5rem)] md:top-1/3"
       >
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Cerca voci di menu e note…"
+            placeholder="Cerca voci di menu…"
             value={query}
             onValueChange={setQuery}
           />

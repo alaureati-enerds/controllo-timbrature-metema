@@ -12,8 +12,6 @@ import { adminAc, defaultStatements } from "better-auth/plugins/admin/access"
 const statement = {
   // Risorse di sistema (gestione utenti/sessioni) fornite dal plugin admin.
   ...defaultStatements,
-  // Risorsa di dominio d'esempio.
-  note: ["create", "read", "update", "delete"],
   // Impostazioni di sistema (globali): solo gli admin le leggono/modificano dal
   // pannello. NB: vale solo per le impostazioni GLOBALI; le preferenze
   // per-utente useranno l'ownership, non questo permesso.
@@ -38,16 +36,14 @@ const statement = {
 
 export const ac = createAccessControl(statement)
 
-// Ruolo base: l'utente gestisce solo le proprie note.
-export const user = ac.newRole({
-  note: ["create", "read", "update", "delete"],
-})
+// Ruolo base: l'utente non ha permessi RBAC dedicati (le sue risorse, come i
+// file, usano l'autorizzazione per ownership, non questo sistema).
+export const user = ac.newRole({})
 
-// Ruolo amministratore: tutti i permessi di gestione utenti/sessioni + note +
+// Ruolo amministratore: tutti i permessi di gestione utenti/sessioni +
 // configurazione delle impostazioni di sistema.
 export const admin = ac.newRole({
   ...adminAc.statements,
-  note: ["create", "read", "update", "delete"],
   settings: ["read", "update"],
   jobs: ["read", "create", "cancel"],
   audit: ["read", "configure"],

@@ -23,7 +23,7 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground">
           {admin
             ? "Panoramica di sistema: utenti, operazioni e attività recenti."
-            : "La tua panoramica: note, file, notifiche e sicurezza dell'account."}
+            : "La tua panoramica: file, notifiche e sicurezza dell'account."}
         </p>
       </header>
 

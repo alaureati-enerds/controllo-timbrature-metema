@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16
-    container_name: shadcn-starter-db
+    container_name: metema-presenze-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-app}
@@ -12,7 +12,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-app}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-app}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -26,7 +30,7 @@ services:
   #   - WebUI  su http://localhost:8026  -> qui leggi le mail catturate
   mailpit:
     image: axllent/mailpit:latest
-    container_name: shadcn-starter-mail
+    container_name: metema-presenze-mailpit
     restart: unless-stopped
     ports:
       - "1026:1025" # SMTP

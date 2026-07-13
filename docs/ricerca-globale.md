@@ -2,9 +2,11 @@
 
 Guida di riferimento per la barra di ricerca nella topbar della dashboard: una
 palette (stile ⌘K) che propone **scorciatoie alle voci di menu** e, sotto, i
-**record** dell'utente (oggi le note), con apertura della pagina di dettaglio al
-click. È pensata per essere **estensibile**: aggiungere un nuovo tipo di record
-significa registrare una nuova "fonte di ricerca".
+**record** dell'utente, con apertura della pagina di dettaglio al click. È
+pensata per essere **estensibile**: aggiungere un nuovo tipo di record
+significa registrare una nuova "fonte di ricerca". Oggi l'unica fonte registrata
+è quella di navigazione; questa guida mostra come aggiungerne una nuova per un
+tipo di record.
 
 ## Come funziona
 
@@ -22,18 +24,17 @@ I pezzi coinvolti:
   [components/ui/](../components/ui)) — le primitive. Non si toccano: si compongono.
 
 La palette disattiva il filtro interno di `cmdk` (`shouldFilter={false}`): è ogni
-fonte a decidere i propri risultati. La navigazione filtra in memoria, le note
-cercano lato server.
+fonte a decidere i propri risultati.
 
 ## Anatomia di una fonte
 
 ```ts
 export type SearchResult = {
-  id: string          // univoco e stabile (es. `note:<id>`)
+  id: string          // univoco e stabile (es. `project:<id>`)
   label: string       // testo mostrato
   description?: string
   icon?: LucideIcon
-  href: string        // destinazione al click (es. /notes/<id>)
+  href: string        // destinazione al click (es. /projects/<id>)
 }
 
 export type SearchContext = {
@@ -48,8 +49,9 @@ export type SearchSource = {
 ```
 
 Una fonte può essere **sincrona** (dati già in memoria, come la navigazione) o
-**asincrona** (chiamata a un'API, come le note). Con `query` vuota può restituire
-suggerimenti iniziali (le note più recenti) oppure un array vuoto.
+**asincrona** (chiamata a un'API che cerca lato server). Con `query` vuota può
+restituire suggerimenti iniziali (es. i record più recenti) oppure un array
+vuoto.
 
 ## Aggiungere un nuovo tipo di record
 
@@ -57,7 +59,8 @@ Esempio: rendere ricercabili dei "progetti" con dettaglio in `/projects/<id>`.
 
 ### 1. Lato dati: ricerca + dettaglio con ownership
 
-In `lib/projects.ts` (sul modello di [lib/notes.ts](../lib/notes.ts)):
+In `lib/projects.ts` (sul modello di [lib/files.ts](../lib/files.ts), che ha lo
+stesso pattern di ownership per-utente):
 
 ```ts
 export function searchProjects(userId: string, query: string, limit?: number) {
@@ -76,15 +79,13 @@ export function getProject(userId: string, id: string) {
 
 ### 2. Lato API: GET con `?q=` e `?limit=`
 
-Estendi (o crea) il route handler come in
-[app/api/notes/route.ts](../app/api/notes/route.ts): leggi `q` e `limit` dalla
+Crea un route handler `app/api/projects/route.ts`: leggi `q` e `limit` dalla
 query string e delega a `searchProjects`. Ricorda sempre l'ownership (l'utente
 vede solo i propri record).
 
 ### 3. La pagina di dettaglio parametrica
 
-Crea `app/(dashboard)/projects/[id]/page.tsx` sul modello di
-[app/(dashboard)/notes/[id]/page.tsx](<../app/(dashboard)/notes/[id]/page.tsx>):
+Crea `app/(dashboard)/projects/[id]/page.tsx`:
 `requireUser` → `getProject(userId, id)` → `notFound()` se `null`.
 
 ### 4. Registra la fonte
@@ -111,7 +112,7 @@ const projectsSource: SearchSource = {
   },
 }
 
-export const searchSources: SearchSource[] = [navigationSource, notesSource, projectsSource]
+export const searchSources: SearchSource[] = [navigationSource, projectsSource]
 ```
 
 L'ordine nell'array è l'ordine dei gruppi nella palette. Fatto: la UI non va
