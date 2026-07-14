@@ -24,6 +24,13 @@ function oreHHMM(minuti: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
 }
 
+function formattaTotale(minuti: number): string {
+  if (minuti === 0) return "—"
+  const h = Math.floor(minuti / 60)
+  const m = minuti % 60
+  return `${h}h ${m}m`
+}
+
 function ora(valore: string | null): string {
   return valore ? valore.slice(0, 5) : "—"
 }
@@ -96,19 +103,25 @@ const styles = StyleSheet.create({
   },
 
   totali: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    gap: 4,
     marginTop: 14,
     paddingTop: 8,
     borderTopWidth: 0.75,
     borderTopColor: NERO,
   },
-  totale: { flexDirection: "row", alignItems: "center", gap: 6 },
+  totale: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minWidth: 180,
+  },
   totaleValore: {
     fontFamily: "Helvetica-Bold",
-    minWidth: 52,
+    fontSize: 9,
+    minWidth: 64,
     paddingVertical: 3,
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     borderWidth: 0.5,
     borderColor: NERO,
     textAlign: "right",
@@ -227,20 +240,26 @@ export function RegistroClassico({ dati }: { dati: DatiStampa }) {
           <Riga key={r.giorno} r={r} />
         ))}
 
-        <View style={styles.totali}>
-          <View style={styles.totale}>
-            <Text>Ordinario</Text>
-            <Text style={styles.totaleValore}>{oreHHMM(totali.ordinario)}</Text>
-          </View>
-          <View style={styles.totale}>
-            <Text>Straordinario</Text>
-            <Text style={styles.totaleValore}>
-              {oreHHMM(totali.straordinario)}
-            </Text>
-          </View>
-          <View style={styles.totale}>
-            <Text>Totale ore</Text>
-            <Text style={styles.totaleValore}>{oreHHMM(totali.totale)}</Text>
+        <View style={{ alignItems: "flex-end" }}>
+          <View style={styles.totali}>
+            <View style={styles.totale}>
+              <Text>Ordinario</Text>
+              <Text style={styles.totaleValore}>
+                {formattaTotale(totali.ordinario)}
+              </Text>
+            </View>
+            <View style={styles.totale}>
+              <Text>Straordinario</Text>
+              <Text style={styles.totaleValore}>
+                {formattaTotale(totali.straordinario)}
+              </Text>
+            </View>
+            <View style={styles.totale}>
+              <Text>Totale ore</Text>
+              <Text style={styles.totaleValore}>
+                {formattaTotale(totali.totale)}
+              </Text>
+            </View>
           </View>
         </View>
 
