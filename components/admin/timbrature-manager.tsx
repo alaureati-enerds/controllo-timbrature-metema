@@ -73,6 +73,8 @@ import { cn } from "@/lib/utils"
 
 import { TimbratureStampaDialog } from "@/components/admin/timbrature-stampa-dialog"
 import type { Dipendente } from "@/lib/mysql/timbrature"
+import { CALCOLO_DEFAULTS } from "@/lib/settings/schema"
+import type { CalcoloSettingsAdmin } from "@/lib/settings/schema"
 import {
   calcolaCorretti,
   calcolaTotaliMese,
@@ -242,6 +244,7 @@ export function TimbratureManager({
     secondoIngresso: "13:30",
     secondaUscita: "17:30",
   })
+  const [regole, setRegole] = useState<CalcoloSettingsAdmin>(CALCOLO_DEFAULTS)
   const [loading, setLoading] = useState(false)
   const [loadingDip, setLoadingDip] = useState(true)
   const [correzioni, setCorrezioni] = useState<Map<string, Record<string, string | null>>>(new Map())
@@ -431,12 +434,13 @@ export function TimbratureManager({
     ])
       .then(
         ([data, correzioniRaw]: [
-          { giornate: Giornata[]; orario: typeof orario },
+          { giornate: Giornata[]; orario: typeof orario; regole: CalcoloSettingsAdmin },
           CorrezioneRaw[],
         ]) => {
           if (richiesta !== richiestaRef.current) return
           setGiornate(data.giornate)
           setOrario(data.orario)
+          setRegole(data.regole)
           setCorrezioni(
             new Map(
               correzioniRaw.map(
@@ -482,7 +486,7 @@ export function TimbratureManager({
   // useMemo qui impedirebbe al React Compiler di ottimizzare il componente.
   const righe = giornate.map((g) => ({
     ...g,
-    ...calcolaCorretti(g, correzioni.get(g.giorno)),
+    ...calcolaCorretti(g, correzioni.get(g.giorno), regole, orario),
     we: isWeekend(g.giornoSettimana),
   }))
 

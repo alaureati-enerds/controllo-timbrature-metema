@@ -1,3 +1,10 @@
+import type { CalcoloSettingsAdmin } from "@/lib/settings/schema"
+
+// Arrotondamento degli orari alla granularità configurata. Funzioni pure. Il
+// verso e il passo vengono dalle regole del motore (lib/settings/calcolo.ts):
+// entrate al quarto d'ora superiore, uscite all'inferiore, come da tradizione
+// del gestionale — ma entrambi ora sono configurabili ("vicino" = al più vicino).
+
 function parseMinuti(ora: string): number {
   const [h, m] = ora.split(":").map(Number)
   return h * 60 + m
@@ -9,19 +16,34 @@ function formattaOra(minuti: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
 }
 
-function arrotonda(ora: string, verso: "su" | "giu"): string {
+export type VersoArrotondamento = "su" | "giu" | "vicino"
+
+export function arrotonda(
+  ora: string,
+  verso: VersoArrotondamento,
+  granularita: number
+): string {
   const minuti = parseMinuti(ora)
+  const passo = granularita > 0 ? granularita : 1
   const arrotondato =
     verso === "su"
-      ? Math.ceil(minuti / 15) * 15
-      : Math.floor(minuti / 15) * 15
+      ? Math.ceil(minuti / passo) * passo
+      : verso === "giu"
+        ? Math.floor(minuti / passo) * passo
+        : Math.round(minuti / passo) * passo
   return formattaOra(arrotondato)
 }
 
-export function arrotondaEntrata(ora: string): string {
-  return arrotonda(ora, "su")
+export function arrotondaEntrata(
+  ora: string,
+  regole: CalcoloSettingsAdmin
+): string {
+  return arrotonda(ora, regole.versoEntrata, regole.granularitaMinuti)
 }
 
-export function arrotondaUscita(ora: string): string {
-  return arrotonda(ora, "giu")
+export function arrotondaUscita(
+  ora: string,
+  regole: CalcoloSettingsAdmin
+): string {
+  return arrotonda(ora, regole.versoUscita, regole.granularitaMinuti)
 }

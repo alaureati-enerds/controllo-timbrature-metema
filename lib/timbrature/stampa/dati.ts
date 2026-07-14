@@ -35,7 +35,7 @@ export async function getDatiStampa(
   const dal = `${anno}-${String(mese).padStart(2, "0")}-01`
   const al = `${anno}-${String(mese).padStart(2, "0")}-31`
 
-  const [dipendente, { giornate }, correzioni] = await Promise.all([
+  const [dipendente, { giornate, orario, regole }, correzioni] = await Promise.all([
     getDipendente(codiceDipendente).catch((error: unknown) => {
       const detail = error instanceof Error ? error.message : "errore sconosciuto"
       throw new ApiError(`Impossibile leggere il dipendente: ${detail}`, 502)
@@ -71,7 +71,7 @@ export async function getDatiStampa(
 
   const righe: RigaStampa[] = giornate.map((g) => ({
     ...g,
-    ...calcolaCorretti(g, override.get(g.giorno)),
+    ...calcolaCorretti(g, override.get(g.giorno), regole, orario),
     weekend: isWeekend(g.giornoSettimana),
   }))
 
