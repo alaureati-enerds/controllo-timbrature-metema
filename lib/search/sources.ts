@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 
-import { adminNavItems, navItems } from "@/lib/navigation"
+import { adminNavItems, adminPrimaryNavItems, navItems } from "@/lib/navigation"
 
 // Ricerca globale: registro delle "fonti" interrogate dalla palette in topbar
 // (components/global-search.tsx). Ogni fonte produce un gruppo di risultati.
@@ -45,7 +45,10 @@ const navigationSource: SearchSource = {
   id: "navigation",
   heading: "Navigazione",
   search(query, ctx) {
-    const items = [...navItems, ...(ctx.isAdmin ? adminNavItems : [])]
+    const items = [
+      ...navItems,
+      ...(ctx.isAdmin ? [...adminPrimaryNavItems, ...adminNavItems] : []),
+    ]
     const q = query.trim().toLowerCase()
     const matched = q
       ? items.filter((item) => item.title.toLowerCase().includes(q))

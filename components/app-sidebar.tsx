@@ -19,7 +19,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { adminNavItems, navItems } from "@/lib/navigation"
+import { adminNavItems, adminPrimaryNavItems, navItems } from "@/lib/navigation"
 import { hasRole } from "@/lib/roles"
 import type { PublicSystemSettings } from "@/lib/settings/schema"
 
@@ -30,6 +30,12 @@ export function AppSidebar({ branding }: { branding: PublicSystemSettings }) {
   const pathname = usePathname()
   const { data: session } = authClient.useSession()
   const isAdmin = hasRole(session?.user.role, "admin")
+  // Le zone di lavoro principali (timbrature, orari) stanno nel gruppo
+  // "Piattaforma" subito sotto la Dashboard, ma restano riservate agli admin.
+  const platformItems = [
+    ...navItems,
+    ...(isAdmin ? adminPrimaryNavItems : []),
+  ]
 
   return (
     <Sidebar collapsible="icon">
@@ -62,7 +68,7 @@ export function AppSidebar({ branding }: { branding: PublicSystemSettings }) {
           <SidebarGroupLabel>Piattaforma</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
+              {platformItems.map((item) => {
                 const isActive = pathname === item.url
                 return (
                   <SidebarMenuItem key={item.url}>
