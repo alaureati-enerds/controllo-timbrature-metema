@@ -15,6 +15,7 @@ import type { DatiStampa } from "@/lib/timbrature/stampa/dati"
 // Ore in formato "HH,MM" come sul modulo storico (es. 8h30m → "08,30").
 // I minuti sono normalizzati: 3h30m + 0h30m fanno "04,00", non "03,60".
 function oreHHMM(minuti: number): string {
+  if (minuti === 0) return "—"
   const h = Math.floor(minuti / 60)
   const m = minuti % 60
   return `${String(h).padStart(2, "0")},${String(m).padStart(2, "0")}`
@@ -131,20 +132,13 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
       {[r.entrata1, r.uscita1, r.entrata2, r.uscita2].map((v, i) => (
         <Text
           key={`reale-${i}`}
-          style={[styles.cella, styles.wOra, { color: NERO }]}
+          style={[styles.cella, styles.wOra, { color: NERO }, i === 3 ? { marginRight: 6 } : {}]}
         >
           {ora(v)}
         </Text>
       ))}
 
-      {(
-        [
-          [r.ce1, r.provenienza.e1],
-          [r.cu1, r.provenienza.u1],
-          [r.ce2, r.provenienza.e2],
-          [r.cu2, r.provenienza.u2],
-        ] as const
-      ).map(([v, prov], i) => (
+      {[r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
         <Text
           key={`corretto-${i}`}
           style={[styles.cella, styles.wOra, { color: CORRETTO }]}

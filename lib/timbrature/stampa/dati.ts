@@ -1,3 +1,5 @@
+import { endOfMonth, format, startOfMonth } from "date-fns"
+
 import { ApiError } from "@/lib/api"
 import { getDipendente, type Dipendente } from "@/lib/mysql/timbrature"
 import { prisma } from "@/lib/prisma"
@@ -33,8 +35,9 @@ export async function getDatiStampa(
   mese: number,
   anno: number
 ): Promise<DatiStampa> {
-  const dal = `${anno}-${String(mese).padStart(2, "0")}-01`
-  const al = `${anno}-${String(mese).padStart(2, "0")}-31`
+  const primo = new Date(anno, mese - 1, 1)
+  const dal = format(startOfMonth(primo), "yyyy-MM-dd")
+  const al = format(endOfMonth(primo), "yyyy-MM-dd")
 
   const [dipendente, { giornate, orario, regole }, correzioni] = await Promise.all([
     getDipendente(codiceDipendente).catch((error: unknown) => {
