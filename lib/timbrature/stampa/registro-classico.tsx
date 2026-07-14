@@ -69,6 +69,9 @@ const styles = StyleSheet.create({
     borderBottomColor: BORDO,
   },
   cella: { textAlign: "center" },
+  // Orario ricostruito dall'orario standard (pausa non timbrata): in corsivo e
+  // grigio, così il registro firmato distingue un timbro vero da uno dedotto.
+  ricostruita: { fontFamily: "Helvetica-Oblique", color: GRIGIO },
 
   // Larghezze: sommano a 100%.
   wData: { width: "12%", paddingLeft: 2 },
@@ -112,6 +115,16 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: GRIGIO,
   },
+
+  // Legenda + conteggio anomalie sotto i totali.
+  nota: {
+    marginTop: 10,
+    flexDirection: "column",
+    gap: 2,
+    fontSize: 7,
+    color: GRIGIO,
+  },
+  notaAnomalie: { color: ROSSO },
 })
 
 function Riga({ r }: { r: DatiStampa["righe"][number] }) {
@@ -138,8 +151,22 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
         </Text>
       ))}
 
-      {[r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
-        <Text key={`corretto-${i}`} style={[styles.cella, styles.wOra]}>
+      {(
+        [
+          [r.ce1, r.provenienza.e1],
+          [r.cu1, r.provenienza.u1],
+          [r.ce2, r.provenienza.e2],
+          [r.cu2, r.provenienza.u2],
+        ] as const
+      ).map(([v, prov], i) => (
+        <Text
+          key={`corretto-${i}`}
+          style={[
+            styles.cella,
+            styles.wOra,
+            prov === "ricostruita" ? styles.ricostruita : {},
+          ]}
+        >
           {ora(v)}
         </Text>
       ))}
@@ -156,6 +183,7 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
 
 export function RegistroClassico({ dati }: { dati: DatiStampa }) {
   const { dipendente, righe, totali, stampatoIl } = dati
+  const nAnomalie = righe.filter((r) => r.anomalie.length > 0).length
 
   return (
     <Document
@@ -224,6 +252,20 @@ export function RegistroClassico({ dati }: { dati: DatiStampa }) {
             <Text>Totale ordinario</Text>
             <Text style={styles.totaleValore}>{oreHHMM(totali.ordinario)}</Text>
           </View>
+        </View>
+
+        <View style={styles.nota}>
+          <Text>
+            Gli orari in corsivo sono ricostruiti dall&apos;orario standard
+            (pausa non timbrata).
+          </Text>
+          {nAnomalie > 0 && (
+            <Text style={styles.notaAnomalie}>
+              {nAnomalie === 1
+                ? "1 giorno da verificare (timbrature incomplete o anomale)."
+                : `${nAnomalie} giorni da verificare (timbrature incomplete o anomale).`}
+            </Text>
+          )}
         </View>
 
         <View style={styles.pie} fixed>
