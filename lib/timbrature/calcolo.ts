@@ -134,11 +134,20 @@ export function calcolaCorretti(
     (ce1 && cu1 ? minutiDaOra(cu1) - minutiDaOra(ce1) : 0) +
     (ce2 && cu2 ? minutiDaOra(cu2) - minutiDaOra(ce2) : 0)
 
-  // 3. Anomalie
+  // 3. Anomalie — segnalano i giorni DA RIVEDERE. Le anomalie derivate dai
+  // valori correnti (entrata/uscita mancante, turno incompleto) spariscono da
+  // sole quando una correzione sistema il giorno, perché rileggono ce1..cu2.
+  // Quelle legate al dato GREZZO (timbratura sospetta, assente) non guardano i
+  // corretti: le silenziamo se l'admin ha già messo mano al giorno — una volta
+  // rivisto e corretto, non è più «da verificare».
+  const correttoManualmente =
+    override != null && Object.keys(override).length > 0
   const anomalie: Anomalia[] = []
   if (g.nTimbrature === 0) {
-    // Giorno feriale senza alcuna timbratura; mai nel weekend.
-    if (!isWeekend(g.giornoSettimana)) anomalie.push("assente")
+    // Giorno feriale senza alcuna timbratura; mai nel weekend, e non se già
+    // corretto a mano.
+    if (!isWeekend(g.giornoSettimana) && !correttoManualmente)
+      anomalie.push("assente")
   } else if (ce1 == null && ce2 == null) {
     anomalie.push("entrata_mancante")
   } else if (cu1 == null && cu2 == null) {
@@ -147,7 +156,8 @@ export function calcolaCorretti(
     // Dopo il fill un turno ha un solo estremo.
     anomalie.push("turno_incompleto")
   }
-  if (g.haSentinella0000) anomalie.push("timbratura_sospetta")
+  if (g.haSentinella0000 && !correttoManualmente)
+    anomalie.push("timbratura_sospetta")
   if (minuti > regole.oreMassimeGiorno) anomalie.push("durata_eccessiva")
 
   return {

@@ -108,19 +108,29 @@ orario dedotto si confonde con uno timbrato davvero.
 
 ## Le anomalie
 
-Calcolate **dopo** overlay e fill (`GiornataCalcolata.anomalie`), così una
-correzione manuale che sistema il giorno lo fa sparire dalle anomalie senza
-codice extra. La pagina mostra un badge per riga, un contatore «N giorni da
-verificare» e un filtro; la stampa ne riporta il conteggio.
+Calcolate **dopo** overlay e fill (`GiornataCalcolata.anomalie`). La pagina mostra
+un badge per riga, un contatore «N giorni da verificare» e un filtro; la stampa
+ne riporta il conteggio.
 
-| Anomalia | Quando |
-| --- | --- |
-| `entrata_mancante` | Ci sono timbrature ma nessuna entrata. |
-| `uscita_mancante` | C'è un'entrata ma nessuna uscita che la chiuda. |
-| `turno_incompleto` | Dopo il fill un turno ha un solo estremo. |
-| `timbratura_sospetta` | Il giorno conteneva una sentinella `00:00`. |
-| `durata_eccessiva` | Totale oltre `oreMassimeGiorno`. |
-| `assente` | Giorno **feriale** senza alcuna timbratura (mai nel weekend). |
+| Anomalia | Quando | Origine |
+| --- | --- | --- |
+| `entrata_mancante` | Ci sono timbrature ma nessuna entrata. | corretti |
+| `uscita_mancante` | C'è un'entrata ma nessuna uscita che la chiuda. | corretti |
+| `turno_incompleto` | Dopo il fill un turno ha un solo estremo. | corretti |
+| `durata_eccessiva` | Totale oltre `oreMassimeGiorno`. | corretti |
+| `timbratura_sospetta` | Il giorno conteneva una sentinella `00:00`. | **grezzo** |
+| `assente` | Giorno **feriale** senza alcuna timbratura (mai nel weekend). | **grezzo** |
+
+**Un'anomalia si spegne quando l'admin sistema il giorno.** È il principio: il
+badge dice «da rivedere», quindi una volta rivisto deve sparire. Le anomalie di
+origine *corretti* si spengono da sole, perché rileggono `ce1…cu2` dopo la
+correzione. Quelle di origine *grezzo* guardano il dato del marcatempo, che una
+correzione non tocca: per queste il motore controlla esplicitamente se esiste una
+correzione manuale sul giorno (`override` non vuoto) e in quel caso non le
+segnala.
+
+In pratica: su un giorno con timbratura a `00:00`, appena assegni un preset o
+correggi un orario, il badge «timbratura sospetta» sparisce.
 
 ## Come estendere
 

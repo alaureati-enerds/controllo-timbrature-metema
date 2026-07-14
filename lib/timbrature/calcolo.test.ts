@@ -145,6 +145,34 @@ describe("regole configurabili", () => {
   })
 })
 
+describe("le anomalie «grezze» si spengono dopo una correzione manuale", () => {
+  it("timbratura_sospetta sparisce se l'admin corregge il giorno", () => {
+    // Senza correzione il flag c'è (il grezzo conteneva una 00:00)...
+    expect(calc("E 00:00 U 17:12", 5).anomalie).toContain("timbratura_sospetta")
+
+    // ...ma una volta assegnata l'entrata il giorno è stato rivisto: niente più
+    // badge, e la pausa viene ricostruita normalmente.
+    const r = calc("E 00:00 U 17:12", 5, CALCOLO_DEFAULTS, {
+      entrata1: "08:00",
+    })
+    expect(r.anomalie).toEqual([])
+    expect(r.totale).toBe(450) // 08:00–12:00 + 13:30–17:00
+  })
+
+  it("assente sparisce se l'admin applica un preset al giorno vuoto", () => {
+    expect(calc("", 23).anomalie).toEqual(["assente"])
+
+    const r = calc("", 23, CALCOLO_DEFAULTS, {
+      entrata1: "08:00",
+      uscita1: "12:00",
+      entrata2: "13:30",
+      uscita2: "17:30",
+    })
+    expect(r.anomalie).toEqual([])
+    expect(r.totale).toBe(480)
+  })
+})
+
 describe("guardia di monotonia del fill", () => {
   it("non ricostruisce la pausa se l'entrata è dopo l'orario di pausa", () => {
     // Giornata costruita a mano: entrata alle 13:00, uscita alle 20:00. Il fill
