@@ -64,6 +64,7 @@ export const auditCatalog = [
   { action: "system.notifications.update", category: "system", label: "Config notifiche modificata" },
   { action: "system.mysql.update", category: "system", label: "Config MySQL modificata" },
   { action: "system.orario.update", category: "system", label: "Config orario modificata" },
+  { action: "system.calcolo.update", category: "system", label: "Config calcolo modificata" },
   { action: "system.stampa.update", category: "system", label: "Template di stampa predefinito modificato" },
 
   // --- Timbrature (preset di orario) ---------------------------------------

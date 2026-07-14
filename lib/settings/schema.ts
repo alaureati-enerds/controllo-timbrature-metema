@@ -112,6 +112,67 @@ export type OrarioLavoroSettingsInput = z.infer<typeof orarioLavoroSettingsInput
 
 export type OrarioLavoroSettingsAdmin = OrarioLavoroSettingsInput
 
+// Config del MOTORE DI CALCOLO delle timbrature persistita nel blob del
+// singleton. Server-only (mai in toPublicSettings). Governa pulizia dei dati
+// grezzi, assegnazione dei turni, arrotondamenti, ricostruzione della pausa e
+// soglia dello straordinario. Tutti i campi sono opzionali: ciò che manca ricade
+// su CALCOLO_DEFAULTS (risolto in lib/settings/calcolo.ts). Vedi
+// docs/calcolo-timbrature.md per il perché di ogni default.
+export const calcoloSettingsSchema = z.object({
+  ignora0000: z.boolean().optional(),
+  dedupMinuti: z.coerce.number().int().min(0).optional(),
+  sogliaPomeriggio: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  strategiaUscita: z.enum(["prima", "ultima"]).optional(),
+  granularitaMinuti: z.coerce.number().int().positive().optional(),
+  versoEntrata: z.enum(["su", "giu", "vicino"]).optional(),
+  versoUscita: z.enum(["su", "giu", "vicino"]).optional(),
+  pausaAutomatica: z.boolean().optional(),
+  pausaSpanMinimo: z.coerce.number().int().min(0).optional(),
+  minutiOrdinari: z.coerce.number().int().min(0).optional(),
+  oreMassimeGiorno: z.coerce.number().int().min(0).optional(),
+})
+
+export type CalcoloSettings = z.infer<typeof calcoloSettingsSchema>
+
+// Input del form CALCOLO (admin → server): stessi campi ma sempre presenti.
+export const calcoloSettingsInputSchema = z.object({
+  ignora0000: z.boolean(),
+  dedupMinuti: z.coerce.number().int().min(0),
+  sogliaPomeriggio: z.string().regex(/^\d{2}:\d{2}$/),
+  strategiaUscita: z.enum(["prima", "ultima"]),
+  granularitaMinuti: z.coerce.number().int().positive(),
+  versoEntrata: z.enum(["su", "giu", "vicino"]),
+  versoUscita: z.enum(["su", "giu", "vicino"]),
+  pausaAutomatica: z.boolean(),
+  pausaSpanMinimo: z.coerce.number().int().min(0),
+  minutiOrdinari: z.coerce.number().int().min(0),
+  oreMassimeGiorno: z.coerce.number().int().min(0),
+})
+
+export type CalcoloSettingsInput = z.infer<typeof calcoloSettingsInputSchema>
+
+export type CalcoloSettingsAdmin = CalcoloSettingsInput
+
+// Default del motore di calcolo. Vivono qui (modulo puro, senza Prisma) così che
+// sia il service (lib/settings/calcolo.ts) sia il motore puro e i suoi test
+// possano riusarli senza tirare dentro codice server-only. I valori riproducono
+// il comportamento storico dove possibile; le eccezioni (strategiaUscita:
+// "ultima", pausaAutomatica: true) sono le correzioni volute. sogliaPomeriggio è
+// il midpoint dell'orario configurato di default (12:00/13:30 → 12:45).
+export const CALCOLO_DEFAULTS: CalcoloSettingsAdmin = {
+  ignora0000: true,
+  dedupMinuti: 5,
+  sogliaPomeriggio: "12:45",
+  strategiaUscita: "ultima",
+  granularitaMinuti: 15,
+  versoEntrata: "su",
+  versoUscita: "giu",
+  pausaAutomatica: true,
+  pausaSpanMinimo: 360,
+  minutiOrdinari: 480,
+  oreMassimeGiorno: 720,
+}
+
 // Config della STAMPA del registro presenze persistita nel blob del singleton.
 // Server-only (mai in toPublicSettings). Tiene solo il template predefinito,
 // che l'admin fissa dal dialog di stampa. Gli id validi vengono dal catalogo
@@ -155,6 +216,9 @@ export const systemSettingsSchema = z.object({
   // Config orario di lavoro standard (server-only). Default = i default dello
   // schema (fasce orarie predefinite).
   orario: orarioLavoroSettingsSchema.default({}),
+  // Config del motore di calcolo (server-only). Default {}: ogni regola ricade
+  // su CALCOLO_DEFAULTS (vedi lib/settings/calcolo.ts).
+  calcolo: calcoloSettingsSchema.default({}),
   // Config della stampa del registro presenze (server-only). Default {}: il
   // template ricade su DEFAULT_TEMPLATE_ID (vedi lib/settings/stampa.ts).
   stampa: stampaSettingsSchema.default({}),
@@ -179,8 +243,8 @@ export function toPublicSettings(s: SystemSettings): PublicSystemSettings {
 
 // Schema per gli aggiornamenti dal form admin del BRANDING: tutti i campi
 // opzionali (patch parziale). `email`, `audit`, `notifications`, `mysql`,
-// `orario` e `stampa` sono esclusi di proposito — si aggiornano solo dai
-// rispettivi endpoint dedicati.
+// `orario`, `calcolo` e `stampa` sono esclusi di proposito — si aggiornano solo
+// dai rispettivi endpoint dedicati.
 export const systemSettingsPatchSchema = systemSettingsSchema
   .omit({
     email: true,
@@ -188,6 +252,7 @@ export const systemSettingsPatchSchema = systemSettingsSchema
     notifications: true,
     mysql: true,
     orario: true,
+    calcolo: true,
     stampa: true,
   })
   .partial()
