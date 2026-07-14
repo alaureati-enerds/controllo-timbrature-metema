@@ -112,6 +112,17 @@ const STANDARD_ID = "__standard__"
 // tenerlo qui evita di doverlo ricontare a mano a ogni colonna aggiunta.
 const COLONNE_TESTA = 11
 
+// Le 8 colonne di orari sono due gruppi da quattro (reali e corretti). La
+// tabella è a larghezza piena e le colonne chiedono meno di quanto c'è: il
+// layout automatico ridistribuisce l'avanzo su tutte, quindi le larghezze qui
+// sono solo un'indicazione (stringerle non «recupera» spazio, lo sposta).
+// Quello che invece si vede è il padding: `COL_ORA_GRUPPO` apre il blocco dei
+// corretti con un rientro largo, così l'occhio separa i due gruppi senza
+// bisogno di un bordo. La larghezza dev'essere ≥ rientro + input di modifica
+// (w-14), altrimenti la colonna si allarga appena si entra in editing.
+const COL_ORA = "w-16 px-1"
+const COL_ORA_GRUPPO = "w-28 pl-12 pr-1"
+
 // Header fisso mentre si scorrono i 31 giorni. Il fondo dev'essere opaco (le
 // righe ci passano sotto) e la riga di separazione è un `inset shadow`: con
 // `border-collapse: collapse` i bordi di una cella sticky non vengono
@@ -251,6 +262,7 @@ function CorrettaCell({
   setEditing,
   editRef,
   onSave,
+  className,
 }: {
   giorno: string
   campo: string
@@ -259,6 +271,7 @@ function CorrettaCell({
   setEditing: (k: { giorno: string; campo: string } | null) => void
   editRef: React.RefObject<HTMLInputElement | null>
   onSave: (giorno: string, campo: string, v: string | null) => void
+  className?: string
 }) {
   const isEditing = editing?.giorno === giorno && editing?.campo === campo
   const [invalid, setInvalid] = useState(false)
@@ -306,7 +319,7 @@ function CorrettaCell({
 
   if (isEditing) {
     return (
-      <TableCell className="p-1 text-center">
+      <TableCell className={cn("p-1 text-center", className)}>
         <Input
           ref={editRef}
           value={draft}
@@ -317,8 +330,10 @@ function CorrettaCell({
           // percentuale non partecipa al calcolo max-content della colonna, e il
           // browser ricade sulla sua larghezza intrinseca (~20 caratteri) — molto
           // più della colonna, che quindi si allarga. Una larghezza fissa (in rem,
-          // non %) tiene l'input dentro alla colonna che ha già "Entrata"/"Uscita".
-          className="h-8 w-16 px-2 text-center text-corretto tabular-nums"
+          // non %) tiene l'input dentro alla colonna che ha già "Entrata"/"Uscita";
+          // deve stare dentro `COL_ORA` (w-16) al netto del suo padding, altrimenti
+          // la colonna si allarga appena si entra in modifica.
+          className="h-8 w-14 px-1 text-center text-corretto tabular-nums"
           onBlur={commit}
           onKeyDown={onKeyDown}
           onChange={onChangeDraft}
@@ -339,7 +354,8 @@ function CorrettaCell({
             // corrette, così il blocco si stacca a colpo d'occhio da quello dei
             // dati grezzi. Tutte le celle si comportano allo stesso modo, a
             // prescindere da come il valore è stato ottenuto.
-            valore == null ? "text-muted-foreground" : "text-corretto"
+            valore == null ? "text-muted-foreground" : "text-corretto",
+            className
           )}
           onClick={startEdit}
           onKeyDown={onCellKeyDown}
@@ -1126,7 +1142,9 @@ export function TimbratureManager({
                         key={i}
                         className={cn(
                           THEAD_STICKY,
-                          "top-10 w-20 text-center font-normal"
+                          "top-10 text-center font-normal",
+                          COL_ORA,
+                          i === 4 && COL_ORA_GRUPPO
                         )}
                       >
                         {label}
@@ -1160,21 +1178,29 @@ export function TimbratureManager({
                         />
                       </TableCell>
                       <TableCell className="tabular-nums">
-                        {format(r.data, "dd/MM", { locale: it })}{" "}
+                        {format(r.data, "dd", { locale: it })}{" "}
                         <span className="text-muted-foreground">
                           {nomeGiorno(r.data, "EEE")}
                         </span>
                       </TableCell>
-                      <TableCell className="text-center tabular-nums">
+                      <TableCell
+                        className={cn("text-center tabular-nums", COL_ORA)}
+                      >
                         {r.entrata1?.slice(0, 5) ?? "—"}
                       </TableCell>
-                      <TableCell className="text-center tabular-nums">
+                      <TableCell
+                        className={cn("text-center tabular-nums", COL_ORA)}
+                      >
                         {r.uscita1?.slice(0, 5) ?? "—"}
                       </TableCell>
-                      <TableCell className="text-center tabular-nums">
+                      <TableCell
+                        className={cn("text-center tabular-nums", COL_ORA)}
+                      >
                         {r.entrata2?.slice(0, 5) ?? "—"}
                       </TableCell>
-                      <TableCell className="text-center tabular-nums">
+                      <TableCell
+                        className={cn("text-center tabular-nums", COL_ORA)}
+                      >
                         {r.uscita2?.slice(0, 5) ?? "—"}
                       </TableCell>
                       <CorrettaCell
@@ -1185,6 +1211,7 @@ export function TimbratureManager({
                         setEditing={setEditing}
                         editRef={editRef}
                         onSave={salvaCorrezione}
+                        className={cn(COL_ORA, COL_ORA_GRUPPO)}
                       />
                       <CorrettaCell
                         giorno={r.giorno}
@@ -1194,6 +1221,7 @@ export function TimbratureManager({
                         setEditing={setEditing}
                         editRef={editRef}
                         onSave={salvaCorrezione}
+                        className={COL_ORA}
                       />
                       <CorrettaCell
                         giorno={r.giorno}
@@ -1203,6 +1231,7 @@ export function TimbratureManager({
                         setEditing={setEditing}
                         editRef={editRef}
                         onSave={salvaCorrezione}
+                        className={COL_ORA}
                       />
                       <CorrettaCell
                         giorno={r.giorno}
@@ -1212,6 +1241,7 @@ export function TimbratureManager({
                         setEditing={setEditing}
                         editRef={editRef}
                         onSave={salvaCorrezione}
+                        className={COL_ORA}
                       />
                       <TableCell
                         className={cn(
