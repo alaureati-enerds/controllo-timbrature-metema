@@ -12,13 +12,16 @@ import type { DatiStampa } from "@/lib/timbrature/stampa/dati"
 // server-only: non importarlo mai da un client component (vedi ./catalog.ts,
 // che è la parte importabile dal client).
 
-// Ore in formato "HH,MM" come sul modulo storico (es. 8h30m → "08,30").
-// I minuti sono normalizzati: 3h30m + 0h30m fanno "04,00", non "03,60".
+const MESI = [
+  "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+  "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+]
+
 function oreHHMM(minuti: number): string {
   if (minuti === 0) return "—"
   const h = Math.floor(minuti / 60)
   const m = minuti % 60
-  return `${String(h).padStart(2, "0")},${String(m).padStart(2, "0")}`
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
 }
 
 function ora(valore: string | null): string {
@@ -46,6 +49,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     marginTop: 6,
+    marginBottom: 2,
+  },
+  periodo: {
+    textAlign: "center",
+    fontSize: 8,
+    color: GRIGIO,
     marginBottom: 10,
   },
 
@@ -90,6 +99,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 14,
+    paddingTop: 8,
+    borderTopWidth: 0.75,
+    borderTopColor: NERO,
   },
   totale: { flexDirection: "row", alignItems: "center", gap: 6 },
   totaleValore: {
@@ -170,6 +182,9 @@ export function RegistroClassico({ dati }: { dati: DatiStampa }) {
         <Text style={styles.nome}>
           {(dipendente.descrizione || dipendente.codice).toUpperCase()}
         </Text>
+        <Text style={styles.periodo}>
+          {MESI[dati.mese - 1]} {dati.anno}
+        </Text>
 
         {/* Intestazione della tabella: ripetuta a ogni pagina (`fixed`). */}
         <View fixed>
@@ -214,18 +229,18 @@ export function RegistroClassico({ dati }: { dati: DatiStampa }) {
 
         <View style={styles.totali}>
           <View style={styles.totale}>
-            <Text>Ore totali</Text>
-            <Text style={styles.totaleValore}>{oreHHMM(totali.totale)}</Text>
+            <Text>Ordinario</Text>
+            <Text style={styles.totaleValore}>{oreHHMM(totali.ordinario)}</Text>
           </View>
           <View style={styles.totale}>
-            <Text>Totale straordinario</Text>
+            <Text>Straordinario</Text>
             <Text style={styles.totaleValore}>
               {oreHHMM(totali.straordinario)}
             </Text>
           </View>
           <View style={styles.totale}>
-            <Text>Totale ordinario</Text>
-            <Text style={styles.totaleValore}>{oreHHMM(totali.ordinario)}</Text>
+            <Text>Totale ore</Text>
+            <Text style={styles.totaleValore}>{oreHHMM(totali.totale)}</Text>
           </View>
         </View>
 
