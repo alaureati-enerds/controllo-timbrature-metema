@@ -214,17 +214,17 @@ enum JobStatus {
 /// `type` è la chiave nel registry degli handler (lib/jobs/registry.ts):
 /// aggiungere un tipo di operazione = aggiungere un handler, senza migrazioni.
 model Job {
-  id   String @id @default(cuid())
-  type String // chiave nel registry (lib/jobs/registry.ts)
+  id      String @id @default(cuid())
+  type    String // chiave nel registry (lib/jobs/registry.ts)
   // Input dell'operazione, validato dall'handler con Zod. Forma libera per tipo.
-  payload Json @default("{}")
+  payload Json   @default("{}")
 
   status   JobStatus @default(queued)
   progress Int       @default(0) // 0..100, aggiornato dall'handler via ctx.report()
   message  String? // breve nota di avanzamento (es. "elaboro 37/200")
   // Righe di log accumulate durante l'esecuzione (array di stringhe in Json).
-  logs  Json    @default("[]")
-  error String? // messaggio d'errore se status = failed
+  logs     Json      @default("[]")
+  error    String? // messaggio d'errore se status = failed
 
   // Cancellazione COOPERATIVA: la UI imposta questo flag, l'handler lo controlla
   // a checkpoint (ctx.throwIfCancelled) e si ferma pulito → status = cancelled.
@@ -333,15 +333,21 @@ model Notification {
 /// Quando esiste, i valori qui prevalgono sui calcolati dall'algoritmo. Questo
 /// modello NON tocca il MySQL aziendale: vive nel DB locale dell'app.
 model TimbraturaCorretta {
-  id         String   @id @default(cuid())
-  dipendente String
-  giorno     String   // YYYY-MM-DD
-  entrata1   String?
-  uscita1    String?
-  entrata2   String?
-  uscita2    String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(cuid())
+  dipendente  String
+  giorno      String // YYYY-MM-DD
+  entrata1    String?
+  uscita1     String?
+  entrata2    String?
+  uscita2     String?
+  /// Il giorno è stato rivisto dall'admin e le sue anomalie vanno considerate
+  /// a posto (badge/tinta/conteggio), senza toccare gli orari: un "ho
+  /// controllato, non serve correggere nulla", distinto da una correzione
+  /// vera. Non interagisce col motore di calcolo (calcolo.ts) né con
+  /// `correttoManualmente`: è solo un filtro applicato dopo, in UI e stampa.
+  revisionata Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([dipendente, giorno])
   @@map("timbratura_corretta")
@@ -354,7 +360,7 @@ model TimbraturaCorretta {
 model TimbraturaPreset {
   id        String   @id @default(cuid())
   nome      String   @unique
-  entrata1  String?  // HH:MM
+  entrata1  String? // HH:MM
   uscita1   String?
   entrata2  String?
   uscita2   String?

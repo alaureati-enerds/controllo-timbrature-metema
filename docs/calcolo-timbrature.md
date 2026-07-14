@@ -109,8 +109,8 @@ orario dedotto si confonde con uno timbrato davvero.
 ## Le anomalie
 
 Calcolate **dopo** overlay e fill (`GiornataCalcolata.anomalie`). La pagina mostra
-un badge per riga, un contatore «N giorni da verificare» e un filtro; la stampa
-ne riporta il conteggio.
+un badge per riga, tinge la riga di rosso tenue e offre il filtro «Da verificare»
+(col conteggio) nell'header della tabella; la stampa ne riporta il conteggio.
 
 | Anomalia | Quando | Origine |
 | --- | --- | --- |
@@ -131,6 +131,22 @@ segnala.
 
 In pratica: su un giorno con timbratura a `00:00`, appena assegni un preset o
 correggi un orario, il badge «timbratura sospetta» sparisce.
+
+**Segnalare un'anomalia come revisionata, senza correggere nulla.** A volte
+l'anomalia è corretta così com'è — un'assenza giustificata, una durata
+eccessiva reale — e non c'è niente da riscrivere negli orari. Il bottone
+**«Segnala come revisionato»** (attivo selezionando una o più righe) copre
+questo caso: scrive `TimbraturaCorretta.revisionata = true` sul giorno, un
+flag **indipendente dagli orari** che il motore di calcolo non legge affatto —
+resta un dettaglio di visualizzazione, applicato dopo, in
+[`components/admin/timbrature-manager.tsx`](../components/admin/timbrature-manager.tsx)
+(badge, tinta di riga, conteggio) e nel PDF
+([`lib/timbrature/stampa/`](../lib/timbrature/stampa/)). Le anomalie continuano
+a essere calcolate normalmente; un giorno revisionato mostra la stessa spunta
+muted di un giorno senza anomalie — deliberatamente indistinguibile a colpo
+d'occhio, il Tooltip resta l'unico modo per sapere che è stato rivisto a mano —
+ma non compare più nel filtro «Da verificare» né nel relativo conteggio. È un
+toggle: selezionando giorni già revisionati il bottone smarca la revisione.
 
 ## Come estendere
 

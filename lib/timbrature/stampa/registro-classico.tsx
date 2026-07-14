@@ -183,7 +183,12 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
 
 export function RegistroClassico({ dati }: { dati: DatiStampa }) {
   const { dipendente, righe, totali, stampatoIl } = dati
-  const nAnomalie = righe.filter((r) => r.anomalie.length > 0).length
+  // Stessa regola della pagina a schermo: un giorno revisionato non conta come
+  // "da verificare" nel registro stampato (vedi StatoBadge in
+  // components/admin/timbrature-manager.tsx).
+  const nAnomalie = righe.filter(
+    (r) => !r.revisionata && r.anomalie.length > 0
+  ).length
 
   return (
     <Document

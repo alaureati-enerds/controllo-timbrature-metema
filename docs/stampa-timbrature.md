@@ -9,8 +9,8 @@ stampa e fissarlo come **predefinito** per tutti.
 
 ## Come funziona
 
-1. Nella toolbar della pagina, accanto ad «Aggiorna», il bottone **stampante**
-   apre il dialog di stampa
+1. Nella toolbar della pagina, in fondo a destra, il bottone **Stampa** apre il
+   dialog di stampa
    ([`components/admin/timbrature-stampa-dialog.tsx`](../components/admin/timbrature-stampa-dialog.tsx)).
 2. Si sceglie il **template** e, volendo, lo si imposta come predefinito
    (`PUT /api/admin/settings/stampa`).

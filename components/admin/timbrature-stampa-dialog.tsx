@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
 import type { Dipendente } from "@/lib/mysql/timbrature"
 import {
@@ -52,6 +52,7 @@ export function TimbratureStampaDialog({
   meseLabel,
   templatePredefinito,
   disabled,
+  className,
 }: {
   dipendente: Dipendente | null
   /** Mese 1-12 (non l'indice 0-11 usato dal manager). */
@@ -60,9 +61,12 @@ export function TimbratureStampaDialog({
   meseLabel: string
   templatePredefinito: StampaTemplateId
   disabled?: boolean
+  /** Posizionamento del bottone nella toolbar che lo ospita. */
+  className?: string
 }) {
   const [open, setOpen] = useState(false)
-  const [template, setTemplate] = useState<StampaTemplateId>(templatePredefinito)
+  const [template, setTemplate] =
+    useState<StampaTemplateId>(templatePredefinito)
   const [predefinito, setPredefinito] = useState(false)
   const [generating, setGenerating] = useState(false)
 
@@ -76,7 +80,8 @@ export function TimbratureStampaDialog({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ templateId: template }),
         })
-        if (!res.ok) throw new Error("Impossibile salvare il template predefinito")
+        if (!res.ok)
+          throw new Error("Impossibile salvare il template predefinito")
       }
 
       const params = new URLSearchParams({
@@ -101,9 +106,8 @@ export function TimbratureStampaDialog({
       const a = document.createElement("a")
       a.href = url
       a.download =
-        res.headers
-          .get("Content-Disposition")
-          ?.match(/filename="(.+)"/)?.[1] ?? "registro-presenze.pdf"
+        res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ??
+        "registro-presenze.pdf"
       a.click()
       URL.revokeObjectURL(url)
 
@@ -120,21 +124,15 @@ export function TimbratureStampaDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Stampa registro presenze"
-              disabled={disabled || !dipendente}
-            >
-              <PrinterIcon />
-            </Button>
-          </DialogTrigger>
-        </TooltipTrigger>
-        <TooltipContent>Stampa registro presenze</TooltipContent>
-      </Tooltip>
+      <DialogTrigger asChild>
+        <Button
+          disabled={disabled || !dipendente}
+          className={cn("w-full sm:w-auto", className)}
+        >
+          <PrinterIcon data-icon="inline-start" />
+          Stampa
+        </Button>
+      </DialogTrigger>
 
       <DialogContent>
         <DialogHeader>
@@ -175,8 +173,8 @@ export function TimbratureStampaDialog({
                 Imposta come predefinito
               </FieldLabel>
               <FieldDescription>
-                Il template scelto sarà quello proposto alle prossime stampe, per
-                tutti gli amministratori.
+                Il template scelto sarà quello proposto alle prossime stampe,
+                per tutti gli amministratori.
               </FieldDescription>
             </FieldContent>
             <Switch
