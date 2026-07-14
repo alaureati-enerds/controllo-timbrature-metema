@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { AuditSettingsForm } from "@/components/admin/audit-settings-form"
+import { CalcoloSettingsForm } from "@/components/admin/calcolo-settings-form"
 import { EmailSettingsForm } from "@/components/admin/email-settings-form"
 import { MySqlSettingsForm } from "@/components/admin/mysql-settings-form"
 import { NotificationSettingsForm } from "@/components/admin/notification-settings-form"
@@ -8,6 +9,7 @@ import { OrarioSettingsForm } from "@/components/admin/orario-settings-form"
 import { SystemSettingsForm } from "@/components/admin/system-settings-form"
 import { requireRole } from "@/lib/auth-helpers"
 import { getAuditSettings } from "@/lib/settings/audit"
+import { getCalcoloSettingsForAdmin } from "@/lib/settings/calcolo"
 import { getEmailSettingsForAdmin } from "@/lib/settings/email"
 import { getMySqlSettingsForAdmin } from "@/lib/settings/mysql"
 import { getNotificationSettings } from "@/lib/settings/notifications"
@@ -25,6 +27,7 @@ export default async function AdminSettingsPage() {
     notificationSettings,
     mysqlSettings,
     orarioSettings,
+    calcoloSettings,
   ] = await Promise.all([
     getSystemSettings(),
     getEmailSettingsForAdmin(),
@@ -32,6 +35,7 @@ export default async function AdminSettingsPage() {
     getNotificationSettings(),
     getMySqlSettingsForAdmin(),
     getOrarioSettingsForAdmin(),
+    getCalcoloSettingsForAdmin(),
   ])
 
   return (
@@ -42,7 +46,7 @@ export default async function AdminSettingsPage() {
         </h1>
         <p className="text-sm text-muted-foreground">
           Configurazione globale dell&apos;applicazione: branding, email, MySQL,
-          orario di lavoro, audit log e notifiche.
+          orario di lavoro, regole di calcolo, audit log e notifiche.
         </p>
       </header>
 
@@ -50,6 +54,7 @@ export default async function AdminSettingsPage() {
       <EmailSettingsForm initial={emailSettings} />
       <MySqlSettingsForm initial={mysqlSettings} />
       <OrarioSettingsForm initial={orarioSettings} />
+      <CalcoloSettingsForm initial={calcoloSettings} />
       <AuditSettingsForm initial={auditSettings} />
       <NotificationSettingsForm initial={notificationSettings} />
     </div>

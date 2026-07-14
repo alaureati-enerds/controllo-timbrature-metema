@@ -90,11 +90,12 @@ export function calcolaCorretti(
   const roundE = (o: string) => arrotondaEntrata(o, regole)
   const roundU = (o: string) => arrotondaUscita(o, regole)
 
-  // 1. Overlay
-  let s1 = corretto(override?.entrata1, g.entrata1, roundE)
+  // 1. Overlay (s1/s4 sono gli estremi, mai riscritti; s2/s3 possono essere
+  // ricostruiti dal fill).
+  const s1 = corretto(override?.entrata1, g.entrata1, roundE)
   let s2 = corretto(override?.uscita1, g.uscita1, roundU)
   let s3 = corretto(override?.entrata2, g.entrata2, roundE)
-  let s4 = corretto(override?.uscita2, g.uscita2, roundU)
+  const s4 = corretto(override?.uscita2, g.uscita2, roundU)
 
   // 2. Completamento della pausa pranzo. Scatta solo su giornata chiusa ai due
   // estremi (ce1 e cu2 presenti); riempie i mancanti fra cu1 (← primaUscita) e

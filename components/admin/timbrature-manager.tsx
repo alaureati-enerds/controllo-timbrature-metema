@@ -9,6 +9,7 @@ import {
   ChevronRightIcon,
   RefreshCwIcon,
   RotateCwIcon,
+  TriangleAlertIcon,
   UserIcon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -24,6 +25,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -80,6 +82,7 @@ import {
   calcolaTotaliMese,
   isWeekend,
 } from "@/lib/timbrature/calcolo"
+import type { Anomalia, ProvenienzaSlot } from "@/lib/timbrature/calcolo"
 import type { Giornata } from "@/lib/timbrature/giornate"
 import { ORARIO_REGEX, mascheraOrario } from "@/lib/timbrature/ora"
 import type { StampaTemplateId } from "@/lib/timbrature/stampa/catalog"
@@ -130,10 +133,42 @@ function formattaMinuti(minuti: number): string {
   return `${h}h ${m}m`
 }
 
+const ANOMALIA_LABEL: Record<Anomalia, string> = {
+  entrata_mancante: "Entrata mancante",
+  uscita_mancante: "Uscita mancante",
+  turno_incompleto: "Turno incompleto",
+  timbratura_sospetta: "Timbratura sospetta (00:00)",
+  durata_eccessiva: "Durata eccessiva",
+  assente: "Assente",
+}
+
+// Badge compatto (icona + conteggio) per i giorni da rivedere. L'elenco esteso
+// delle anomalie è nel Tooltip e nell'aria-label (niente testo in riga).
+function AnomaliaBadge({ anomalie }: { anomalie: Anomalia[] }) {
+  if (anomalie.length === 0) return null
+  const etichette = anomalie.map((a) => ANOMALIA_LABEL[a]).join(" · ")
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          variant="destructive"
+          className="cursor-default align-middle"
+          aria-label={`Anomalie: ${etichette}`}
+        >
+          <TriangleAlertIcon data-icon="inline-start" aria-hidden="true" />
+          {anomalie.length}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>{etichette}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 function CorrettaCell({
   giorno,
   campo,
   valore,
+  provenienza,
   editing,
   setEditing,
   editRef,
@@ -142,6 +177,7 @@ function CorrettaCell({
   giorno: string
   campo: string
   valore: string | null
+  provenienza: ProvenienzaSlot
   editing: { giorno: string; campo: string } | null
   setEditing: (k: { giorno: string; campo: string } | null) => void
   editRef: React.RefObject<HTMLInputElement | null>
@@ -209,20 +245,29 @@ function CorrettaCell({
     )
   }
 
+  const ricostruita = provenienza === "ricostruita"
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <TableCell
           role="button"
           tabIndex={0}
-          className="cursor-pointer text-center tabular-nums text-sky-600 outline-none hover:bg-muted/20 focus-visible:ring-3 focus-visible:ring-ring/50"
+          className={cn(
+            "cursor-pointer text-center tabular-nums outline-none hover:bg-muted/20 focus-visible:ring-3 focus-visible:ring-ring/50",
+            ricostruita ? "text-muted-foreground italic" : "text-sky-600"
+          )}
           onClick={startEdit}
           onKeyDown={onCellKeyDown}
         >
           {valore ?? "—"}
         </TableCell>
       </TooltipTrigger>
-      <TooltipContent>Clicca per modificare</TooltipContent>
+      <TooltipContent>
+        {ricostruita
+          ? "Ricostruita dall'orario standard · clicca per modificare"
+          : "Clicca per modificare"}
+      </TooltipContent>
     </Tooltip>
   )
 }
@@ -245,6 +290,7 @@ export function TimbratureManager({
     secondaUscita: "17:30",
   })
   const [regole, setRegole] = useState<CalcoloSettingsAdmin>(CALCOLO_DEFAULTS)
+  const [soloAnomalie, setSoloAnomalie] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loadingDip, setLoadingDip] = useState(true)
   const [correzioni, setCorrezioni] = useState<Map<string, Record<string, string | null>>>(new Map())
@@ -490,7 +536,13 @@ export function TimbratureManager({
     we: isWeekend(g.giornoSettimana),
   }))
 
+  // Totali sempre sull'intero mese; il filtro anomalie è solo una vista.
   const totaliMese = calcolaTotaliMese(righe)
+  const nAnomalie = righe.filter((r) => r.anomalie.length > 0).length
+  const righeVisibili =
+    soloAnomalie && nAnomalie > 0
+      ? righe.filter((r) => r.anomalie.length > 0)
+      : righe
 
   return (
     <div className="flex flex-col gap-6">
@@ -685,7 +737,23 @@ export function TimbratureManager({
 
       <Card>
         <CardHeader>
-          <CardTitle className="tabular-nums">{meseLabel}</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="tabular-nums">{meseLabel}</CardTitle>
+            {nAnomalie > 0 && (
+              <Button
+                variant={soloAnomalie ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setSoloAnomalie((v) => !v)}
+                aria-pressed={soloAnomalie}
+              >
+                <TriangleAlertIcon data-icon="inline-start" aria-hidden="true" />
+                {nAnomalie}{" "}
+                {nAnomalie === 1
+                  ? "giorno da verificare"
+                  : "giorni da verificare"}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-0 sm:px-6 sm:pb-6">
           {loading ? (
@@ -792,7 +860,7 @@ export function TimbratureManager({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {righe.map((r) => (
+                      {righeVisibili.map((r) => (
                         <TableRow
                           key={r.giorno}
                           className={cn(r.we && "bg-destructive/10")}
@@ -818,7 +886,10 @@ export function TimbratureManager({
                               r.we && "text-destructive"
                             )}
                           >
-                            {format(new Date(r.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
+                            <span className="inline-flex items-center gap-2">
+                              {format(new Date(r.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
+                              <AnomaliaBadge anomalie={r.anomalie} />
+                            </span>
                           </TableCell>
                           <TableCell className="text-center tabular-nums">
                             {r.entrata1?.slice(0, 5) ?? "—"}
@@ -836,6 +907,7 @@ export function TimbratureManager({
                             giorno={r.giorno}
                             campo="entrata1"
                             valore={r.ce1}
+                            provenienza={r.provenienza.e1}
                             editing={editing}
                             setEditing={setEditing}
                             editRef={editRef}
@@ -845,6 +917,7 @@ export function TimbratureManager({
                             giorno={r.giorno}
                             campo="uscita1"
                             valore={r.cu1}
+                            provenienza={r.provenienza.u1}
                             editing={editing}
                             setEditing={setEditing}
                             editRef={editRef}
@@ -854,6 +927,7 @@ export function TimbratureManager({
                             giorno={r.giorno}
                             campo="entrata2"
                             valore={r.ce2}
+                            provenienza={r.provenienza.e2}
                             editing={editing}
                             setEditing={setEditing}
                             editRef={editRef}
@@ -863,6 +937,7 @@ export function TimbratureManager({
                             giorno={r.giorno}
                             campo="uscita2"
                             valore={r.cu2}
+                            provenienza={r.provenienza.u2}
                             editing={editing}
                             setEditing={setEditing}
                             editRef={editRef}
@@ -921,7 +996,7 @@ export function TimbratureManager({
               </div>
 
               <div className="flex flex-col gap-3 md:hidden">
-                {righe.map((r) => (
+                {righeVisibili.map((r) => (
                   <Card
                     key={r.giorno}
                     size="sm"
@@ -946,6 +1021,7 @@ export function TimbratureManager({
                           >
                             {format(new Date(r.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
                           </span>
+                          <AnomaliaBadge anomalie={r.anomalie} />
                         </div>
                         <div className="flex items-center gap-2 text-xs tabular-nums">
                           <span className={cn(r.totale > 0 && r.totale < 5 * 60 && "text-muted-foreground")}>
