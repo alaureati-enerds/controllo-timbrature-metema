@@ -105,6 +105,24 @@ type Preset = {
 
 const STANDARD_ID = "__standard__"
 
+// Colonne che precedono il blocco delle ore: checkbox, stato, data, i 4 turni
+// reali e i 4 corretti. È il colSpan dell'etichetta «Totale mese» nel footer:
+// tenerlo qui evita di doverlo ricontare a mano a ogni colonna aggiunta.
+const COLONNE_TESTA = 11
+
+// Header fisso mentre si scorrono i 31 giorni. Il fondo dev'essere opaco (le
+// righe ci passano sotto) e la riga di separazione è un `inset shadow`: con
+// `border-collapse: collapse` i bordi di una cella sticky non vengono
+// ridipinti durante lo scroll. L'offset (`top-*`) lo mette chi la usa: la
+// seconda riga di intestazione parte sotto la prima (`h-10`).
+const THEAD_STICKY =
+  "sticky z-10 bg-background shadow-[inset_0_-1px_0_var(--border)]"
+
+// Stessa idea per il totale del mese, ancorato in basso: resta leggibile senza
+// dover scorrere fino in fondo. `bg-muted` pieno (non /50) o le righe traspaiono.
+const TFOOT_STICKY =
+  "sticky bottom-0 z-10 bg-muted shadow-[inset_0_1px_0_var(--border)]"
+
 // Riga di correzione come arriva dall'API (i turni non corretti sono null).
 type CorrezioneRaw = {
   giorno: string
@@ -124,6 +142,11 @@ function meseCorrente() {
       ? oggi.getFullYear() - 1
       : oggi.getFullYear(),
   }
+}
+
+// «Lun» / «Lunedì»: date-fns rende il giorno in minuscolo in italiano.
+function nomeGiorno(d: Date, formato: "EEE" | "EEEE"): string {
+  return format(d, formato, { locale: it }).replace(/^./, (c) => c.toUpperCase())
 }
 
 function formattaMinuti(minuti: number): string {
@@ -236,7 +259,7 @@ function CorrettaCell({
           inputMode="numeric"
           placeholder="HH:MM"
           aria-invalid={invalid}
-          className="h-8 px-2 text-center tabular-nums text-sky-600"
+          className="h-8 px-2 text-center text-corretto tabular-nums"
           onBlur={commit}
           onKeyDown={onKeyDown}
           onChange={onChangeDraft}
@@ -255,7 +278,12 @@ function CorrettaCell({
           tabIndex={0}
           className={cn(
             "cursor-pointer text-center tabular-nums outline-none hover:bg-muted/20 focus-visible:ring-3 focus-visible:ring-ring/50",
-            ricostruita ? "text-muted-foreground italic" : "text-sky-600"
+            // Una cella vuota resta grigia: colorarla direbbe che c'è un valore.
+            valore == null
+              ? "text-muted-foreground"
+              : ricostruita
+                ? "text-muted-foreground italic"
+                : "text-corretto"
           )}
           onClick={startEdit}
           onKeyDown={onCellKeyDown}
@@ -534,6 +562,9 @@ export function TimbratureManager({
     ...g,
     ...calcolaCorretti(g, correzioni.get(g.giorno), regole, orario),
     we: isWeekend(g.giornoSettimana),
+    // Mezzogiorno: la data è un giorno civile, non un istante — così nessun
+    // fuso la fa scivolare al giorno prima.
+    data: new Date(g.giorno + "T12:00:00"),
   }))
 
   // Totali sempre sull'intero mese; il filtro anomalie è solo una vista.
@@ -778,221 +809,222 @@ export function TimbratureManager({
           ) : (
             <>
               <div className="hidden md:block">
-                <div className="overflow-x-auto rounded-lg border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead rowSpan={2} className="w-10 text-center">
-                          <Checkbox
-                            checked={righe.length > 0 && selected.size === righe.length}
-                            onCheckedChange={toggleSelectAll}
-                            aria-label="Seleziona tutto"
-                          />
-                        </TableHead>
+                <Table containerClassName="max-h-[70vh] overflow-auto rounded-lg border">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead
+                        rowSpan={2}
+                        className={cn(THEAD_STICKY, "top-0 w-10 text-center")}
+                      >
+                        <Checkbox
+                          checked={
+                            righe.length > 0 && selected.size === righe.length
+                          }
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Seleziona tutto"
+                        />
+                      </TableHead>
+                      <TableHead
+                        rowSpan={2}
+                        className={cn(THEAD_STICKY, "top-0 w-14 text-center")}
+                      >
+                        Stato
+                      </TableHead>
+                      <TableHead
+                        rowSpan={2}
+                        className={cn(THEAD_STICKY, "top-0 w-24 tabular-nums")}
+                      >
+                        Data
+                      </TableHead>
+                      <TableHead
+                        colSpan={4}
+                        className={cn(
+                          THEAD_STICKY,
+                          "top-0 text-center text-xs font-semibold text-muted-foreground"
+                        )}
+                      >
+                        Timbrature reali
+                      </TableHead>
+                      <TableHead
+                        colSpan={4}
+                        className={cn(
+                          THEAD_STICKY,
+                          "top-0 text-center text-xs font-semibold text-muted-foreground"
+                        )}
+                      >
+                        Timbrature corrette
+                      </TableHead>
+                      <TableHead
+                        rowSpan={2}
+                        className={cn(
+                          THEAD_STICKY,
+                          "top-0 w-28 text-right tabular-nums"
+                        )}
+                      >
+                        Totale
+                      </TableHead>
+                      <TableHead
+                        rowSpan={2}
+                        className={cn(
+                          THEAD_STICKY,
+                          "top-0 w-28 text-right tabular-nums"
+                        )}
+                      >
+                        Straordinario
+                      </TableHead>
+                    </TableRow>
+                    <TableRow>
+                      {[
+                        "Entrata",
+                        "Uscita",
+                        "Entrata",
+                        "Uscita",
+                        "Entrata",
+                        "Uscita",
+                        "Entrata",
+                        "Uscita",
+                      ].map((label, i) => (
                         <TableHead
-                          rowSpan={2}
-                          className="w-16 tabular-nums"
+                          key={i}
+                          className={cn(
+                            THEAD_STICKY,
+                            "top-10 w-20 text-center font-normal"
+                          )}
                         >
-                          Data
+                          {label}
                         </TableHead>
-                        <TableHead
-                          rowSpan={2}
-                          className="tabular-nums"
-                        >
-                          Giorno
-                        </TableHead>
-                        <TableHead
-                          colSpan={4}
-                          className="text-center text-xs font-semibold text-muted-foreground"
-                        >
-                          Timbrature reali
-                        </TableHead>
-                        <TableHead
-                          colSpan={4}
-                          className="text-center text-xs font-semibold text-muted-foreground"
-                        >
-                          Timbrature corrette
-                        </TableHead>
-                        <TableHead
-                          rowSpan={2}
-                          className="w-28 text-right tabular-nums"
-                        >
-                          Totale
-                        </TableHead>
-                        <TableHead
-                          rowSpan={2}
-                          className="w-28 text-right tabular-nums"
-                        >
-                          Ordinario
-                        </TableHead>
-                        <TableHead
-                          rowSpan={2}
-                          className="w-28 text-right tabular-nums"
-                        >
-                          Straordinario
-                        </TableHead>
-                      </TableRow>
-                      <TableRow>
-                        <TableHead className="w-20 text-center tabular-nums font-normal">
-                          Entrata
-                        </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal">
-                          Uscita
-                        </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal">
-                          Entrata
-                        </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal">
-                          Uscita
-                        </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal">
-                          Entrata
-                        </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal">
-                          Uscita
-                        </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal">
-                          Entrata
-                        </TableHead>
-                        <TableHead className="w-20 text-center tabular-nums font-normal">
-                          Uscita
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {righeVisibili.map((r) => (
-                        <TableRow
-                          key={r.giorno}
-                          className={cn(r.we && "bg-destructive/10")}
-                        >
-                          <TableCell className="text-center">
-                            <Checkbox
-                              checked={selected.has(r.giorno)}
-                              onCheckedChange={() => toggleSelect(r.giorno)}
-                              aria-label={`Seleziona ${r.giorno}`}
-                            />
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "tabular-nums",
-                              r.we && "text-destructive"
-                            )}
-                          >
-                            {format(new Date(r.giorno + "T12:00:00"), "dd/MM", { locale: it })}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "tabular-nums",
-                              r.we && "text-destructive"
-                            )}
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              {format(new Date(r.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
-                              <AnomaliaBadge anomalie={r.anomalie} />
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-center tabular-nums">
-                            {r.entrata1?.slice(0, 5) ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-center tabular-nums">
-                            {r.uscita1?.slice(0, 5) ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-center tabular-nums">
-                            {r.entrata2?.slice(0, 5) ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-center tabular-nums">
-                            {r.uscita2?.slice(0, 5) ?? "—"}
-                          </TableCell>
-                          <CorrettaCell
-                            giorno={r.giorno}
-                            campo="entrata1"
-                            valore={r.ce1}
-                            provenienza={r.provenienza.e1}
-                            editing={editing}
-                            setEditing={setEditing}
-                            editRef={editRef}
-                            onSave={salvaCorrezione}
-                          />
-                          <CorrettaCell
-                            giorno={r.giorno}
-                            campo="uscita1"
-                            valore={r.cu1}
-                            provenienza={r.provenienza.u1}
-                            editing={editing}
-                            setEditing={setEditing}
-                            editRef={editRef}
-                            onSave={salvaCorrezione}
-                          />
-                          <CorrettaCell
-                            giorno={r.giorno}
-                            campo="entrata2"
-                            valore={r.ce2}
-                            provenienza={r.provenienza.e2}
-                            editing={editing}
-                            setEditing={setEditing}
-                            editRef={editRef}
-                            onSave={salvaCorrezione}
-                          />
-                          <CorrettaCell
-                            giorno={r.giorno}
-                            campo="uscita2"
-                            valore={r.cu2}
-                            provenienza={r.provenienza.u2}
-                            editing={editing}
-                            setEditing={setEditing}
-                            editRef={editRef}
-                            onSave={salvaCorrezione}
-                          />
-                          <TableCell
-                            className={cn(
-                              "text-right tabular-nums",
-                              r.totale > 0 &&
-                                r.totale < 5 * 60 &&
-                                "text-muted-foreground",
-                              r.totale === 0 && !r.we && "text-muted-foreground"
-                            )}
-                          >
-                            {formattaMinuti(r.totale)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-muted-foreground">
-                            {formattaMinuti(r.ordinario)}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "text-right tabular-nums",
-                              r.straordinario > 0 && "text-amber-600"
-                            )}
-                          >
-                            {formattaMinuti(r.straordinario)}
-                          </TableCell>
-                        </TableRow>
                       ))}
-                    </TableBody>
-                    {righe.length > 0 && (
-                      <TableFooter>
-                        <TableRow>
-                          <TableCell colSpan={11} className="text-right">
-                            Totale mese
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formattaMinuti(totaliMese.totale)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-muted-foreground">
-                            {formattaMinuti(totaliMese.ordinario)}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "text-right tabular-nums",
-                              totaliMese.straordinario > 0 && "text-amber-600"
-                            )}
-                          >
-                            {formattaMinuti(totaliMese.straordinario)}
-                          </TableCell>
-                        </TableRow>
-                      </TableFooter>
-                    )}
-                  </Table>
-                </div>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {righeVisibili.map((r) => (
+                      <TableRow
+                        key={r.giorno}
+                        className={cn(r.we && "bg-muted/40")}
+                      >
+                        <TableCell className="text-center">
+                          <Checkbox
+                            checked={selected.has(r.giorno)}
+                            onCheckedChange={() => toggleSelect(r.giorno)}
+                            aria-label={`Seleziona ${r.giorno}`}
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <AnomaliaBadge anomalie={r.anomalie} />
+                        </TableCell>
+                        <TableCell className="tabular-nums">
+                          {format(r.data, "dd/MM", { locale: it })}{" "}
+                          <span className="text-muted-foreground">
+                            {nomeGiorno(r.data, "EEE")}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center tabular-nums">
+                          {r.entrata1?.slice(0, 5) ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-center tabular-nums">
+                          {r.uscita1?.slice(0, 5) ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-center tabular-nums">
+                          {r.entrata2?.slice(0, 5) ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-center tabular-nums">
+                          {r.uscita2?.slice(0, 5) ?? "—"}
+                        </TableCell>
+                        <CorrettaCell
+                          giorno={r.giorno}
+                          campo="entrata1"
+                          valore={r.ce1}
+                          provenienza={r.provenienza.e1}
+                          editing={editing}
+                          setEditing={setEditing}
+                          editRef={editRef}
+                          onSave={salvaCorrezione}
+                        />
+                        <CorrettaCell
+                          giorno={r.giorno}
+                          campo="uscita1"
+                          valore={r.cu1}
+                          provenienza={r.provenienza.u1}
+                          editing={editing}
+                          setEditing={setEditing}
+                          editRef={editRef}
+                          onSave={salvaCorrezione}
+                        />
+                        <CorrettaCell
+                          giorno={r.giorno}
+                          campo="entrata2"
+                          valore={r.ce2}
+                          provenienza={r.provenienza.e2}
+                          editing={editing}
+                          setEditing={setEditing}
+                          editRef={editRef}
+                          onSave={salvaCorrezione}
+                        />
+                        <CorrettaCell
+                          giorno={r.giorno}
+                          campo="uscita2"
+                          valore={r.cu2}
+                          provenienza={r.provenienza.u2}
+                          editing={editing}
+                          setEditing={setEditing}
+                          editRef={editRef}
+                          onSave={salvaCorrezione}
+                        />
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums",
+                            r.totale > 0 &&
+                              r.totale < 5 * 60 &&
+                              "text-muted-foreground",
+                            r.totale === 0 && !r.we && "text-muted-foreground"
+                          )}
+                        >
+                          {formattaMinuti(r.totale)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums",
+                            r.straordinario > 0 && "text-straordinario"
+                          )}
+                        >
+                          {formattaMinuti(r.straordinario)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  {righe.length > 0 && (
+                    <TableFooter>
+                      <TableRow>
+                        <TableCell
+                          colSpan={COLONNE_TESTA}
+                          className={cn(TFOOT_STICKY, "text-right")}
+                        >
+                          Totale mese{" "}
+                          <span className="font-normal text-muted-foreground tabular-nums">
+                            (ordinario {formattaMinuti(totaliMese.ordinario)})
+                          </span>
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            TFOOT_STICKY,
+                            "text-right tabular-nums"
+                          )}
+                        >
+                          {formattaMinuti(totaliMese.totale)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            TFOOT_STICKY,
+                            "text-right tabular-nums",
+                            totaliMese.straordinario > 0 && "text-straordinario"
+                          )}
+                        >
+                          {formattaMinuti(totaliMese.straordinario)}
+                        </TableCell>
+                      </TableRow>
+                    </TableFooter>
+                  )}
+                </Table>
               </div>
 
               <div className="flex flex-col gap-3 md:hidden">
@@ -1000,40 +1032,32 @@ export function TimbratureManager({
                   <Card
                     key={r.giorno}
                     size="sm"
-                    className={cn(r.we && "bg-destructive/10")}
+                    className={cn(r.we && "bg-muted/40")}
                   >
                     <CardContent className="p-4">
                       <div className="mb-2 flex items-center justify-between">
                         <div className="flex items-baseline gap-2">
-                          <span
-                            className={cn(
-                              "tabular-nums",
-                              r.we && "text-destructive"
-                            )}
-                          >
-                            {format(new Date(r.giorno + "T12:00:00"), "dd/MM", { locale: it })}
+                          <span className="tabular-nums">
+                            {format(r.data, "dd/MM", { locale: it })}
                           </span>
-                          <span
-                            className={cn(
-                              "text-sm font-medium",
-                              r.we && "text-destructive"
-                            )}
-                          >
-                            {format(new Date(r.giorno + "T12:00:00"), "EEEE", { locale: it }).replace(/^./, (c) => c.toUpperCase())}
+                          <span className="text-sm font-medium text-muted-foreground">
+                            {nomeGiorno(r.data, "EEEE")}
                           </span>
                           <AnomaliaBadge anomalie={r.anomalie} />
                         </div>
                         <div className="flex items-center gap-2 text-xs tabular-nums">
-                          <span className={cn(r.totale > 0 && r.totale < 5 * 60 && "text-muted-foreground")}>
+                          <span
+                            className={cn(
+                              r.totale > 0 &&
+                                r.totale < 5 * 60 &&
+                                "text-muted-foreground"
+                            )}
+                          >
                             {formattaMinuti(r.totale)}
-                          </span>
-                          <span className="text-muted-foreground">/</span>
-                          <span className="text-muted-foreground">
-                            {formattaMinuti(r.ordinario)}
                           </span>
                           <span
                             className={cn(
-                              r.straordinario > 0 && "text-amber-600"
+                              r.straordinario > 0 && "text-straordinario"
                             )}
                           >
                             {formattaMinuti(r.straordinario)}
@@ -1043,10 +1067,12 @@ export function TimbratureManager({
                       {!r.we && (
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                           <span>
-                            1° turno: {r.entrata1?.slice(0, 5) ?? "—"} – {r.uscita1?.slice(0, 5) ?? "—"}
+                            1° turno: {r.entrata1?.slice(0, 5) ?? "—"} –{" "}
+                            {r.uscita1?.slice(0, 5) ?? "—"}
                           </span>
                           <span>
-                            2° turno: {r.entrata2?.slice(0, 5) ?? "—"} – {r.uscita2?.slice(0, 5) ?? "—"}
+                            2° turno: {r.entrata2?.slice(0, 5) ?? "—"} –{" "}
+                            {r.uscita2?.slice(0, 5) ?? "—"}
                           </span>
                         </div>
                       )}
@@ -1056,18 +1082,19 @@ export function TimbratureManager({
                 {righe.length > 0 && (
                   <Card size="sm">
                     <CardContent className="flex items-center justify-between p-4 text-sm">
-                      <span className="font-medium">Totale mese</span>
+                      <span className="font-medium">
+                        Totale mese{" "}
+                        <span className="font-normal text-muted-foreground tabular-nums">
+                          (ordinario {formattaMinuti(totaliMese.ordinario)})
+                        </span>
+                      </span>
                       <div className="flex items-center gap-2 text-xs tabular-nums">
                         <span className="font-medium">
                           {formattaMinuti(totaliMese.totale)}
                         </span>
-                        <span className="text-muted-foreground">/</span>
-                        <span className="text-muted-foreground">
-                          {formattaMinuti(totaliMese.ordinario)}
-                        </span>
                         <span
                           className={cn(
-                            totaliMese.straordinario > 0 && "text-amber-600"
+                            totaliMese.straordinario > 0 && "text-straordinario"
                           )}
                         >
                           {formattaMinuti(totaliMese.straordinario)}

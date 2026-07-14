@@ -37,6 +37,12 @@ Ogni tema definisce questi token (vedi i blocchi esistenti per i valori):
 `--chart-1…5`, e la serie `--sidebar-*`. Il `--radius` è definito una sola volta
 in `:root` ed è condiviso.
 
+Oltre a questi ci sono due token **di dominio**, usati dalla pagina Timbrature:
+`--corretto` (il blu di un orario corretto a mano) e `--straordinario` (l'ambra
+delle ore oltre l'ordinario). Anche loro vanno definiti nel tema nuovo:
+scegli dalla palette la tinta più vicina a «blu» e a «arancio/giallo», come
+fanno i temi esistenti (Dracula → Cyan/Orange, Nord → Frost/Yellow).
+
 I colori sono in formato **`oklch()`** per coerenza. Tecnicamente funziona anche
 HEX (`--primary: #8839ef`), ma conviene convertire (vedi sotto).
 
