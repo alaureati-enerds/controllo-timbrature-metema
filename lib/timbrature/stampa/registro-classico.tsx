@@ -20,15 +20,14 @@ function oreHHMM(minuti: number): string {
   return `${String(h).padStart(2, "0")},${String(m).padStart(2, "0")}`
 }
 
-// Il modulo storico stampa "00:00" al posto delle celle vuote, non un trattino.
 function ora(valore: string | null): string {
-  return valore ? valore.slice(0, 5) : "00:00"
+  return valore ? valore.slice(0, 5) : "—"
 }
 
 const NERO = "#1a1a1a"
 const GRIGIO = "#6b7280"
 const ROSSO = "#c0392b" // sabato e domenica
-const MARCATEMPO = "#2f7f93" // orari grezzi: colonna "da marcatempo"
+const CORRETTO = "#2f7f93" // orari arrotondati
 const BORDO = "#d4d4d8"
 
 const styles = StyleSheet.create({
@@ -69,9 +68,6 @@ const styles = StyleSheet.create({
     borderBottomColor: BORDO,
   },
   cella: { textAlign: "center" },
-  // Orario ricostruito dall'orario standard (pausa non timbrata): in corsivo e
-  // grigio, così il registro firmato distingue un timbro vero da uno dedotto.
-  ricostruita: { fontFamily: "Helvetica-Oblique", color: GRIGIO },
 
   // Larghezze: sommano a 100%.
   wData: { width: "12%", paddingLeft: 2 },
@@ -115,16 +111,6 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: GRIGIO,
   },
-
-  // Legenda + conteggio anomalie sotto i totali.
-  nota: {
-    marginTop: 10,
-    flexDirection: "column",
-    gap: 2,
-    fontSize: 7,
-    color: GRIGIO,
-  },
-  notaAnomalie: { color: ROSSO },
 })
 
 function Riga({ r }: { r: DatiStampa["righe"][number] }) {
@@ -145,7 +131,7 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
       {[r.entrata1, r.uscita1, r.entrata2, r.uscita2].map((v, i) => (
         <Text
           key={`reale-${i}`}
-          style={[styles.cella, styles.wOra, { color: MARCATEMPO }]}
+          style={[styles.cella, styles.wOra, { color: NERO }]}
         >
           {ora(v)}
         </Text>
@@ -161,11 +147,7 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
       ).map(([v, prov], i) => (
         <Text
           key={`corretto-${i}`}
-          style={[
-            styles.cella,
-            styles.wOra,
-            prov === "ricostruita" ? styles.ricostruita : {},
-          ]}
+          style={[styles.cella, styles.wOra, { color: CORRETTO }]}
         >
           {ora(v)}
         </Text>
@@ -183,12 +165,6 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
 
 export function RegistroClassico({ dati }: { dati: DatiStampa }) {
   const { dipendente, righe, totali, stampatoIl } = dati
-  // Stessa regola della pagina a schermo: un giorno revisionato non conta come
-  // "da verificare" nel registro stampato (vedi StatoBadge in
-  // components/admin/timbrature-manager.tsx).
-  const nAnomalie = righe.filter(
-    (r) => !r.revisionata && r.anomalie.length > 0
-  ).length
 
   return (
     <Document
@@ -257,20 +233,6 @@ export function RegistroClassico({ dati }: { dati: DatiStampa }) {
             <Text>Totale ordinario</Text>
             <Text style={styles.totaleValore}>{oreHHMM(totali.ordinario)}</Text>
           </View>
-        </View>
-
-        <View style={styles.nota}>
-          <Text>
-            Gli orari in corsivo sono ricostruiti dall&apos;orario standard
-            (pausa non timbrata).
-          </Text>
-          {nAnomalie > 0 && (
-            <Text style={styles.notaAnomalie}>
-              {nAnomalie === 1
-                ? "1 giorno da verificare (timbrature incomplete o anomale)."
-                : `${nAnomalie} giorni da verificare (timbrature incomplete o anomale).`}
-            </Text>
-          )}
         </View>
 
         <View style={styles.pie} fixed>
