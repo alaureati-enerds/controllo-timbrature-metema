@@ -102,9 +102,15 @@ Ogni slot corretto porta la sua origine (`GiornataCalcolata.provenienza`):
 - `ricostruita` — pausa dedotta dall'orario standard;
 - `assente` — nessun valore.
 
-È la garanzia di onestà del sistema: la pagina rende i valori `ricostruita` in
-muted/corsivo con un tooltip, e la stampa PDF li mette in corsivo grigio. Nessun
-orario dedotto si confonde con uno timbrato davvero.
+La **stampa PDF** mette i valori `ricostruita` in corsivo grigio: sul documento
+che esce dall'ufficio, nessun orario dedotto si confonde con uno timbrato
+davvero.
+
+La **tabella della pagina Timbrature**, invece, non distingue le provenienze:
+le quattro colonne corrette sono tutte blu e tutte cliccabili allo stesso modo
+(scelta deliberata, per non trasformare la griglia in un codice a colori da
+decifrare). La colonna dei dati grezzi, lì accanto, resta il riferimento: se un
+orario compare fra i corretti ma non fra i grezzi, è dedotto.
 
 ## Le anomalie
 

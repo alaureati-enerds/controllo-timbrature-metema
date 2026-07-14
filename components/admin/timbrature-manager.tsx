@@ -84,7 +84,7 @@ import {
   calcolaTotaliMese,
   isWeekend,
 } from "@/lib/timbrature/calcolo"
-import type { Anomalia, ProvenienzaSlot } from "@/lib/timbrature/calcolo"
+import type { Anomalia } from "@/lib/timbrature/calcolo"
 import type { Giornata } from "@/lib/timbrature/giornate"
 import { ORARIO_REGEX, mascheraOrario } from "@/lib/timbrature/ora"
 import type { StampaTemplateId } from "@/lib/timbrature/stampa/catalog"
@@ -247,7 +247,6 @@ function CorrettaCell({
   giorno,
   campo,
   valore,
-  provenienza,
   editing,
   setEditing,
   editRef,
@@ -256,7 +255,6 @@ function CorrettaCell({
   giorno: string
   campo: string
   valore: string | null
-  provenienza: ProvenienzaSlot
   editing: { giorno: string; campo: string } | null
   setEditing: (k: { giorno: string; campo: string } | null) => void
   editRef: React.RefObject<HTMLInputElement | null>
@@ -329,8 +327,6 @@ function CorrettaCell({
     )
   }
 
-  const ricostruita = provenienza === "ricostruita"
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -341,10 +337,9 @@ function CorrettaCell({
             "cursor-pointer text-center tabular-nums outline-none hover:bg-muted/20 focus-visible:ring-3 focus-visible:ring-ring/50",
             // Il blu non ha un significato: tinge tutte e quattro le colonne
             // corrette, così il blocco si stacca a colpo d'occhio da quello dei
-            // dati grezzi. Il corsivo (che resta) è invece il marcatore vero:
-            // dice che la pausa è ricostruita, non timbrata.
-            valore == null ? "text-muted-foreground" : "text-corretto",
-            ricostruita && "italic"
+            // dati grezzi. Tutte le celle si comportano allo stesso modo, a
+            // prescindere da come il valore è stato ottenuto.
+            valore == null ? "text-muted-foreground" : "text-corretto"
           )}
           onClick={startEdit}
           onKeyDown={onCellKeyDown}
@@ -352,11 +347,7 @@ function CorrettaCell({
           {valore ?? "—"}
         </TableCell>
       </TooltipTrigger>
-      <TooltipContent>
-        {ricostruita
-          ? "Ricostruita dall'orario standard · clicca per modificare"
-          : "Clicca per modificare"}
-      </TooltipContent>
+      <TooltipContent>Clicca per modificare</TooltipContent>
     </Tooltip>
   )
 }
@@ -1190,7 +1181,6 @@ export function TimbratureManager({
                         giorno={r.giorno}
                         campo="entrata1"
                         valore={r.ce1}
-                        provenienza={r.provenienza.e1}
                         editing={editing}
                         setEditing={setEditing}
                         editRef={editRef}
@@ -1200,7 +1190,6 @@ export function TimbratureManager({
                         giorno={r.giorno}
                         campo="uscita1"
                         valore={r.cu1}
-                        provenienza={r.provenienza.u1}
                         editing={editing}
                         setEditing={setEditing}
                         editRef={editRef}
@@ -1210,7 +1199,6 @@ export function TimbratureManager({
                         giorno={r.giorno}
                         campo="entrata2"
                         valore={r.ce2}
-                        provenienza={r.provenienza.e2}
                         editing={editing}
                         setEditing={setEditing}
                         editRef={editRef}
@@ -1220,7 +1208,6 @@ export function TimbratureManager({
                         giorno={r.giorno}
                         campo="uscita2"
                         valore={r.cu2}
-                        provenienza={r.provenienza.u2}
                         editing={editing}
                         setEditing={setEditing}
                         editRef={editRef}
