@@ -339,12 +339,12 @@ function CorrettaCell({
           tabIndex={0}
           className={cn(
             "cursor-pointer text-center tabular-nums outline-none hover:bg-muted/20 focus-visible:ring-3 focus-visible:ring-ring/50",
-            // Una cella vuota resta grigia: colorarla direbbe che c'è un valore.
-            valore == null
-              ? "text-muted-foreground"
-              : ricostruita
-                ? "text-muted-foreground italic"
-                : "text-corretto"
+            // Il blu non ha un significato: tinge tutte e quattro le colonne
+            // corrette, così il blocco si stacca a colpo d'occhio da quello dei
+            // dati grezzi. Il corsivo (che resta) è invece il marcatore vero:
+            // dice che la pausa è ricostruita, non timbrata.
+            valore == null ? "text-muted-foreground" : "text-corretto",
+            ricostruita && "italic"
           )}
           onClick={startEdit}
           onKeyDown={onCellKeyDown}
@@ -1282,21 +1282,9 @@ export function TimbratureManager({
                 )}
               </Table>
 
-              {/* I colori della tabella sono un linguaggio: qui c'è il
+              {/* Le icone di stato hanno un significato preciso: qui c'è il
                     vocabolario, invece di lasciarlo indovinare. */}
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span>
-                  <span className="text-corretto">Blu</span> = orario corretto a
-                  mano
-                </span>
-                <span>
-                  <span className="italic">Corsivo</span> = pausa ricostruita
-                  dall&apos;orario standard
-                </span>
-                <span>
-                  <span className="text-straordinario">Ambra</span> =
-                  straordinario
-                </span>
                 <span className="inline-flex items-center gap-1">
                   <TriangleAlertIcon
                     className="size-3 text-destructive"

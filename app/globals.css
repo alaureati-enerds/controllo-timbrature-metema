@@ -65,9 +65,10 @@
     --accent: oklch(0.967 0.001 286.375);
     --accent-foreground: oklch(0.21 0.006 285.885);
     --destructive: oklch(0.577 0.245 27.325);
-    /* Timbrature: il blu di un orario corretto/modificato e l'ambra dello
-       straordinario. Sono token perché ogni tema deve poterli intonare alla
-       propria palette (vedi docs/calcolo-timbrature.md). */
+    /* Timbrature: il blu delle colonne degli orari corretti (distinzione
+       visiva dal blocco dei dati grezzi) e l'ambra dello straordinario. Sono
+       token perché ogni tema deve poterli intonare alla propria palette
+       (vedi docs/calcolo-timbrature.md). */
     --corretto: oklch(0.588 0.158 241.966);
     --straordinario: oklch(0.666 0.179 58.318);
     --border: oklch(0.92 0.004 286.32);
