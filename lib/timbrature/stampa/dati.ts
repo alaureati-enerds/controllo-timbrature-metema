@@ -15,7 +15,8 @@ import { getGiornate, type Giornata } from "@/lib/timbrature/giornate"
 // (lib/timbrature/calcolo.ts), così i numeri stampati non possono divergere.
 
 /** Una riga della stampa: dato grezzo (marcatempo) + dato corretto + totali. */
-export type RigaStampa = Giornata & GiornataCalcolata & { weekend: boolean }
+export type RigaStampa = Giornata &
+  GiornataCalcolata & { weekend: boolean; revisionata: boolean }
 
 export type DatiStampa = {
   dipendente: Dipendente
@@ -35,7 +36,7 @@ export async function getDatiStampa(
   const dal = `${anno}-${String(mese).padStart(2, "0")}-01`
   const al = `${anno}-${String(mese).padStart(2, "0")}-31`
 
-  const [dipendente, { giornate }, correzioni] = await Promise.all([
+  const [dipendente, { giornate, orario, regole }, correzioni] = await Promise.all([
     getDipendente(codiceDipendente).catch((error: unknown) => {
       const detail = error instanceof Error ? error.message : "errore sconosciuto"
       throw new ApiError(`Impossibile leggere il dipendente: ${detail}`, 502)
@@ -49,6 +50,7 @@ export async function getDatiStampa(
         uscita1: true,
         entrata2: true,
         uscita2: true,
+        revisionata: true,
       },
     }),
   ])
@@ -69,10 +71,14 @@ export async function getDatiStampa(
     ])
   )
 
+  const revisionati = new Set(
+    correzioni.filter((c) => c.revisionata).map((c) => c.giorno)
+  )
   const righe: RigaStampa[] = giornate.map((g) => ({
     ...g,
-    ...calcolaCorretti(g, override.get(g.giorno)),
+    ...calcolaCorretti(g, override.get(g.giorno), regole, orario),
     weekend: isWeekend(g.giornoSettimana),
+    revisionata: revisionati.has(g.giorno),
   }))
 
   return {

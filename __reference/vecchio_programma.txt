@@ -1,0 +1,381 @@
+Il tasto che ricalcola le presenze di un dipendente per il mese selezionato (Comando47) fa questo:
+
+Private Sub Comando47_Click()
+If IsNull(anno) Then
+MsgBox "Attenzione indicare l'anno"
+Exit Sub
+End If
+
+
+If IsNull(da) Then
+MsgBox "Attenzione indicare la data iniziale"
+Exit Sub
+End If
+
+If IsNull(a) Then
+MsgBox "Attenzione indicare la data finale"
+Exit Sub
+End If
+
+Beep
+If MsgBox("Attenzione" & vbCrLf & _
+    "il proseguimento annullerà tutte le " & vbCrLf & _
+    "modifiche apportate alle presenze" & vbCrLf & _
+    "Vuoi proseguire?", _
+    vbCritical + vbYesNo, _
+    "") = vbYes Then
+    
+
+Me.RecordSource = ""
+
+DoCmd.SetWarnings False
+DoCmd.OpenQuery "elipre"
+DoCmd.OpenQuery "creapresenzeincalendario"
+DoCmd.OpenForm "aggiornapresenzecalendario"
+DoCmd.OpenForm "modificaentratauscita"
+
+DoCmd.SetWarnings True
+MsgBox "Operazione eseguita"
+Me.RecordSource = "modifica"
+End If
+
+End Sub
+
+
+
+E di seguito il codice contenuto nelle funzioni/query referenziate:
+
+elipre:
+DELETE Prezenzeincalendario.Data
+FROM Prezenzeincalendario
+WHERE (((Prezenzeincalendario.Data) Between [Maschere]![Modifica e stampa timbrature]![DA] And [Maschere]![Modifica e stampa timbrature]![A]));
+
+
+creapresenzeincalendario: 
+INSERT INTO Prezenzeincalendario ( Data, giorno, CODICE, DESCRIZIONE, obs, Entrata1, Uscita1, Entrata2, Uscita2, Straordinario, modificato, entrata1datimbratura, uscita1datimbratura, entrata2datimbratura, uscita2datimbratura )
+SELECT Calendario.Data, Calendario.giorno, dip.CODICE, dip.DESCRIZIONE, dip.obs, 0 AS Entrata1, 0 AS Uscita1, 0 AS Entrata2, 0 AS Uscita2, 0 AS Straordinario, "no" AS modificato, 0 AS entrata1datimbratura, 0 AS uscita1datimbratura, 0 AS entrata2datimbratura, 0 AS uscita2datimbratura
+FROM Calendario, dip
+WHERE (((Calendario.Data) Between [Maschere]![Modifica e stampa timbrature]![DA] And [Maschere]![Modifica e stampa timbrature]![A]) AND ((dip.obs)="no"));
+
+aggiornapresenzecalendario è un form che ha come sorgente dati AGGORA:
+SELECT Prezenzeincalendario.Data, Prezenzeincalendario.DESCRIZIONE, Prezenzeincalendario.CODICE AS CODICE_DIP, Nz([primaentrata],"00:00") AS primaentrataS, Nz([primauscita],"00:00") AS primauscitaS, Nz([secondaentrata],"00:00") AS secondaentrataS, Nz([secondauscita],"00:00") AS secondauscitaS
+FROM (((Prezenzeincalendario LEFT JOIN PRIMAENTRATA ON (Prezenzeincalendario.CODICE = PRIMAENTRATA.CODICE_DIP) AND (Prezenzeincalendario.Data = PRIMAENTRATA.DATA)) LEFT JOIN PRIMAUSCITA ON (Prezenzeincalendario.CODICE = PRIMAUSCITA.CODICE_DIP) AND (Prezenzeincalendario.Data = PRIMAUSCITA.DATA)) LEFT JOIN SECONDAENTRATA ON (Prezenzeincalendario.CODICE = SECONDAENTRATA.CODICE_DIP) AND (Prezenzeincalendario.Data = SECONDAENTRATA.DATA)) LEFT JOIN SECONDAUSCITA ON (Prezenzeincalendario.CODICE = SECONDAUSCITA.CODICE_DIP) AND (Prezenzeincalendario.Data = SECONDAUSCITA.DATA)
+WHERE (((Prezenzeincalendario.Data) Between [Maschere]![Modifica e stampa timbrature]![DA] And [Maschere]![Modifica e stampa timbrature]![A]));
+
+e come routine la seguente:
+Private Sub Form_Load()
+On Error GoTo a:
+Dim i As Variant
+DoCmd.GoToRecord , , acFirst
+For i = 1 To 1000
+DoCmd.SetWarnings False
+DoCmd.OpenQuery "AGG2"
+DoCmd.GoToRecord , , acNext
+Next i
+
+
+a:
+DoCmd.SetWarnings False
+DoCmd.Close acForm, "aggiornapresenzecalendario"
+End Sub
+
+Dove AGG2 è la seguente query:
+UPDATE Prezenzeincalendario SET Prezenzeincalendario.Entrata1 = [Maschere]![aggiornapresenzecalendario]![primaentrata], Prezenzeincalendario.Uscita1 = [Maschere]![aggiornapresenzecalendario]![primauscita], Prezenzeincalendario.Entrata2 = [Maschere]![aggiornapresenzecalendario]![secondaentrata], Prezenzeincalendario.Uscita2 = [Maschere]![aggiornapresenzecalendario]![secondauscita], Prezenzeincalendario.entrata1datimbratura = [Maschere]![aggiornapresenzecalendario]![primaentrata], Prezenzeincalendario.uscita1datimbratura = [Maschere]![aggiornapresenzecalendario]![primauscita], Prezenzeincalendario.entrata2datimbratura = [Maschere]![aggiornapresenzecalendario]![secondaentrata], Prezenzeincalendario.uscita2datimbratura = [Maschere]![aggiornapresenzecalendario]![secondauscita]
+WHERE (((Prezenzeincalendario.Data)=[Maschere]![aggiornapresenzecalendario]![DATA]) AND ((Prezenzeincalendario.CODICE)=[Maschere]![aggiornapresenzecalendario]![CODICE_DIP]) AND ((Prezenzeincalendario.DESCRIZIONE)=[Maschere]![aggiornapresenzecalendario]![DESCRIZIONE]));
+
+Mentre, modificaentratauscita è un altro form che ha come sorgente dati questa query:
+SELECT
+    prei.Data,
+    prei.Entrata1,
+    prei.Uscita1,
+    prei.Entrata2,
+    prei.Uscita2,
+    prei.CODICE,
+    prei.controllo,
+    prei.e,
+    prei.u,
+    prei.e1,
+    prei.u1,
+    prei.to
+FROM
+    prei
+WHERE
+    (
+        (
+            (prei.to) = 2
+            OR (prei.to) = 4
+        )
+    );
+
+
+
+    e come routine al caricamento la seguente:
+
+Private Sub Form_Load()
+On Error GoTo a:
+Dim i As Variant
+DoCmd.GoToRecord , , acFirst
+Dim strsql As String
+strsql = "select * from orariostandard"
+
+For i = 1 To 1000000
+Set DBS = CurrentDb
+Set rst = DBS.OpenRecordset(strsql)
+If Nz(rst.RecordCount, 0) = 0 Then
+e1 = "07:30"
+e2 = "14:00"
+u1 = "12:30"
+u2 = "17:00"
+Else
+e1 = rst![1inizio]
+e2 = rst![2inizio]
+u1 = rst![1FINE]
+u2 = rst![2fine]
+End If
+rst.Close
+Set rst = Nothing
+
+
+
+If Nz(Entrata1, 0) = 0 And Nz(Entrata2, 0) = 0 And Nz(Uscita1, 0) = 0 And Nz(Uscita2, 0) = 0 Then
+Else
+
+If Entrata1 = 0 Then
+Else
+If Minute(Entrata1) > 0 And Minute(Entrata1) < 15 Then
+e1 = Hour(Entrata1) & ":" & 15
+End If
+If Minute(Entrata1) = 0 Then
+e1 = Hour(Entrata1) & ":" & "00"
+End If
+If Minute(Entrata1) = 15 Then
+e1 = Hour(Entrata1) & ":" & 15
+End If
+If Minute(Entrata1) > 15 And Minute(Entrata1) < 30 Then
+e1 = Hour(Entrata1) & ":" & 30
+End If
+If Minute(Entrata1) = 30 Then
+e1 = Hour(Entrata1) & ":" & 30
+End If
+If Minute(Entrata1) > 30 And Minute(Entrata1) < 45 Then
+e1 = Hour(Entrata1) & ":" & 45
+End If
+If Minute(Entrata1) = 45 Then
+e1 = Hour(Entrata1) & ":" & 45
+End If
+If Minute(Entrata1) > 45 Then
+e1 = Hour(Entrata1) + 1 & ":" & "00"
+End If
+End If
+'-------------------------------------------------------
+If Entrata2 = 0 Then
+Else
+If Minute(Entrata2) > 0 And Minute(Entrata2) < 15 Then
+e2 = Hour(Entrata2) & ":" & 15
+End If
+If Minute(Entrata2) = 0 Then
+e2 = Hour(Entrata2) & ":" & "00"
+End If
+If Minute(Entrata2) = 15 Then
+e2 = Hour(Entrata2) & ":" & 15
+End If
+If Minute(Entrata2) > 15 And Minute(Entrata2) < 30 Then
+e2 = Hour(Entrata2) & ":" & 30
+End If
+If Minute(Entrata2) = 30 Then
+e2 = Hour(Entrata2) & ":" & 30
+End If
+If Minute(Entrata2) > 30 And Minute(Entrata2) < 45 Then
+e2 = Hour(Entrata2) & ":" & 45
+End If
+If Minute(Entrata2) = 45 Then
+e2 = Hour(Entrata2) & ":" & 45
+End If
+If Minute(Entrata2) > 45 Then
+e2 = Hour(Entrata2) + 1 & ":" & "00"
+End If
+End If
+'------------------------------------------------------
+
+If Uscita1 = 0 Then
+Else
+If Minute(Uscita1) > 0 And Minute(Uscita1) < 15 Then
+u1 = Hour(Uscita1) & ":" & "00"
+End If
+If Minute(Uscita1) = 0 Then
+u1 = Hour(Uscita1) & ":" & "00"
+End If
+If Minute(Uscita1) = 15 Then
+u1 = Hour(Uscita1) & ":" & "15"
+End If
+
+If Minute(Uscita1) > 15 And Minute(Uscita1) < 30 Then
+u1 = Hour(Uscita1) & ":" & 15
+End If
+
+If Minute(Uscita1) = 30 Then
+u1 = Hour(Uscita1) & ":" & "30"
+End If
+If Minute(Uscita1) > 30 And Minute(Uscita1) < 45 Then
+u1 = Hour(Uscita1) & ":" & 30
+End If
+
+If Minute(Uscita1) > 45 Then
+u1 = Hour(Uscita1) & ":" & "45"
+End If
+
+If Minute(Uscita1) = 45 Then
+u1 = Hour(Uscita1) & ":" & "45"
+End If
+End If
+
+'---------------------
+If Uscita2 = 0 Then
+Else
+If Minute(Uscita2) > 0 And Minute(Uscita2) < 15 Then
+u2 = Hour(Uscita2) & ":" & "00"
+End If
+If Minute(Uscita2) = 0 Then
+u2 = Hour(Uscita2) & ":" & "00"
+End If
+If Minute(Uscita2) = 15 Then
+u2 = Hour(Uscita2) & ":" & "15"
+End If
+
+If Minute(Uscita2) > 15 And Minute(Uscita2) < 30 Then
+u2 = Hour(Uscita2) & ":" & 15
+End If
+
+If Minute(Uscita2) = 30 Then
+u2 = Hour(Uscita2) & ":" & "30"
+End If
+If Minute(Uscita2) > 30 And Minute(Uscita2) < 45 Then
+u2 = Hour(Uscita2) & ":" & 30
+End If
+
+If Minute(Uscita2) > 45 Then
+u2 = Hour(Uscita2) & ":" & "45"
+End If
+
+If Minute(Uscita2) = 45 Then
+u2 = Hour(Uscita2) & ":" & "45"
+End If
+End If
+DoCmd.SetWarnings False
+DoCmd.OpenQuery "modora"
+End If
+DoCmd.GoToRecord , , acNext
+Next i
+
+a:
+DoCmd.Close acForm, "modificaentratauscita"
+
+End Sub
+
+
+-- Query richieste da claude code plan mode ---
+PRIMAENTRATA:
+SELECT Orariosistemato.DATA, Orariosistemato.DESCRIZIONE, Orariosistemato.CODICE_DIP, Orariosistemato.primaentrata
+FROM Orariosistemato
+WHERE (((Orariosistemato.DATA) Between [Maschere]![Modifica e stampa timbrature]![DA] And [Maschere]![Modifica e stampa timbrature]![A]) AND (Not (Orariosistemato.primaentrata)="0"));
+
+
+PRIMAUSCITA:
+SELECT Orariosistemato.DATA, Orariosistemato.DESCRIZIONE, Orariosistemato.CODICE_DIP, Orariosistemato.primauscita
+FROM Orariosistemato
+WHERE (((Orariosistemato.DATA) Between [Maschere]![Modifica e stampa timbrature]![DA] And [Maschere]![Modifica e stampa timbrature]![A]) AND ((Orariosistemato.primauscita)<>"0"));
+
+SECONDAENTRATA:
+SELECT Orariosistemato.DATA, Orariosistemato.DESCRIZIONE, Orariosistemato.CODICE_DIP, Orariosistemato.secondaentrata
+FROM Orariosistemato
+WHERE (((Orariosistemato.DATA) Between [Maschere]![Modifica e stampa timbrature]![DA] And [Maschere]![Modifica e stampa timbrature]![A]) AND ((Orariosistemato.secondaentrata)<>"0"));
+
+
+SECONDAUSCITA:
+SELECT Orariosistemato.DATA, Orariosistemato.DESCRIZIONE, Orariosistemato.CODICE_DIP, Orariosistemato.secondauscita
+FROM Orariosistemato
+WHERE (((Orariosistemato.DATA) Between [Maschere]![Modifica e stampa timbrature]![DA] And [Maschere]![Modifica e stampa timbrature]![A]) AND ((Orariosistemato.secondauscita)<>"0"));
+
+e Orariosistemato è:
+SELECT
+    Orario.DATA,
+    Orario.DESCRIZIONE,
+    Orario.orario,
+    Orario.TIPOLOGIA,
+    Orario.orario AS primaentrata,
+    0 AS primauscita,
+    0 AS secondaentrata,
+    0 AS secondauscita,
+    CODICE_DIP
+FROM
+    Orario
+WHERE
+    (
+        ((Orario.orario) < "12")
+        AND ((Orario.TIPOLOGIA) = "E")
+    );
+
+UNION
+SELECT
+    Orario.DATA,
+    Orario.DESCRIZIONE,
+    Orario.orario,
+    Orario.TIPOLOGIA,
+    0 AS primaentrata,
+    0 AS primauscita,
+    Orario.orario AS secondaentrata,
+    0 AS secondauscita,
+    CODICE_DIP
+FROM
+    Orario
+WHERE
+    (
+        ((Orario.orario) > "12")
+        AND ((Orario.TIPOLOGIA) = "E")
+    );
+
+UNION
+SELECT
+    Orario.DATA,
+    Orario.DESCRIZIONE,
+    Orario.orario,
+    Orario.TIPOLOGIA,
+    0 AS primaentrata,
+    Orario.orario AS primauscita,
+    0 AS secondaentrata,
+    0 AS secondauscita,
+    CODICE_DIP
+FROM
+    Orario
+WHERE
+    (
+        ((Orario.orario) < "16")
+        AND ((Orario.TIPOLOGIA) = "U")
+    );
+
+UNION
+SELECT
+    Orario.DATA,
+    Orario.DESCRIZIONE,
+    Orario.orario,
+    Orario.TIPOLOGIA,
+    0 AS primaentrata,
+    0 AS primauscita,
+    0 AS secondaentrata,
+    Orario.orario AS secondauscita,
+    CODICE_DIP
+FROM
+    Orario
+WHERE
+    (
+        ((Orario.orario) > "16")
+        AND ((Orario.TIPOLOGIA) = "U")
+    );
+
+
+
+    Altra query utile: prei
+    SELECT Prezenzeincalendario.Data, Prezenzeincalendario.Entrata1, Prezenzeincalendario.Uscita1, Prezenzeincalendario.Entrata2, Prezenzeincalendario.Uscita2, Prezenzeincalendario.CODICE, [entrata1]+[entrata2]+[uscita2]+[uscita1] AS controllo, IIf([entrata1]=0,0,1) AS e, IIf([uscita1]=0,0,1) AS u, IIf([entrata2]=0,0,1) AS e1, IIf([uscita2]=0,0,1) AS u1, [e]+[u]+[e1]+[u1] AS [to]
+FROM Prezenzeincalendario
+WHERE (((Prezenzeincalendario.Data) Between [Maschere]![Modifica e stampa timbrature]![DA] And [Maschere]![Modifica e stampa timbrature]![A]) AND (([entrata1]+[entrata2]+[uscita2]+[uscita1]) Is Not Null));
+

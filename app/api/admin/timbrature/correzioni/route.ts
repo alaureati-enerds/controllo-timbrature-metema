@@ -24,6 +24,9 @@ const putSchema = z.object({
   uscita1: oraSchema,
   entrata2: oraSchema,
   uscita2: oraSchema,
+  // Segna il giorno come rivisto, a prescindere dalle anomalie (vedi schema.prisma).
+  // Omesso: non tocca il flag esistente (bulk preset non deve resettarlo).
+  revisionata: z.boolean().optional(),
 })
 
 const deleteSchema = z.object({
@@ -55,6 +58,7 @@ export const GET = safeHandler(async (request) => {
       uscita1: true,
       entrata2: true,
       uscita2: true,
+      revisionata: true,
     },
   })
 
