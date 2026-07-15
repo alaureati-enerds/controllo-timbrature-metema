@@ -11,9 +11,8 @@ Aggiornata: giugno 2026.
 |---|---|
 | Auth | Login/registrazione email+password, verifica email, reset password, 2FA TOTP, sessioni tracciate (IP + UA), RBAC admin/user |
 | Profilo | Modifica nome/email/foto, cambio password, gestione 2FA, sessioni attive |
-| Note | CRUD con ownership, ricerca testo, integrazione ⌘K |
 | File | Upload/download/eliminazione con ownership, storage intercambiabile (filesystem oggi) |
-| Ricerca globale | Palette ⌘K — voci menu + note, estendibile via registry |
+| Ricerca globale | Palette ⌘K — voci menu, estendibile via registry |
 | Job background | Accodamento, progress, cancellazione cooperativa, cron schedulato (pg-boss) |
 | Audit log | Registro append-only, configurabile per evento e retention, anti-flood |
 | Gestione utenti (admin) | Lista, dettaglio, ban/unban, cambio ruolo, reset 2FA, impersonation |
@@ -27,7 +26,7 @@ Aggiornata: giugno 2026.
 ### Priorità alta — gap evidenti nell'uso quotidiano
 
 **Dashboard con metriche**
-La home page è uno scheletro vuoto. Con i dati già in DB (utenti, note, file, job)
+La home page è uno scheletro vuoto. Con i dati già in DB (utenti, file, job)
 basterebbe poco per avere widget significativi: utenti registrati, job in coda, ultimo
 errore, spazio storage usato.
 
@@ -37,7 +36,7 @@ riaprire la pagina. Una bell-icon nella topbar con lista notifiche (modello
 `Notification`, letta/non letta) si integra bene con l'infrastruttura job già presente.
 
 **Paginazione robusta**
-Le liste (note, file, utenti admin) usano limiti fissi. Senza cursor-based pagination
+Le liste (file, utenti admin) usano limiti fissi. Senza cursor-based pagination
 o server-side paging non scalano — problema strutturale che peggiora col tempo.
 
 **Log accessi personale per l'utente**
@@ -54,7 +53,7 @@ L'admin non può esportare log di audit, lista utenti, log job. Mancanza sentita
 analisi esterne o compliance.
 
 **Tag/Categorie**
-Note e file non hanno categorizzazione. Con molti record la ricerca per testo non
+I file non hanno categorizzazione. Con molti record la ricerca per testo non
 basta — servono filtri strutturati.
 
 **Preview file in-browser**
@@ -91,7 +90,7 @@ Lunghezza minima, requisiti complessità — non configurabile dall'admin.
 | Idea | Si aggancia a |
 |---|---|
 | Report schedulati per admin | Job + Cron + Email |
-| Digest settimanale per utenti | Job + Email + Note/File |
+| Digest settimanale per utenti | Job + Email + File |
 | Pulizia file orfani | Job + StorageDriver |
 | Soft delete con retention | Pattern già usato da AuditLog prune |
 | Webhook outbound | Job (fire-and-forget) |

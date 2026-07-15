@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import { BRANDING_ICON_NAMES, DEFAULT_BRANDING_ICON } from "@/lib/settings/icons"
+import { stampaTemplateIds } from "@/lib/timbrature/stampa/catalog"
 
 // Registro delle impostazioni di SISTEMA (globali). È la fonte di verità: ogni
 // impostazione è un campo di questo schema Zod, con il suo `.default()`. Lo
@@ -75,6 +76,123 @@ export const notificationSettingsSchema = z.object({
 
 export type NotificationSettings = z.infer<typeof notificationSettingsSchema>
 
+// Config MySQL esterna persistita nel blob del singleton. Server-only (mai in
+// toPublicSettings). `passwordEnc` è la password cifrata con lib/crypto.ts.
+export const mysqlSettingsSchema = z.object({
+  host: z.string().trim().min(1).optional(),
+  port: z.coerce.number().int().positive().optional(),
+  user: z.string().trim().min(1).optional(),
+  passwordEnc: z.string().min(1).optional(),
+  database: z.string().trim().min(1).optional(),
+})
+
+export type MySqlSettings = z.infer<typeof mysqlSettingsSchema>
+
+// Config ORARIO DI LAVORO STANDARD persistita nel blob del singleton.
+// Server-only (mai in toPublicSettings). Definisce le fasce orarie per
+// assegnare le timbrature al primo/secondo turno.
+export const orarioLavoroSettingsSchema = z.object({
+  primoIngresso: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  primaUscita: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  secondoIngresso: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  secondaUscita: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+})
+
+export type OrarioLavoroSettings = z.infer<typeof orarioLavoroSettingsSchema>
+
+// Input del form ORARIO (admin → server): stessi campi ma sempre stringa.
+export const orarioLavoroSettingsInputSchema = z.object({
+  primoIngresso: z.string().regex(/^\d{2}:\d{2}$/),
+  primaUscita: z.string().regex(/^\d{2}:\d{2}$/),
+  secondoIngresso: z.string().regex(/^\d{2}:\d{2}$/),
+  secondaUscita: z.string().regex(/^\d{2}:\d{2}$/),
+})
+
+export type OrarioLavoroSettingsInput = z.infer<typeof orarioLavoroSettingsInputSchema>
+
+export type OrarioLavoroSettingsAdmin = OrarioLavoroSettingsInput
+
+// Config del MOTORE DI CALCOLO delle timbrature persistita nel blob del
+// singleton. Server-only (mai in toPublicSettings). Governa pulizia dei dati
+// grezzi, assegnazione dei turni, arrotondamenti, ricostruzione della pausa e
+// soglia dello straordinario. Tutti i campi sono opzionali: ciò che manca ricade
+// su CALCOLO_DEFAULTS (risolto in lib/settings/calcolo.ts). Vedi
+// docs/calcolo-timbrature.md per il perché di ogni default.
+export const calcoloSettingsSchema = z.object({
+  ignora0000: z.boolean().optional(),
+  dedupMinuti: z.coerce.number().int().min(0).optional(),
+  sogliaPomeriggio: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  strategiaUscita: z.enum(["prima", "ultima"]).optional(),
+  granularitaMinuti: z.coerce.number().int().positive().optional(),
+  versoEntrata: z.enum(["su", "giu", "vicino"]).optional(),
+  versoUscita: z.enum(["su", "giu", "vicino"]).optional(),
+  pausaAutomatica: z.boolean().optional(),
+  pausaSpanMinimo: z.coerce.number().int().min(0).optional(),
+  minutiOrdinari: z.coerce.number().int().min(0).optional(),
+  oreMassimeGiorno: z.coerce.number().int().min(0).optional(),
+})
+
+export type CalcoloSettings = z.infer<typeof calcoloSettingsSchema>
+
+// Input del form CALCOLO (admin → server): stessi campi ma sempre presenti.
+export const calcoloSettingsInputSchema = z.object({
+  ignora0000: z.boolean(),
+  dedupMinuti: z.coerce.number().int().min(0),
+  sogliaPomeriggio: z.string().regex(/^\d{2}:\d{2}$/),
+  strategiaUscita: z.enum(["prima", "ultima"]),
+  granularitaMinuti: z.coerce.number().int().positive(),
+  versoEntrata: z.enum(["su", "giu", "vicino"]),
+  versoUscita: z.enum(["su", "giu", "vicino"]),
+  pausaAutomatica: z.boolean(),
+  pausaSpanMinimo: z.coerce.number().int().min(0),
+  minutiOrdinari: z.coerce.number().int().min(0),
+  oreMassimeGiorno: z.coerce.number().int().min(0),
+})
+
+export type CalcoloSettingsInput = z.infer<typeof calcoloSettingsInputSchema>
+
+export type CalcoloSettingsAdmin = CalcoloSettingsInput
+
+// Default del motore di calcolo. Vivono qui (modulo puro, senza Prisma) così che
+// sia il service (lib/settings/calcolo.ts) sia il motore puro e i suoi test
+// possano riusarli senza tirare dentro codice server-only. I valori riproducono
+// il comportamento storico dove possibile; le eccezioni (strategiaUscita:
+// "ultima", pausaAutomatica: true) sono le correzioni volute. sogliaPomeriggio è
+// il midpoint dell'orario configurato di default (12:00/13:30 → 12:45).
+export const CALCOLO_DEFAULTS: CalcoloSettingsAdmin = {
+  ignora0000: true,
+  dedupMinuti: 5,
+  sogliaPomeriggio: "12:45",
+  strategiaUscita: "ultima",
+  granularitaMinuti: 15,
+  versoEntrata: "su",
+  versoUscita: "giu",
+  pausaAutomatica: true,
+  pausaSpanMinimo: 360,
+  minutiOrdinari: 480,
+  oreMassimeGiorno: 720,
+}
+
+// Config della STAMPA del registro presenze persistita nel blob del singleton.
+// Server-only (mai in toPublicSettings). Tiene solo il template predefinito,
+// che l'admin fissa dal dialog di stampa. Gli id validi vengono dal catalogo
+// (lib/timbrature/stampa/catalog.ts): un template rimosso dal catalogo fa
+// ricadere l'impostazione sul default, senza migrazioni.
+export const stampaSettingsSchema = z.object({
+  templateId: z.enum(stampaTemplateIds).optional(),
+})
+
+export type StampaSettings = z.infer<typeof stampaSettingsSchema>
+
+// Input del form/dialog STAMPA (admin → server): il template è obbligatorio.
+export const stampaSettingsInputSchema = z.object({
+  templateId: z.enum(stampaTemplateIds),
+})
+
+export type StampaSettingsInput = z.infer<typeof stampaSettingsInputSchema>
+
+export type StampaSettingsAdmin = StampaSettingsInput
+
 export const systemSettingsSchema = z.object({
   // Nome del software, mostrato nell'header della sidebar e nel <title>.
   appName: z.string().trim().min(1).default("shadcn starter"),
@@ -92,6 +210,18 @@ export const systemSettingsSchema = z.object({
   notifications: notificationSettingsSchema.default(
     notificationSettingsSchema.parse({})
   ),
+  // Config MySQL esterna (server-only, vedi sopra). Default = i default dello
+  // schema (password cifrata con lib/crypto.ts).
+  mysql: mysqlSettingsSchema.default({}),
+  // Config orario di lavoro standard (server-only). Default = i default dello
+  // schema (fasce orarie predefinite).
+  orario: orarioLavoroSettingsSchema.default({}),
+  // Config del motore di calcolo (server-only). Default {}: ogni regola ricade
+  // su CALCOLO_DEFAULTS (vedi lib/settings/calcolo.ts).
+  calcolo: calcoloSettingsSchema.default({}),
+  // Config della stampa del registro presenze (server-only). Default {}: il
+  // template ricade su DEFAULT_TEMPLATE_ID (vedi lib/settings/stampa.ts).
+  stampa: stampaSettingsSchema.default({}),
 })
 
 export type SystemSettings = z.infer<typeof systemSettingsSchema>
@@ -112,10 +242,19 @@ export function toPublicSettings(s: SystemSettings): PublicSystemSettings {
 }
 
 // Schema per gli aggiornamenti dal form admin del BRANDING: tutti i campi
-// opzionali (patch parziale). `email` e `audit` sono esclusi di proposito — si
-// aggiornano solo dai rispettivi endpoint dedicati, mai da qui.
+// opzionali (patch parziale). `email`, `audit`, `notifications`, `mysql`,
+// `orario`, `calcolo` e `stampa` sono esclusi di proposito — si aggiornano solo
+// dai rispettivi endpoint dedicati.
 export const systemSettingsPatchSchema = systemSettingsSchema
-  .omit({ email: true, audit: true, notifications: true })
+  .omit({
+    email: true,
+    audit: true,
+    notifications: true,
+    mysql: true,
+    orario: true,
+    calcolo: true,
+    stampa: true,
+  })
   .partial()
 
 export type SystemSettingsPatch = z.infer<typeof systemSettingsPatchSchema>
@@ -139,6 +278,30 @@ export const emailSettingsInputSchema = z.object({
 })
 
 export type EmailSettingsInput = z.infer<typeof emailSettingsInputSchema>
+
+// Input del form MySQL (admin → server). Distinto dallo schema persistito:
+// la password arriva in CHIARO (write-only) e qui viene poi cifrata.
+export const mysqlSettingsInputSchema = z.object({
+  host: z.string().trim(),
+  port: z.coerce.number().int().positive().nullable(),
+  user: z.string().trim(),
+  password: z.string().min(1).optional(),
+  removePassword: z.boolean().optional(),
+  database: z.string().trim(),
+})
+
+export type MySqlSettingsInput = z.infer<typeof mysqlSettingsInputSchema>
+
+// Vista MASCHERATA della config MySQL (server → admin): rispecchia i valori
+// persistiti per popolare il form, ma non espone mai la password — solo se è
+// impostata (`passwordSet`).
+export type MySqlSettingsAdmin = {
+  host: string
+  port: number | null
+  user: string
+  passwordSet: boolean
+  database: string
+}
 
 // Vista MASCHERATA della config email (server → admin): rispecchia i valori
 // persistiti per popolare il form, ma non espone mai la password — solo se è

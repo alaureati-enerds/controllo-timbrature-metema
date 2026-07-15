@@ -80,16 +80,16 @@ export default async function AdminPage() {
 
 Combina gli helper di sessione con quelli di risposta in
 [lib/api.ts](../lib/api.ts). Vedi l'esempio completo in
-[app/api/notes/route.ts](../app/api/notes/route.ts):
+[app/api/files/route.ts](../app/api/files/route.ts):
 
 ```ts
-import { ok, parseJson, safeHandler, unauthorized } from "@/lib/api"
+import { ok, safeHandler, unauthorized } from "@/lib/api"
 import { getSession } from "@/lib/auth-helpers"
 
 export const GET = safeHandler(async () => {
   const session = await getSession()
   if (!session) throw unauthorized()
-  return ok(await listNotes(session.user.id))
+  return ok(await listUserFiles(session.user.id))
 })
 ```
 
@@ -118,7 +118,7 @@ aggiungerne uno (es. `editor`):
 
 1. Crea il ruolo con i permessi desiderati:
    ```ts
-   export const editor = ac.newRole({ note: ["create", "read", "update"] })
+   export const editor = ac.newRole({ project: ["create", "read", "update"] })
    ```
 2. Aggiungilo all'oggetto `roles`:
    ```ts
@@ -136,7 +136,6 @@ nuova risorsa e aggiorna i ruoli:
 ```ts
 const statement = {
   ...defaultStatements,
-  note: ["create", "read", "update", "delete"],
   project: ["create", "read", "update", "delete"], // nuova risorsa
 } as const
 ```

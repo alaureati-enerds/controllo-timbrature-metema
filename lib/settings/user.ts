@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 
 // Service delle PREFERENZE PER-UTENTE. È il gemello di lib/settings/system.ts ma
 // con autorizzazione per OWNERSHIP, non per ruolo: ogni funzione riceve lo
-// `userId` e opera SOLO su quella riga (come lib/notes.ts). Stesso pattern del
+// `userId` e opera SOLO su quella riga (come lib/files.ts). Stesso pattern del
 // sistema (blob Json + schema Zod come fonte di verità con i `.default()`), ma su
 // un modello dedicato (UserPreference, chiave = userId). Vedi
 // docs/impostazioni-di-sistema.md.

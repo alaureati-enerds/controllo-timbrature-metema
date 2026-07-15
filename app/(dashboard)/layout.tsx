@@ -76,7 +76,7 @@ export default async function DashboardLayout({
                 </span>
               </Link>
               <div className="hidden min-w-0 md:flex">
-                <AppBreadcrumb />
+                <AppBreadcrumb appName={branding.appName} />
               </div>
               <div className="ml-auto flex items-center gap-2">
                 <GlobalSearch />

@@ -482,7 +482,7 @@ export function AccountSecurity({
             Elimina account
           </CardTitle>
           <CardDescription>
-            Operazione irreversibile: vengono rimossi profilo, note e sessioni.
+            Operazione irreversibile: vengono rimossi profilo, file e sessioni.
           </CardDescription>
         </CardHeader>
         <CardFooter className="justify-end">

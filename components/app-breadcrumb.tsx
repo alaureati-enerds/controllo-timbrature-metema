@@ -10,12 +10,13 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { adminNavItems, navItems } from "@/lib/navigation"
+import { adminNavItems, adminPrimaryNavItems, navItems } from "@/lib/navigation"
 
 // Rotte non presenti nei menu (es. la pagina notifiche, raggiungibile solo dalla
 // campanella) ma che vogliamo etichettare in italiano nel breadcrumb.
 const EXTRA_TITLES: Record<string, string> = {
   "/notifications": "Notifiche",
+  "/files": "I miei file",
 }
 
 // Titolo della voce corrente. Cerca prima nei menu (piattaforma e admin), poi
@@ -23,7 +24,7 @@ const EXTRA_TITLES: Record<string, string> = {
 // segmento del path, così una rotta sconosciuta non viene etichettata come
 // "Dashboard".
 function currentTitle(pathname: string) {
-  const item = [...navItems, ...adminNavItems].find(
+  const item = [...navItems, ...adminPrimaryNavItems, ...adminNavItems].find(
     (item) => item.url === pathname
   )
   if (item) return item.title
@@ -35,7 +36,7 @@ function currentTitle(pathname: string) {
   return segment.charAt(0).toUpperCase() + segment.slice(1)
 }
 
-export function AppBreadcrumb() {
+export function AppBreadcrumb({ appName }: { appName: string }) {
   const pathname = usePathname()
   const title = currentTitle(pathname)
 
@@ -43,7 +44,7 @@ export function AppBreadcrumb() {
     <Breadcrumb className="min-w-0">
       <BreadcrumbList className="flex-nowrap">
         <BreadcrumbItem className="hidden md:block">
-          <BreadcrumbLink href="/">shadcn starter</BreadcrumbLink>
+          <BreadcrumbLink href="/">{appName}</BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator className="hidden md:block" />
         <BreadcrumbItem className="min-w-0">

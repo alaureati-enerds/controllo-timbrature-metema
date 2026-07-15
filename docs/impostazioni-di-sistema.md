@@ -24,7 +24,7 @@ La conseguenza pratica: il permesso RBAC `settings` (vedi
 [`lib/permissions.ts`](../lib/permissions.ts)) vale **solo** per le impostazioni
 globali. Quando l'admin regola le *sue* notifiche non lo fa "da admin": lo fa da
 utente come tutti gli altri, e l'autorizzazione è per ownership — esattamente
-come per le note (vedi [`lib/notes.ts`](../lib/notes.ts)).
+come per i file (vedi [`lib/files.ts`](../lib/files.ts)).
 
 > **Stato attuale:** l'asse **di sistema** copre il branding (nome, sottotitolo,
 > icona). Le *preferenze per-utente* non esistono ancora come impostazioni
@@ -169,7 +169,7 @@ model UserPreference {
 
 - `lib/settings/user.ts`: `getUserPreferences(userId)` /
   `updateUserPreferences(userId, patch)` — ogni funzione riceve lo `userId` e
-  opera **solo** su quella riga, come [`lib/notes.ts`](../lib/notes.ts).
+  opera **solo** su quella riga, come [`lib/files.ts`](../lib/files.ts).
 - Niente RBAC `settings`: il controllo è `userId === session.user.id`.
 - La UI sta sotto `/settings` (o `/profile`), non sotto `/admin`.
 

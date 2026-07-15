@@ -14,7 +14,7 @@ import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
 import { initials } from "@/lib/initials"
-import { adminNavItems, navItems } from "@/lib/navigation"
+import { adminNavItems, adminPrimaryNavItems, navItems } from "@/lib/navigation"
 import { hasRole } from "@/lib/roles"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -73,6 +73,10 @@ export function MobileMenu() {
   const { data: session, isPending } = authClient.useSession()
   const user = session?.user
   const isAdmin = hasRole(user?.role, "admin")
+  const platformItems = [
+    ...navItems,
+    ...(isAdmin ? adminPrimaryNavItems : []),
+  ]
 
   async function handleSignOut() {
     await authClient.signOut()
@@ -119,7 +123,7 @@ export function MobileMenu() {
       </div>
 
       <MenuSection label="Piattaforma">
-        {navItems.map((item) => (
+        {platformItems.map((item) => (
           <MenuRow key={item.url} href={item.url} icon={item.icon}>
             {item.title}
           </MenuRow>

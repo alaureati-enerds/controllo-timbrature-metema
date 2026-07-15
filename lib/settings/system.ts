@@ -5,7 +5,7 @@ import { systemSettingsSchema, type SystemSettings } from "@/lib/settings/schema
 
 // Service delle impostazioni di SISTEMA (globali, singleton id=1). Tiene fuori
 // dalle pagine e dai route handler la logica di lettura/scrittura, come fa
-// lib/notes.ts per il dominio. L'autorizzazione (solo admin) NON sta qui ma a
+// lib/files.ts per il dominio. L'autorizzazione (solo admin) NON sta qui ma a
 // monte, nei route handler (requireRole/hasPermission): questo modulo si fida.
 
 // Lettura sempre fresca dal DB, con dedup PER-RICHIESTA via `cache()` di React.

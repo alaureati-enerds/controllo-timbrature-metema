@@ -32,6 +32,13 @@ Guide di riferimento del progetto (cartella [`docs/`](docs/)):
 - [Notifiche](docs/notifiche.md) — avvisi all'utente (in app + email via worker),
   con canali estendibili (push/realtime), config admin e preferenze per-utente;
   come aggiungere un tipo o un canale.
+- [Stampa del registro presenze (PDF)](docs/stampa-timbrature.md) — PDF generato
+  lato server dalla pagina Timbrature, con template selezionabile e predefinito
+  di sistema; come aggiungere un nuovo template.
+- [Calcolo delle timbrature (motore di regole)](docs/calcolo-timbrature.md) —
+  come i dati grezzi del marcatempo diventano ore: pulizia, assegnazione turni,
+  arrotondamenti, ricostruzione della pausa e segnalazione delle anomalie; ogni
+  regola con il suo default e il perché, come aggiungerne una.
 - [PWA (installabilità)](docs/pwa.md) — manifest dinamico, service worker,
   icone generate e prompt di installazione; come testare e come estendere con
   notifiche push e supporto offline.
