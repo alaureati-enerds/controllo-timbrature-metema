@@ -12,14 +12,7 @@
 #   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 #
 # Vedi docs/deploy-docker.md per la procedura completa e gli aggiornamenti.
-version: '3.8'
-
-# Config comune ai servizi che usano l'immagine dell'app (build una volta,
-# riusata da web/worker/migrate grazie allo stesso tag immagine).
-x-app: &app
-  build: .
-  image: controllo-timbrature-metema:prod
-  env_file: .env.production
+version: '3.3'
 
 services:
   postgres:
@@ -44,7 +37,9 @@ services:
   # Da qui dipendono web e worker, così a OGNI `up` le migration vengono
   # riapplicate prima dell'avvio dell'app. È anche il meccanismo di aggiornamento.
   migrate:
-    <<: *app
+    build: .
+    image: controllo-timbrature-metema:prod
+    env_file: .env.production
     container_name: controllo-timbrature-metema-migrate
     command: sh -c "npm run db:deploy && npm run db:seed"
     depends_on:
@@ -53,7 +48,9 @@ services:
     restart: "no"
 
   web:
-    <<: *app
+    build: .
+    image: controllo-timbrature-metema:prod
+    env_file: .env.production
     container_name: controllo-timbrature-metema-web
     command: npm run start
     depends_on:
@@ -68,7 +65,9 @@ services:
     restart: unless-stopped
 
   worker:
-    <<: *app
+    build: .
+    image: controllo-timbrature-metema:prod
+    env_file: .env.production
     container_name: controllo-timbrature-metema-worker
     command: npm run worker
     depends_on:
