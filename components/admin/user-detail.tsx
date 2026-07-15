@@ -13,6 +13,7 @@ import {
   LaptopIcon,
   LogInIcon,
   LogOutIcon,
+  MailIcon,
   RefreshCwIcon,
   SaveIcon,
   ShieldAlertIcon,
@@ -129,8 +130,9 @@ export function UserDetail({
   const [busy, setBusy] = useState<string | null>(null)
   const isBusy = busy !== null
 
-  // Form ruolo / password / ban
+  // Form ruolo / email / password / ban
   const [role, setRole] = useState<(typeof ROLES)[number]>("user")
+  const [newEmail, setNewEmail] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [banReason, setBanReason] = useState("")
@@ -166,6 +168,26 @@ export function UserDetail({
     setBusy(null)
     if (error) return toast.error(error.message ?? "Aggiornamento non riuscito")
     toast.success("Ruolo aggiornato")
+    refresh()
+  }
+
+  // Cambio email lato admin: aggiorna l'indirizzo DIRETTAMENTE, senza inviare
+  // alcun link di conferma (a differenza del self-service, che verifica sempre
+  // se l'email attuale è verificata). Passiamo emailVerified: true così il nuovo
+  // indirizzo nasce già verificato e l'utente può accedere subito — utile in
+  // locale con email fittizie. Richiede il permesso `user:set-email`, che il
+  // ruolo admin possiede.
+  async function saveEmail(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBusy("email")
+    const { error } = await authClient.admin.updateUser({
+      userId,
+      data: { email: newEmail.trim().toLowerCase(), emailVerified: true },
+    })
+    setBusy(null)
+    if (error) return toast.error(error.message ?? "Cambio email non riuscito")
+    setNewEmail("")
+    toast.success("Email aggiornata")
     refresh()
   }
 
@@ -431,6 +453,60 @@ export function UserDetail({
             Salva ruolo
           </Button>
         </CardFooter>
+      </Card>
+
+      {/* Cambia email: aggiornamento diretto senza verifica (bypass admin). */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Cambia email</CardTitle>
+          <CardDescription>
+            Aggiorna l&apos;indirizzo dell&apos;utente all&apos;istante, senza
+            inviare alcun link di conferma: il nuovo indirizzo nasce già
+            verificato. A differenza del cambio email fatto dall&apos;utente dal
+            proprio profilo, che richiede sempre la verifica.
+          </CardDescription>
+        </CardHeader>
+        <form onSubmit={saveEmail} className="contents">
+          <CardContent>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="new-email">Nuova email</FieldLabel>
+                <Input
+                  id="new-email"
+                  type="email"
+                  autoComplete="off"
+                  spellCheck={false}
+                  required
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder={user.email}
+                  disabled={isBusy}
+                  className="w-full sm:max-w-md"
+                />
+                <FieldDescription>
+                  Email attuale: <span className="font-medium">{user.email}</span>
+                </FieldDescription>
+              </Field>
+            </FieldGroup>
+          </CardContent>
+          <CardFooter className="justify-end">
+            <Button
+              type="submit"
+              disabled={
+                isBusy ||
+                newEmail.trim() === "" ||
+                newEmail.trim().toLowerCase() === user.email.toLowerCase()
+              }
+            >
+              {busy === "email" ? (
+                <Spinner />
+              ) : (
+                <MailIcon data-icon="inline-start" />
+              )}
+              Aggiorna email
+            </Button>
+          </CardFooter>
+        </form>
       </Card>
 
       {/* Accesso: ban / sblocco. */}
