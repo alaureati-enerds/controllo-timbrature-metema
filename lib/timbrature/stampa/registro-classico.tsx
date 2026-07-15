@@ -1,4 +1,4 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
+import { Page, StyleSheet, Text, View } from "@react-pdf/renderer"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
 
@@ -8,13 +8,27 @@ import type { DatiStampa } from "@/lib/timbrature/stampa/dati"
 // riga per ogni giorno del mese, orari da marcatempo affiancati a quelli
 // arrotondati, ordinario e straordinario a destra, totali del mese in fondo.
 //
+// Questo componente rende la SOLA `<Page>` di un dipendente: il wrapper
+// `<Document>` è in ./documenti.tsx, così la stessa pagina si usa sia nella
+// stampa singola sia in quella cumulativa (più pagine in un unico documento).
+//
 // NB: componenti di @react-pdf/renderer, NON di React DOM. Questo file è
 // server-only: non importarlo mai da un client component (vedi ./catalog.ts,
 // che è la parte importabile dal client).
 
 const MESI = [
-  "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-  "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+  "Gennaio",
+  "Febbraio",
+  "Marzo",
+  "Aprile",
+  "Maggio",
+  "Giugno",
+  "Luglio",
+  "Agosto",
+  "Settembre",
+  "Ottobre",
+  "Novembre",
+  "Dicembre",
 ]
 
 function oreHHMM(minuti: number): string {
@@ -157,7 +171,12 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
       {[r.entrata1, r.uscita1, r.entrata2, r.uscita2].map((v, i) => (
         <Text
           key={`reale-${i}`}
-          style={[styles.cella, styles.wOra, { color: NERO }, i === 3 ? { marginRight: 6 } : {}]}
+          style={[
+            styles.cella,
+            styles.wOra,
+            { color: NERO },
+            i === 3 ? { marginRight: 6 } : {},
+          ]}
         >
           {ora(v)}
         </Text>
@@ -182,96 +201,91 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
   )
 }
 
-export function RegistroClassico({ dati }: { dati: DatiStampa }) {
+export function PaginaRegistroClassico({ dati }: { dati: DatiStampa }) {
   const { dipendente, righe, totali, stampatoIl } = dati
 
   return (
-    <Document
-      title={`Registro presenze — ${dipendente.descrizione || dipendente.codice}`}
-      author="Registro Presenze"
-    >
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.titolo}>Registro Presenze</Text>
-        <Text style={styles.nome}>
-          {(dipendente.descrizione || dipendente.codice).toUpperCase()}
-        </Text>
-        <Text style={styles.periodo}>
-          {MESI[dati.mese - 1]} {dati.anno}
-        </Text>
+    <Page size="A4" style={styles.page}>
+      <Text style={styles.titolo}>Registro Presenze</Text>
+      <Text style={styles.nome}>
+        {(dipendente.descrizione || dipendente.codice).toUpperCase()}
+      </Text>
+      <Text style={styles.periodo}>
+        {MESI[dati.mese - 1]} {dati.anno}
+      </Text>
 
-        {/* Intestazione della tabella: ripetuta a ogni pagina (`fixed`). */}
-        <View fixed>
-          <View style={styles.gruppi}>
-            <Text style={styles.wData}>DATA</Text>
-            <Text style={styles.wGiorno} />
-            <Text style={[styles.gruppo, { width: "32%" }]}>
-              Situazione da marcatempo
+      {/* Intestazione della tabella: ripetuta a ogni pagina (`fixed`). */}
+      <View fixed>
+        <View style={styles.gruppi}>
+          <Text style={styles.wData}>DATA</Text>
+          <Text style={styles.wGiorno} />
+          <Text style={[styles.gruppo, { width: "32%" }]}>
+            Situazione da marcatempo
+          </Text>
+          <Text style={[styles.gruppo, { width: "32%" }]}>
+            Situazione arrotondata
+          </Text>
+          <Text style={[styles.gruppo, { width: "14%" }]}>Totale</Text>
+        </View>
+        <View style={styles.colonne}>
+          <Text style={styles.wData} />
+          <Text style={styles.wGiorno} />
+          {["Entrata", "Uscita", "Entrata", "Uscita"].map((t, i) => (
+            <Text
+              key={`h-reale-${i}`}
+              style={[styles.intestazione, styles.wOra]}
+            >
+              {t}
             </Text>
-            <Text style={[styles.gruppo, { width: "32%" }]}>
-              Situazione arrotondata
+          ))}
+          {["Entrata", "Uscita", "Entrata", "Uscita"].map((t, i) => (
+            <Text
+              key={`h-corretto-${i}`}
+              style={[styles.intestazione, styles.wOra]}
+            >
+              {t}
             </Text>
-            <Text style={[styles.gruppo, { width: "14%" }]}>Totale</Text>
-          </View>
-          <View style={styles.colonne}>
-            <Text style={styles.wData} />
-            <Text style={styles.wGiorno} />
-            {["Entrata", "Uscita", "Entrata", "Uscita"].map((t, i) => (
-              <Text
-                key={`h-reale-${i}`}
-                style={[styles.intestazione, styles.wOra]}
-              >
-                {t}
-              </Text>
-            ))}
-            {["Entrata", "Uscita", "Entrata", "Uscita"].map((t, i) => (
-              <Text
-                key={`h-corretto-${i}`}
-                style={[styles.intestazione, styles.wOra]}
-              >
-                {t}
-              </Text>
-            ))}
-            <Text style={[styles.intestazione, styles.wTot]}>Ord.</Text>
-            <Text style={[styles.intestazione, styles.wTot]}>Straord.</Text>
-          </View>
+          ))}
+          <Text style={[styles.intestazione, styles.wTot]}>Ord.</Text>
+          <Text style={[styles.intestazione, styles.wTot]}>Straord.</Text>
         </View>
+      </View>
 
-        {righe.map((r) => (
-          <Riga key={r.giorno} r={r} />
-        ))}
+      {righe.map((r) => (
+        <Riga key={r.giorno} r={r} />
+      ))}
 
-        <View style={{ alignItems: "flex-end" }}>
-          <View style={styles.totali}>
-            <View style={styles.totale}>
-              <Text>Ordinario</Text>
-              <Text style={styles.totaleValore}>
-                {formattaTotale(totali.ordinario)}
-              </Text>
-            </View>
-            <View style={styles.totale}>
-              <Text>Straordinario</Text>
-              <Text style={styles.totaleValore}>
-                {formattaTotale(totali.straordinario)}
-              </Text>
-            </View>
-            <View style={styles.totale}>
-              <Text>Totale ore</Text>
-              <Text style={styles.totaleValore}>
-                {formattaTotale(totali.totale)}
-              </Text>
-            </View>
+      <View style={{ alignItems: "flex-end" }}>
+        <View style={styles.totali}>
+          <View style={styles.totale}>
+            <Text>Ordinario</Text>
+            <Text style={styles.totaleValore}>
+              {formattaTotale(totali.ordinario)}
+            </Text>
+          </View>
+          <View style={styles.totale}>
+            <Text>Straordinario</Text>
+            <Text style={styles.totaleValore}>
+              {formattaTotale(totali.straordinario)}
+            </Text>
+          </View>
+          <View style={styles.totale}>
+            <Text>Totale ore</Text>
+            <Text style={styles.totaleValore}>
+              {formattaTotale(totali.totale)}
+            </Text>
           </View>
         </View>
+      </View>
 
-        <View style={styles.pie} fixed>
-          <Text>Stampato il {format(stampatoIl, "dd/MM/yyyy")}</Text>
-          <Text
-            render={({ pageNumber, totalPages }) =>
-              `Pagina ${pageNumber} di ${totalPages}`
-            }
-          />
-        </View>
-      </Page>
-    </Document>
+      <View style={styles.pie} fixed>
+        <Text>Stampato il {format(stampatoIl, "dd/MM/yyyy")}</Text>
+        <Text
+          render={({ pageNumber, totalPages }) =>
+            `Pagina ${pageNumber} di ${totalPages}`
+          }
+        />
+      </View>
+    </Page>
   )
 }
