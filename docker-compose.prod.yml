@@ -11,20 +11,20 @@
 # Progetto Compose dedicato: tiene lo stack di produzione SEPARATO da quello di
 # sviluppo (docker-compose.yml). Senza, condividerebbero project name (la
 # cartella) e i servizi "postgres" omonimi entrerebbero in conflitto; i volumi
-# di produzione sono quindi prefissati `shadcn-starter-prod_*`.
-name: shadcn-starter-prod
+# di produzione sono quindi prefissati `controllo-timbrature-metema-prod_*`.
+name: controllo-timbrature-metema-prod
 
 # Config comune ai servizi che usano l'immagine dell'app (build una volta,
 # riusata da web/worker/migrate grazie allo stesso tag immagine).
 x-app: &app
   build: .
-  image: shadcn-starter:prod
+  image: controllo-timbrature-metema:prod
   env_file: .env.production
 
 services:
   postgres:
     image: postgres:16
-    container_name: shadcn-starter-db-prod
+    container_name: controllo-timbrature-metema-db-prod
     restart: unless-stopped
     env_file: .env.production
     volumes:
@@ -45,7 +45,7 @@ services:
   # riapplicate prima dell'avvio dell'app. È anche il meccanismo di aggiornamento.
   migrate:
     <<: *app
-    container_name: shadcn-starter-migrate
+    container_name: controllo-timbrature-metema-migrate
     command: sh -c "npm run db:deploy && npm run db:seed"
     depends_on:
       postgres:
@@ -54,7 +54,7 @@ services:
 
   web:
     <<: *app
-    container_name: shadcn-starter-web
+    container_name: controllo-timbrature-metema-web
     command: npm run start
     depends_on:
       postgres:
@@ -69,7 +69,7 @@ services:
 
   worker:
     <<: *app
-    container_name: shadcn-starter-worker
+    container_name: controllo-timbrature-metema-worker
     command: npm run worker
     depends_on:
       postgres:
