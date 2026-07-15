@@ -1,7 +1,11 @@
 import { endOfMonth, format, startOfMonth } from "date-fns"
 
 import { ApiError } from "@/lib/api"
-import { getDipendente, type Dipendente } from "@/lib/mysql/timbrature"
+import {
+  getDipendente,
+  listDipendenti,
+  type Dipendente,
+} from "@/lib/mysql/timbrature"
 import { prisma } from "@/lib/prisma"
 import {
   calcolaCorretti,
@@ -39,24 +43,26 @@ export async function getDatiStampa(
   const dal = format(startOfMonth(primo), "yyyy-MM-dd")
   const al = format(endOfMonth(primo), "yyyy-MM-dd")
 
-  const [dipendente, { giornate, orario, regole }, correzioni] = await Promise.all([
-    getDipendente(codiceDipendente).catch((error: unknown) => {
-      const detail = error instanceof Error ? error.message : "errore sconosciuto"
-      throw new ApiError(`Impossibile leggere il dipendente: ${detail}`, 502)
-    }),
-    getGiornate(codiceDipendente, mese, anno),
-    prisma.timbraturaCorretta.findMany({
-      where: { dipendente: codiceDipendente, giorno: { gte: dal, lte: al } },
-      select: {
-        giorno: true,
-        entrata1: true,
-        uscita1: true,
-        entrata2: true,
-        uscita2: true,
-        revisionata: true,
-      },
-    }),
-  ])
+  const [dipendente, { giornate, orario, regole }, correzioni] =
+    await Promise.all([
+      getDipendente(codiceDipendente).catch((error: unknown) => {
+        const detail =
+          error instanceof Error ? error.message : "errore sconosciuto"
+        throw new ApiError(`Impossibile leggere il dipendente: ${detail}`, 502)
+      }),
+      getGiornate(codiceDipendente, mese, anno),
+      prisma.timbraturaCorretta.findMany({
+        where: { dipendente: codiceDipendente, giorno: { gte: dal, lte: al } },
+        select: {
+          giorno: true,
+          entrata1: true,
+          uscita1: true,
+          entrata2: true,
+          uscita2: true,
+          revisionata: true,
+        },
+      }),
+    ])
 
   if (!dipendente) throw new ApiError("Dipendente non trovato", 404)
 
@@ -92,4 +98,36 @@ export async function getDatiStampa(
     totali: calcolaTotaliMese(righe),
     stampatoIl: new Date(),
   }
+}
+
+/**
+ * Dati di stampa CUMULATIVA: un `DatiStampa` per ogni dipendente del mese, in
+ * ordine alfabetico (l'ordine di `listDipendenti`, che è già `ORDER BY
+ * DESCRIZIONE` ed esclude gli obsoleti). Sono esclusi i dipendenti **senza
+ * alcuna timbratura corretta** nel mese: il controllo è sui valori corretti
+ * (`ce1…cu2`), non sui grezzi, così chi ha solo correzioni manuali compare
+ * comunque. La stampa iterata usa le stesse funzioni della singola.
+ *
+ * Il loop è sequenziale: `getDatiStampa` apre una connessione MySQL per
+ * chiamata, e un export on-demand di poche decine di dipendenti resta rapido
+ * senza aprire connessioni in parallelo.
+ */
+export async function getDatiStampaCumulativo(
+  mese: number,
+  anno: number
+): Promise<DatiStampa[]> {
+  const dipendenti = await listDipendenti().catch((error: unknown) => {
+    const detail = error instanceof Error ? error.message : "errore sconosciuto"
+    throw new ApiError(`Impossibile leggere i dipendenti: ${detail}`, 502)
+  })
+
+  const risultati: DatiStampa[] = []
+  for (const d of dipendenti) {
+    const dati = await getDatiStampa(d.codice, mese, anno)
+    const haTimbrature = dati.righe.some(
+      (r) => r.ce1 || r.cu1 || r.ce2 || r.cu2
+    )
+    if (haTimbrature) risultati.push(dati)
+  }
+  return risultati
 }

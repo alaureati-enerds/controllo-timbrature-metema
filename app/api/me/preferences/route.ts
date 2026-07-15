@@ -3,10 +3,8 @@ import { z } from "zod"
 import { ok, parseJson, safeHandler, unauthorized } from "@/lib/api"
 import { getSession } from "@/lib/auth-helpers"
 import { notificationChannels } from "@/lib/notifications/catalog"
-import {
-  getUserPreferences,
-  updateUserPreferences,
-} from "@/lib/settings/user"
+import { getUserPreferences, updateUserPreferences } from "@/lib/settings/user"
+import { stampaTemplateIds } from "@/lib/timbrature/stampa/catalog"
 
 // Preferenze PER-UTENTE dell'utente corrente (oggi: scelta dei canali di notifica
 // per-tipo). Autorizzazione per OWNERSHIP: opera sempre sull'utente in sessione.
@@ -21,6 +19,7 @@ const patchSchema = z.object({
       channels: z.record(z.string(), z.array(z.enum(notificationChannels))),
     })
     .optional(),
+  stampa: z.object({ templateId: z.enum(stampaTemplateIds) }).optional(),
 })
 
 // GET /api/me/preferences — preferenze correnti (complete, con i default)

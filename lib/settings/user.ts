@@ -2,6 +2,10 @@ import { z } from "zod"
 
 import { notificationChannels } from "@/lib/notifications/catalog"
 import { prisma } from "@/lib/prisma"
+import {
+  DEFAULT_TEMPLATE_ID,
+  stampaTemplateIds,
+} from "@/lib/timbrature/stampa/catalog"
 
 // Service delle PREFERENZE PER-UTENTE. È il gemello di lib/settings/system.ts ma
 // con autorizzazione per OWNERSHIP, non per ruolo: ogni funzione riceve lo
@@ -29,6 +33,15 @@ export const userPreferencesSchema = z.object({
         .default({}),
     })
     .default({ channels: {} }),
+
+  // Preferenze di STAMPA del registro presenze. Oggi: il template predefinito
+  // proposto nel dialog di stampa (lib/timbrature/stampa/catalog.ts). Assente →
+  // DEFAULT_TEMPLATE_ID.
+  stampa: z
+    .object({
+      templateId: z.enum(stampaTemplateIds).default(DEFAULT_TEMPLATE_ID),
+    })
+    .default({ templateId: DEFAULT_TEMPLATE_ID }),
 })
 
 export type UserPreferences = z.infer<typeof userPreferencesSchema>
