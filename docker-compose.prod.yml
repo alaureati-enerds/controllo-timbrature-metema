@@ -33,9 +33,9 @@ services:
     # Nessuna porta esposta sull'host: il DB è raggiungibile solo dalla rete
     # interna del compose (web/worker/migrate vi accedono come host "postgres").
 
-  # Servizio one-shot: applica le migration pendenti e (idempotente) il seed.
-  # Da qui dipendono web e worker, così a OGNI `up` le migration vengono
-  # riapplicate prima dell'avvio dell'app. È anche il meccanismo di aggiornamento.
+  # Servizio one-shot: applica migration + seed (idempotente). Web e worker lo
+  # fanno anche loro in autonomia all'avvio, quindi questo servizio è puramente
+  # esplicito (utile per `docker-compose run migrate`).
   migrate:
     build: .
     image: controllo-timbrature-metema:prod
@@ -52,12 +52,10 @@ services:
     image: controllo-timbrature-metema:prod
     env_file: .env.production
     container_name: controllo-timbrature-metema-web
-    command: npm run start
+    command: sh -c "npm run db:deploy && npm run db:seed && npm run start"
     depends_on:
       postgres:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     ports:
       - "${WEB_PORT:-3000}:3000"
     volumes:
@@ -69,12 +67,10 @@ services:
     image: controllo-timbrature-metema:prod
     env_file: .env.production
     container_name: controllo-timbrature-metema-worker
-    command: npm run worker
+    command: sh -c "npm run db:deploy && npm run db:seed && npm run worker"
     depends_on:
       postgres:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     volumes:
       - storage:/app/storage
     restart: unless-stopped
