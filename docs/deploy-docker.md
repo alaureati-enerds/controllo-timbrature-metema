@@ -92,25 +92,42 @@ Stesso setup della produzione, sulla tua macchina:
    - `BETTER_AUTH_URL=http://localhost:<WEB_PORT>` (http, così il login funziona),
    - `EMAIL_DRIVER=console`,
    - `SEED_ADMIN_PASSWORD` a tua scelta.
-2. Avvia (il flag `--env-file` serve anche all'interpolazione di `WEB_PORT`):
+ 2. Avvia (il flag `--env-file` serve anche all'interpolazione di `WEB_PORT`):
 
    ```bash
+   # docker compose v2 (nuovo)
    docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+
+   # docker-compose v1 (vecchio): aggiungi -p per isolare lo stack di produzione
+   docker-compose --env-file .env.production -p controllo-timbrature-metema-prod -f docker-compose.prod.yml up -d --build
    ```
 
 3. Verifica lo stato:
 
    ```bash
-   docker compose -f docker-compose.prod.yml ps          # tutti up; migrate "exited (0)"
-   docker compose -f docker-compose.prod.yml logs -f web      # avvio del server Next
-   docker compose -f docker-compose.prod.yml logs -f worker   # "Worker job avviato"
+   # v2
+   docker compose -f docker-compose.prod.yml ps
+   docker compose -f docker-compose.prod.yml logs -f web
+   docker compose -f docker-compose.prod.yml logs -f worker
+
+   # v1 (usa sempre -p con lo stesso project name dell'avvio)
+   docker-compose -p controllo-timbrature-metema-prod -f docker-compose.prod.yml ps
+   docker-compose -p controllo-timbrature-metema-prod -f docker-compose.prod.yml logs -f web
+   docker-compose -p controllo-timbrature-metema-prod -f docker-compose.prod.yml logs -f worker
    ```
 
 4. Apri `http://localhost:<WEB_PORT>` e accedi con l'admin del seed. La mail di
    verifica del seed la trovi nei log (driver `console`); l'admin è già verificato.
 
-Per fermare tutto: `docker compose -f docker-compose.prod.yml down` (i dati
-restano nei volumi). Aggiungi `-v` solo per azzerare anche database e file.
+Per fermare tutto:
+```bash
+# v2
+docker compose -f docker-compose.prod.yml down
+
+# v1
+docker-compose -p controllo-timbrature-metema-prod -f docker-compose.prod.yml down
+```
+(I dati restano nei volumi. Aggiungi `-v` solo per azzerare anche database e file.)
 
 ---
 
@@ -123,7 +140,11 @@ Identico al locale, cambiando solo `.env.production`:
 - password e segreti robusti.
 
 ```bash
+# v2
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+
+# v1
+docker-compose --env-file .env.production -p controllo-timbrature-metema-prod -f docker-compose.prod.yml up -d --build
 ```
 
 L'app risponde su `127.0.0.1:<WEB_PORT>`: configura il tuo NGINX per inoltrarvi
@@ -162,8 +183,14 @@ server {
 
 ```bash
 git pull
+
+# v2
 docker compose --env-file .env.production -f docker-compose.prod.yml build
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+
+# v1
+docker-compose --env-file .env.production -p controllo-timbrature-metema-prod -f docker-compose.prod.yml build
+docker-compose --env-file .env.production -p controllo-timbrature-metema-prod -f docker-compose.prod.yml up -d
 ```
 
 L'`up` riesegue il servizio `migrate` (applica le migration pendenti e il seed,
@@ -180,17 +207,22 @@ Lo stato vive tutto nei due volumi. Esempi:
 
 ```bash
 # Database (dump SQL)
+# v2
 docker compose -f docker-compose.prod.yml exec postgres \
   pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
 
+# v1
+docker-compose -p controllo-timbrature-metema-prod -f docker-compose.prod.yml exec postgres \
+  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
+
 # File caricati (volume storage) — copia su un archivio
-docker run --rm -v shadcn-starter-prod_storage:/data -v "$PWD":/out alpine \
+docker run --rm -v controllo-timbrature-metema-prod_storage:/data -v "$PWD":/out alpine \
   tar czf /out/storage-backup.tar.gz -C /data .
 ```
 
-(Il progetto Compose di produzione si chiama `shadcn-starter-prod`, quindi i
-volumi sono `shadcn-starter-prod_pgdata` e `shadcn-starter-prod_storage`:
-verificali con `docker volume ls`.)
+(I volumi sono prefissati col project name: se usi `-p controllo-timbrature-metema-prod`,
+i volumi saranno `controllo-timbrature-metema-prod_pgdata` e
+`controllo-timbrature-metema-prod_storage`. Verificali con `docker volume ls`.)
 
 ---
 

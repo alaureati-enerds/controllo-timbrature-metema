@@ -1,18 +1,18 @@
-# Compose di PRODUZIONE. Tre processi applicativi (web, worker, migrate) dalla
-# stessa immagine, più Postgres. Niente Mailpit (è solo per lo sviluppo).
+# Compose di PRODUZIONE (compatibile anche con docker-compose v1).
+# Tre processi applicativi (web, worker, migrate) dalla stessa immagine, più
+# Postgres. Niente Mailpit (è solo per lo sviluppo).
 #
-# Esegui SEMPRE passando il file env di produzione, che serve sia a popolare le
-# variabili dei container sia all'interpolazione di ${WEB_PORT} qui dentro:
+# Con docker-compose v1 (quello col trattino), usa SEMPRE --env-file e -p per
+# isolare lo stack di produzione da quello di sviluppo:
+#
+#   docker-compose --env-file .env.production -p controllo-timbrature-metema-prod -f docker-compose.prod.yml up -d --build
+#
+# Con docker compose v2:
 #
 #   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 #
 # Vedi docs/deploy-docker.md per la procedura completa e gli aggiornamenti.
-
-# Progetto Compose dedicato: tiene lo stack di produzione SEPARATO da quello di
-# sviluppo (docker-compose.yml). Senza, condividerebbero project name (la
-# cartella) e i servizi "postgres" omonimi entrerebbero in conflitto; i volumi
-# di produzione sono quindi prefissati `controllo-timbrature-metema-prod_*`.
-name: controllo-timbrature-metema-prod
+version: '3.8'
 
 # Config comune ai servizi che usano l'immagine dell'app (build una volta,
 # riusata da web/worker/migrate grazie allo stesso tag immagine).
