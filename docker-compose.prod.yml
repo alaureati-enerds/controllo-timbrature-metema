@@ -11,6 +11,11 @@
 #
 #   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 #
+# ATTENZIONE (v1): in .env.production NON usare virgolette attorno ai valori. I
+# valori di env_file entrano nel container letterali, virgolette comprese, e una
+# DATABASE_URL="postgresql://..." fa fallire Prisma con P1013 (schema non
+# riconosciuto). Scrivi VAR=valore nudo. Vedi docs/deploy-docker.md.
+#
 # Vedi docs/deploy-docker.md per la procedura completa e gli aggiornamenti.
 version: '2.2'
 
