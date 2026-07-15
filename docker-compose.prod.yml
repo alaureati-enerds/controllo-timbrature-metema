@@ -12,7 +12,7 @@
 #   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 #
 # Vedi docs/deploy-docker.md per la procedura completa e gli aggiornamenti.
-version: '3.3'
+version: '2.2'
 
 services:
   postgres:
