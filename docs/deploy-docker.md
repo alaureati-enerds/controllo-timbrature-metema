@@ -194,6 +194,16 @@ server {
 
 ## Aggiornamenti
 
+Il modo più semplice è lo script [`scripts/update-prod.sh`](../scripts/update-prod.sh):
+scarica l'ultima versione da `main`, ricostruisce l'immagine e riavvia i
+container. Rileva da solo se hai docker compose v2 o v1 e non tocca i volumi.
+
+```bash
+./scripts/update-prod.sh
+```
+
+In alternativa, gli stessi passi a mano:
+
 ```bash
 git pull
 
