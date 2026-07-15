@@ -52,7 +52,20 @@ Copia il template e compila i valori:
 cp .env.production.example .env.production
 ```
 
-Genera i segreti con `openssl rand -base64 32`. Le variabili da non sbagliare:
+Genera i segreti con `openssl rand -base64 32`.
+
+> **Non mettere le virgolette attorno ai valori.** Il file è caricato dai
+> container via `env_file:`. Con **docker-compose v1** (il vecchio comando col
+> trattino) i valori di `env_file` arrivano al container *letterali, virgolette
+> comprese*: `DATABASE_URL="postgresql://…"` fa vedere a Prisma lo schema come
+> `"postgresql` e fallisce con `P1013` (vedi *Risoluzione problemi*). Scrivi i
+> valori nudi — `VAR=valore` — anche se contengono spazi o caratteri speciali.
+> Se la **password del DB** contiene caratteri speciali di URL (`@ : / ? #` o
+> spazi) vanno codificati percent nella `DATABASE_URL` (es. `/` → `%2F`); il modo
+> più semplice per evitarlo è usare una password senza quei caratteri
+> (es. `openssl rand -hex 24`).
+
+Le variabili da non sbagliare:
 
 - **`DATABASE_URL`** — in Docker punta all'host interno `postgres:5432` (non
   `localhost:5433`, che è solo lo sviluppo sull'host). Utente, password e nome
@@ -231,6 +244,12 @@ i volumi saranno `controllo-timbrature-metema-prod_pgdata` e
 - **Il login non funziona in locale** → `BETTER_AUTH_URL` è impostato su
   `https://…` mentre apri l'app su `http://`: i cookie `Secure` non vengono
   inviati. In locale usa `http://localhost:<WEB_PORT>`.
+- **`P1013: The scheme is not recognized in database URL`** → in `.env.production`
+  hai messo le virgolette attorno alla `DATABASE_URL` (o ad altri valori). Con
+  docker-compose v1 le virgolette entrano nel valore e Prisma legge lo schema come
+  `"postgresql`. Togli le virgolette da **tutti** i valori del file (`VAR=valore`)
+  e riavvia. Se la password del DB ha caratteri speciali di URL, codificali
+  percent nella `DATABASE_URL` (es. `/` → `%2F`) oppure usa una password senza.
 - **`migrate` esce con errore di invio email** → `EMAIL_DRIVER` non è `console`
   e l'SMTP non è raggiungibile. Imposta `EMAIL_DRIVER=console` per il primo avvio.
 - **`web` riparte in loop** → controlla `logs web`: spesso è una variabile
