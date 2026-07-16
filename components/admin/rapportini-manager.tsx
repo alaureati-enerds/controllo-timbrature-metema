@@ -3,17 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
-import {
-  FileTextIcon,
-  InfoIcon,
-  MoonIcon,
-  PartyPopperIcon,
-  UserIcon,
-  UtensilsIcon,
-} from "lucide-react"
+import { InfoIcon, MoonIcon, UserIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -52,21 +44,21 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
+import { RapportinoRigaCard } from "@/components/admin/rapportino-riga-card"
 import { MESI, SelettorePeriodo } from "@/components/admin/selettore-periodo"
 import type { Dipendente } from "@/lib/mysql/timbrature"
 import type { RapportinoRiga } from "@/lib/mysql/rapportini"
-import {
-  calcolaOreSplit,
-  costruisciOrario,
-  raggruppaPerGiorno,
-  sommaGiorno,
-} from "@/lib/rapportini/calcolo"
+import { raggruppaPerGiorno, sommaGiorno } from "@/lib/rapportini/calcolo"
 import { CALCOLO_DEFAULTS } from "@/lib/settings/schema"
 import type {
   CalcoloSettingsAdmin,
   OrarioLavoroSettingsAdmin,
 } from "@/lib/settings/schema"
-import { isWeekend } from "@/lib/timbrature/calcolo"
+import {
+  calcolaOreSplit,
+  costruisciOrario,
+  isWeekend,
+} from "@/lib/timbrature/calcolo"
 import type { Giornata } from "@/lib/timbrature/giornate"
 
 // Pagina di sola lettura per validare l'incrocio timbrature/rapportini prima
@@ -675,68 +667,7 @@ export function RapportiniManager() {
           </SheetHeader>
           <div className="flex flex-col gap-3 overflow-y-auto px-4 pb-4">
             {rigaDettaglio?.righeRapportino.map((riga) => (
-              <Card key={riga.progressivo} size="sm">
-                <CardContent className="flex flex-col gap-2 p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-                      <FileTextIcon
-                        className="size-4 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                      {riga.cmsCodice || "—"}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      {riga.pernottamento && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <MoonIcon
-                              className="size-4 text-muted-foreground"
-                              aria-label="Pernotto"
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent>Pernotto</TooltipContent>
-                        </Tooltip>
-                      )}
-                      {riga.vitto && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <UtensilsIcon
-                              className="size-4 text-muted-foreground"
-                              aria-label="Vitto"
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent>Vitto</TooltipContent>
-                        </Tooltip>
-                      )}
-                      {riga.giornoFestivo && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <PartyPopperIcon
-                              className="size-4 text-muted-foreground"
-                              aria-label="Giorno festivo"
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent>Giorno festivo</TooltipContent>
-                        </Tooltip>
-                      )}
-                    </span>
-                  </div>
-                  {riga.descrizione && (
-                    <p className="text-sm text-muted-foreground">
-                      {riga.descrizione}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs tabular-nums text-muted-foreground">
-                    <Badge variant="secondary">
-                      Lavoro {riga.oreLavorazione}h {riga.minutiLavorazione}m
-                    </Badge>
-                    <Badge variant="secondary">
-                      Viaggio {riga.oreViaggio}h {riga.minutiViaggio}m
-                    </Badge>
-                    {riga.tipologia && <span>Tipo {riga.tipologia}</span>}
-                  </div>
-                </CardContent>
-              </Card>
+              <RapportinoRigaCard key={riga.progressivo} riga={riga} />
             ))}
           </div>
         </SheetContent>

@@ -6,6 +6,7 @@ import { it } from "date-fns/locale"
 import {
   CheckIcon,
   ClockIcon,
+  MoonIcon,
   RotateCcwIcon,
   TriangleAlertIcon,
   UserIcon,
@@ -51,6 +52,13 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import {
@@ -67,9 +75,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 
+import { RapportinoRigaCard } from "@/components/admin/rapportino-riga-card"
 import { SelettorePeriodo, MESI } from "@/components/admin/selettore-periodo"
 import { TimbratureStampaDialog } from "@/components/admin/timbrature-stampa-dialog"
 import type { Dipendente } from "@/lib/mysql/timbrature"
+import type { RapportinoRiga } from "@/lib/mysql/rapportini"
+import { raggruppaPerGiorno, sommaGiorno } from "@/lib/rapportini/calcolo"
 import { CALCOLO_DEFAULTS } from "@/lib/settings/schema"
 import type { CalcoloSettingsAdmin } from "@/lib/settings/schema"
 import {
@@ -185,60 +196,168 @@ const ANOMALIA_LABEL: Record<Anomalia, string> = {
   assente: "Assente",
 }
 
-// Badge di stato della giornata: un badge rosso (icona + conteggio) per le
-// anomalie da rivedere, l'elenco esteso nel Tooltip e nell'aria-label (niente
-// testo in riga). Sui giorni feriali senza anomalie una spunta muted conferma
-// che la colonna non è vuota per errore — è stata controllata ed è a posto.
-// Nel weekend, dove di norma non ci si aspetta nulla, resta vuota: una spunta
-// lì direbbe "verificato" su un giorno che non c'era da verificare.
-// Un giorno revisionato usa la STESSA spunta muted di un giorno senza anomalie
-// (le anomalie restano calcolate, il motore non lo sa nemmeno: è solo nascosto
-// alla vista) — deliberatamente indistinguibile a colpo d'occhio da una
-// giornata normale, il Tooltip resta l'unico modo per sapere che è stato
-// rivisto a mano.
-function StatoBadge({
+// Icona di stato della giornata, cliccabile: apre la Sheet di dettaglio
+// (anomalie + righe di rapportino insieme, vedi GiornoDettaglioSheet più
+// sotto) invece del solo hover di prima. Il glifo resta lo stesso: un badge
+// rosso (icona + conteggio) per le anomalie da rivedere, una spunta muted sui
+// giorni feriali senza anomalie — conferma che la colonna non è vuota per
+// errore, è stata controllata ed è a posto. Un giorno revisionato usa la
+// STESSA spunta muted di un giorno senza anomalie (le anomalie restano
+// calcolate, il motore non lo sa nemmeno: è solo nascosto alla vista)
+// deliberatamente indistinguibile a colpo d'occhio, la Sheet resta l'unico
+// modo per sapere che è stato rivisto a mano. Nel weekend, dove di norma non
+// ci si aspetta nulla, l'icona resta vuota — A MENO che un rapportino non
+// esista comunque per quel giorno (es. intervento di sabato): in quel caso
+// compare per poter aprire il dettaglio.
+function StatoIcon({
   anomalie,
   weekend,
   revisionata,
+  haRapportino,
+  onClick,
 }: {
   anomalie: Anomalia[]
   weekend: boolean
   revisionata: boolean
+  haRapportino: boolean
+  onClick: () => void
 }) {
-  if (anomalie.length === 0 || revisionata) {
-    if (weekend && !revisionata) return null
-    const etichette = anomalie.map((a) => ANOMALIA_LABEL[a]).join(" · ")
-    const label =
-      revisionata && anomalie.length > 0
-        ? `Revisionata: ${etichette}`
-        : "Nessuna anomalia"
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <CheckIcon
-            className="mx-auto size-4 text-muted-foreground/60"
-            aria-label={label}
-          />
-        </TooltipTrigger>
-        <TooltipContent>{label}</TooltipContent>
-      </Tooltip>
-    )
-  }
+  const haAnomalie = anomalie.length > 0 && !revisionata
+  if (!haAnomalie && weekend && !haRapportino) return null
+
   const etichette = anomalie.map((a) => ANOMALIA_LABEL[a]).join(" · ")
+  const label = haAnomalie
+    ? `Anomalie: ${etichette}`
+    : revisionata && anomalie.length > 0
+      ? `Revisionata: ${etichette}`
+      : "Dettaglio giornata"
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge
-          variant="destructive"
-          className="cursor-default align-middle"
-          aria-label={`Anomalie: ${etichette}`}
-        >
-          <TriangleAlertIcon data-icon="inline-start" aria-hidden="true" />
-          {anomalie.length}
-        </Badge>
+        {haAnomalie ? (
+          <Badge
+            role="button"
+            tabIndex={0}
+            variant="destructive"
+            className="cursor-pointer align-middle outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-label={label}
+            onClick={onClick}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                onClick()
+              }
+            }}
+          >
+            <TriangleAlertIcon data-icon="inline-start" aria-hidden="true" />
+            {anomalie.length}
+          </Badge>
+        ) : (
+          <CheckIcon
+            role="button"
+            tabIndex={0}
+            className="mx-auto size-4 cursor-pointer text-muted-foreground/60 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-label={label}
+            onClick={onClick}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                onClick()
+              }
+            }}
+          />
+        )}
       </TooltipTrigger>
-      <TooltipContent>{etichette}</TooltipContent>
+      <TooltipContent>{label}</TooltipContent>
     </Tooltip>
+  )
+}
+
+// Riga della tabella con il minimo che serve alla Sheet di dettaglio: non un
+// tipo esportato, solo la forma che `righe` (costruito più sotto) già
+// rispetta strutturalmente.
+type RigaConDettaglio = {
+  data: Date
+  anomalie: Anomalia[]
+  revisionata: boolean
+  righeRapportino: RapportinoRiga[]
+  pernottamento: boolean
+}
+
+// Sheet unica per il dettaglio di un giorno: riunisce ciò che prima erano due
+// cose separate (il Tooltip delle anomalie, e — su /admin/rapportini — il
+// dettaglio delle righe di rapportino). Aperta dal click sull'icona di stato
+// (StatoIcon), mostra entrambe le informazioni insieme così l'admin non deve
+// più indovinare dove guardare.
+function GiornoDettaglioSheet({
+  riga,
+  open,
+  onOpenChange,
+}: {
+  riga: RigaConDettaglio | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>
+            {riga && format(riga.data, "dd MMMM yyyy", { locale: it })}
+          </SheetTitle>
+          <SheetDescription>
+            {riga?.revisionata && "Giorno segnato come revisionato. "}
+            {riga && riga.anomalie.length > 0
+              ? riga.anomalie.length === 1
+                ? "1 anomalia"
+                : `${riga.anomalie.length} anomalie`
+              : "Nessuna anomalia"}
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4">
+          {riga && riga.anomalie.length > 0 && (
+            <ul className="flex flex-col gap-1.5">
+              {riga.anomalie.map((a) => (
+                <li
+                  key={a}
+                  className="flex items-center gap-2 text-sm text-muted-foreground"
+                >
+                  <TriangleAlertIcon
+                    className="size-4 shrink-0 text-destructive"
+                    aria-hidden="true"
+                  />
+                  {ANOMALIA_LABEL[a]}
+                </li>
+              ))}
+            </ul>
+          )}
+          {riga && riga.righeRapportino.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h3 className="flex items-center gap-1.5 text-sm font-medium">
+                Rapportino
+                {riga.pernottamento && (
+                  <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                    <MoonIcon className="size-3.5" aria-hidden="true" />
+                    Pernotto
+                  </span>
+                )}
+              </h3>
+              {riga.righeRapportino.map((r) => (
+                <RapportinoRigaCard key={r.progressivo} riga={r} />
+              ))}
+            </div>
+          )}
+          {riga &&
+            riga.anomalie.length === 0 &&
+            riga.righeRapportino.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Nessuna anomalia e nessun rapportino per questo giorno.
+              </p>
+            )}
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -367,6 +486,10 @@ export function TimbratureManager({
   const [dipendenti, setDipendenti] = useState<Dipendente[]>([])
   const [dipendente, setDipendente] = useState<Dipendente | null>(null)
   const [giornate, setGiornate] = useState<Giornata[]>([])
+  // Rapportini di assistenza tecnica del mese (tabella `cmd`): quando un
+  // giorno ne ha, guidano il calcolo al posto del marcatempo (vedi
+  // lib/timbrature/calcolo.ts, 5° parametro di calcolaCorretti).
+  const [rapportini, setRapportini] = useState<RapportinoRiga[]>([])
   const [orario, setOrario] = useState({
     primoIngresso: "08:00",
     primaUscita: "12:00",
@@ -406,6 +529,7 @@ export function TimbratureManager({
   const [editing, setEditing] = useState<EditingKey | null>(null)
   const editRef = useRef<HTMLInputElement>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [dettaglioGiorno, setDettaglioGiorno] = useState<string | null>(null)
   const richiestaRef = useRef(0)
 
   function toggleSelect(giorno: string) {
@@ -637,20 +761,28 @@ export function TimbratureManager({
       fetch(`/api/admin/timbrature/correzioni?${params.toString()}`)
         .then((r) => r.json())
         .catch(() => []),
+      // I rapportini sono un'estensione: se il DB esterno non li espone (o la
+      // richiesta fallisce) la pagina non deve rompersi, solo restare senza —
+      // il marcatempo da solo è il comportamento di sempre.
+      fetch(`/api/admin/rapportini?${params.toString()}`)
+        .then((r) => (r.ok ? r.json() : { rapportini: [] }))
+        .catch(() => ({ rapportini: [] })),
     ])
       .then(
-        ([data, correzioniRaw]: [
+        ([data, correzioniRaw, rapportiniData]: [
           {
             giornate: Giornata[]
             orario: typeof orario
             regole: CalcoloSettingsAdmin
           },
           CorrezioneRaw[],
+          { rapportini: RapportinoRiga[] },
         ]) => {
           if (richiesta !== richiestaRef.current) return
           setGiornate(data.giornate)
           setOrario(data.orario)
           setRegole(data.regole)
+          setRapportini(rapportiniData.rapportini)
           setCorrezioni(
             new Map(
               correzioniRaw.map((c) => [
@@ -688,15 +820,26 @@ export function TimbratureManager({
 
   // Ricalcolo a ogni render: sono al massimo 31 righe di aritmetica, e un
   // useMemo qui impedirebbe al React Compiler di ottimizzare il componente.
-  const righe = giornate.map((g) => ({
-    ...g,
-    ...calcolaCorretti(g, correzioni.get(g.giorno), regole, orario),
-    we: isWeekend(g.giornoSettimana),
-    revisionata: revisionati.has(g.giorno),
-    // Mezzogiorno: la data è un giorno civile, non un istante — così nessun
-    // fuso la fa scivolare al giorno prima.
-    data: new Date(g.giorno + "T12:00:00"),
-  }))
+  const rapportiniPerGiorno = raggruppaPerGiorno(rapportini)
+  const righe = giornate.map((g) => {
+    const righeRapportino = rapportiniPerGiorno.get(g.giorno) ?? []
+    return {
+      ...g,
+      ...calcolaCorretti(
+        g,
+        correzioni.get(g.giorno),
+        regole,
+        orario,
+        sommaGiorno(righeRapportino)
+      ),
+      righeRapportino,
+      we: isWeekend(g.giornoSettimana),
+      revisionata: revisionati.has(g.giorno),
+      // Mezzogiorno: la data è un giorno civile, non un istante — così nessun
+      // fuso la fa scivolare al giorno prima.
+      data: new Date(g.giorno + "T12:00:00"),
+    }
+  })
 
   // Totali sempre sull'intero mese; il filtro anomalie è solo una vista. Un
   // giorno revisionato ha ancora `anomalie` piene (il motore non lo sa), ma
@@ -715,6 +858,7 @@ export function TimbratureManager({
     : null
   const inCorso = applyingPreset || resetting || revisionando
   const selezioneSmarca = Array.from(selected).some((g) => revisionati.has(g))
+  const rigaDettaglio = righe.find((r) => r.giorno === dettaglioGiorno) ?? null
 
   return (
     <div className="flex flex-col gap-6">
@@ -955,7 +1099,7 @@ export function TimbratureManager({
                     </TableHead>
                     <TableHead
                       rowSpan={2}
-                      className={cn(THEAD_STICKY, "top-0 w-14 text-center")}
+                      className={cn(THEAD_STICKY, "top-0 w-20 text-center")}
                     >
                       Stato
                     </TableHead>
@@ -999,7 +1143,16 @@ export function TimbratureManager({
                         "top-0 w-28 text-right tabular-nums"
                       )}
                     >
-                      Straordinario
+                      Straord. lavoro
+                    </TableHead>
+                    <TableHead
+                      rowSpan={2}
+                      className={cn(
+                        THEAD_STICKY,
+                        "top-0 w-28 text-right tabular-nums"
+                      )}
+                    >
+                      Straord. viaggio
                     </TableHead>
                   </TableRow>
                   <TableRow>
@@ -1046,11 +1199,26 @@ export function TimbratureManager({
                         />
                       </TableCell>
                       <TableCell className="text-center">
-                        <StatoBadge
-                          anomalie={r.anomalie}
-                          weekend={r.we}
-                          revisionata={r.revisionata}
-                        />
+                        <div className="flex items-center justify-center gap-1.5">
+                          {r.pernottamento && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <MoonIcon
+                                  className="size-3.5 shrink-0 text-muted-foreground"
+                                  aria-label="Pernotto"
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent>Pernotto</TooltipContent>
+                            </Tooltip>
+                          )}
+                          <StatoIcon
+                            anomalie={r.anomalie}
+                            weekend={r.we}
+                            revisionata={r.revisionata}
+                            haRapportino={r.righeRapportino.length > 0}
+                            onClick={() => setDettaglioGiorno(r.giorno)}
+                          />
+                        </div>
                       </TableCell>
                       <TableCell className="tabular-nums">
                         {format(r.data, "dd", { locale: it })}{" "}
@@ -1140,6 +1308,14 @@ export function TimbratureManager({
                       >
                         {formattaMinuti(r.straordinario)}
                       </TableCell>
+                      <TableCell
+                        className={cn(
+                          "text-right tabular-nums",
+                          r.straordinarioViaggio > 0 && "text-straordinario"
+                        )}
+                      >
+                        {formattaMinuti(r.straordinarioViaggio)}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1168,6 +1344,16 @@ export function TimbratureManager({
                         )}
                       >
                         {formattaMinuti(totaliMese.straordinario)}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          TFOOT_STICKY,
+                          "text-right tabular-nums",
+                          totaliMese.straordinarioViaggio > 0 &&
+                            "text-straordinario"
+                        )}
+                      >
+                        {formattaMinuti(totaliMese.straordinarioViaggio)}
                       </TableCell>
                     </TableRow>
                   </TableFooter>
@@ -1210,10 +1396,23 @@ export function TimbratureManager({
                         <span className="text-sm font-medium text-muted-foreground">
                           {nomeGiorno(r.data, "EEEE")}
                         </span>
-                        <StatoBadge
+                        {r.pernottamento && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <MoonIcon
+                                className="size-3.5 shrink-0 text-muted-foreground"
+                                aria-label="Pernotto"
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent>Pernotto</TooltipContent>
+                          </Tooltip>
+                        )}
+                        <StatoIcon
                           anomalie={r.anomalie}
                           weekend={r.we}
                           revisionata={r.revisionata}
+                          haRapportino={r.righeRapportino.length > 0}
+                          onClick={() => setDettaglioGiorno(r.giorno)}
                         />
                       </div>
                       <div className="flex items-center gap-2 text-xs tabular-nums">
@@ -1226,12 +1425,17 @@ export function TimbratureManager({
                         >
                           {formattaMinuti(r.ordinario)}
                         </span>
+                        {/* Straordinario lavoro+viaggio combinato: la
+                            distinzione resta nella Sheet/tabella desktop, qui
+                            c'è spazio solo per un numero. */}
                         <span
                           className={cn(
-                            r.straordinario > 0 && "text-straordinario"
+                            (r.straordinario > 0 ||
+                              r.straordinarioViaggio > 0) &&
+                              "text-straordinario"
                           )}
                         >
-                          {formattaMinuti(r.straordinario)}
+                          {formattaMinuti(r.straordinario + r.straordinarioViaggio)}
                         </span>
                       </div>
                     </div>
@@ -1263,10 +1467,14 @@ export function TimbratureManager({
                       <span>{formattaMinuti(totaliMese.ordinario)}</span>
                       <span
                         className={cn(
-                          totaliMese.straordinario > 0 && "text-straordinario"
+                          (totaliMese.straordinario > 0 ||
+                            totaliMese.straordinarioViaggio > 0) &&
+                            "text-straordinario"
                         )}
                       >
-                        {formattaMinuti(totaliMese.straordinario)}
+                        {formattaMinuti(
+                          totaliMese.straordinario + totaliMese.straordinarioViaggio
+                        )}
                       </span>
                     </div>
                   </CardContent>
@@ -1334,6 +1542,12 @@ export function TimbratureManager({
           )}
         </AlertDialogContent>
       </AlertDialog>
+
+      <GiornoDettaglioSheet
+        riga={rigaDettaglio}
+        open={dettaglioGiorno !== null}
+        onOpenChange={(open) => !open && setDettaglioGiorno(null)}
+      />
     </div>
   )
 }
