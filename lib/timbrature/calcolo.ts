@@ -21,6 +21,15 @@ export function minutiDaOra(ora: string): number {
   return h * 60 + m
 }
 
+// Inversa di `minutiDaOra`. Non fa wraparound sulle 24h: oltre mezzanotte
+// (straordinario molto lungo) preferiamo un'ora "26:30" onesta a un
+// azzeramento silenzioso che farebbe apparire un turno all'indietro.
+export function oraDaMinuti(minuti: number): string {
+  const h = Math.floor(minuti / 60)
+  const m = minuti % 60
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+}
+
 // Provenienza di uno slot corretto: la garanzia di onestà del sistema — la UI
 // distingue un timbro vero da uno ricostruito.
 export type ProvenienzaSlot =
