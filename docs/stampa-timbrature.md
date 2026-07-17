@@ -44,21 +44,27 @@ globale del fascicolo.
 già persistite mentre si modifica la tabella, quindi il server le rilegge e
 **ricalcola** tutto con le stesse funzioni usate a schermo
 ([`lib/timbrature/calcolo.ts`](../lib/timbrature/calcolo.ts)): il PDF non può
-divergere da ciò che si vede.
+divergere da ciò che si vede. Questo include i **rapportini**
+([`lib/timbrature/stampa/dati.ts`](../lib/timbrature/stampa/dati.ts) legge
+anche `getRapportini`, li raggruppa per giorno e li passa a `calcolaCorretti`
+esattamente come fa la pagina, con lo stesso fallback tollerante se il DB
+esterno non li espone): straordinario lavoro/viaggio separati e pernotto sono
+quindi sempre coerenti fra schermo e stampa, su entrambi i template.
 
 Ogni stampa è tracciata nell'**audit log** (evento `timbrature.stampa`, con
 dipendente, mese e template): è un export di dati sul personale.
 
 ### I pezzi
 
-| File | Ruolo |
-|---|---|
-| [`lib/timbrature/stampa/catalog.ts`](../lib/timbrature/stampa/catalog.ts) | Catalogo dei template: **solo metadati** (id, nome, descrizione). Importabile dal client. |
-| [`lib/timbrature/stampa/documenti.tsx`](../lib/timbrature/stampa/documenti.tsx) | Mappa `id → <Page>` + wrapper `<Document>` (singolo e cumulativo). **Server-only**: qui si importa `@react-pdf/renderer`. |
-| [`lib/timbrature/stampa/registro-classico.tsx`](../lib/timbrature/stampa/registro-classico.tsx) | Il template «Registro presenze»: espone la sua `<Page>` (`PaginaRegistroClassico`). |
-| [`lib/timbrature/stampa/dati.ts`](../lib/timbrature/stampa/dati.ts) | Costruisce i `DatiStampa`: giornate + correzioni + totali, già calcolati (singolo e cumulativo). |
-| [`lib/settings/user.ts`](../lib/settings/user.ts) | Template predefinito: **preferenza per-utente** (`stampa.templateId`), impostata in `/settings`. |
-| [`components/profile/stampa-preferences-form.tsx`](../components/profile/stampa-preferences-form.tsx) | Card in `/settings` per scegliere il proprio template predefinito. |
+| File                                                                                                  | Ruolo                                                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`lib/timbrature/stampa/catalog.ts`](../lib/timbrature/stampa/catalog.ts)                             | Catalogo dei template: **solo metadati** (id, nome, descrizione). Importabile dal client.                                                                                   |
+| [`lib/timbrature/stampa/documenti.tsx`](../lib/timbrature/stampa/documenti.tsx)                       | Mappa `id → <Page>` + wrapper `<Document>` (singolo e cumulativo). **Server-only**: qui si importa `@react-pdf/renderer`.                                                   |
+| [`lib/timbrature/stampa/registro-classico.tsx`](../lib/timbrature/stampa/registro-classico.tsx)       | Il template «Registro presenze»: espone la sua `<Page>` (`PaginaRegistroClassico`). Modulo cartaceo storico, con le 4 colonne di marcatempo grezzo.                         |
+| [`lib/timbrature/stampa/registro-compatto.tsx`](../lib/timbrature/stampa/registro-compatto.tsx)       | Il template «Registro presenze (compatto)» (`PaginaRegistroCompatto`): stessi dati, senza le 4 colonne di marcatempo grezzo — più spazio per gli orari corretti e i totali. |
+| [`lib/timbrature/stampa/dati.ts`](../lib/timbrature/stampa/dati.ts)                                   | Costruisce i `DatiStampa`: giornate + correzioni + totali, già calcolati (singolo e cumulativo).                                                                            |
+| [`lib/settings/user.ts`](../lib/settings/user.ts)                                                     | Template predefinito: **preferenza per-utente** (`stampa.templateId`), impostata in `/settings`.                                                                            |
+| [`components/profile/stampa-preferences-form.tsx`](../components/profile/stampa-preferences-form.tsx) | Card in `/settings` per scegliere il proprio template predefinito.                                                                                                          |
 
 La separazione catalogo/documenti è voluta: il client ha bisogno solo di
 `id` e `nome` per la Select, e `@react-pdf/renderer` non deve mai finire nel

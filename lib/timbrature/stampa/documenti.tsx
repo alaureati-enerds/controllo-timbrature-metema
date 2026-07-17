@@ -4,6 +4,7 @@ import { cloneElement, type ReactElement } from "react"
 import type { StampaTemplateId } from "@/lib/timbrature/stampa/catalog"
 import type { DatiStampa } from "@/lib/timbrature/stampa/dati"
 import { PaginaRegistroClassico } from "@/lib/timbrature/stampa/registro-classico"
+import { PaginaRegistroCompatto } from "@/lib/timbrature/stampa/registro-compatto"
 
 // Una PAGINA stampabile: dati di un dipendente → <Page> di @react-pdf/renderer.
 // Il wrapper <Document> vive qui (non nei template), così la stessa pagina si
@@ -19,6 +20,7 @@ export type PaginaStampa = (dati: DatiStampa) => ReactElement
 
 const pagine: Record<StampaTemplateId, PaginaStampa> = {
   "registro-classico": (dati) => <PaginaRegistroClassico dati={dati} />,
+  "registro-compatto": (dati) => <PaginaRegistroCompatto dati={dati} />,
 }
 
 const MESI = [
