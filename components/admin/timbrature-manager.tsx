@@ -287,10 +287,10 @@ type RigaConDettaglio = {
 }
 
 // Sheet unica per il dettaglio di un giorno: riunisce ciò che prima erano due
-// cose separate (il Tooltip delle anomalie, e — su /admin/rapportini — il
-// dettaglio delle righe di rapportino). Aperta dal click sull'icona di stato
-// (StatoIcon), mostra entrambe le informazioni insieme così l'admin non deve
-// più indovinare dove guardare.
+// cose separate (il Tooltip delle anomalie e il dettaglio delle righe di
+// rapportino). Aperta dal click sull'icona di stato (StatoIcon), mostra
+// entrambe le informazioni insieme così l'admin non deve più indovinare dove
+// guardare.
 function GiornoDettaglioSheet({
   riga,
   open,
