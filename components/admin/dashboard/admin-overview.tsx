@@ -14,11 +14,9 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { KpiFooter } from "@/components/dashboard/kpi-footer"
 import {
   Empty,
   EmptyDescription,
@@ -26,7 +24,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { getOrarioSettingsForAdmin } from "@/lib/settings/orario"
+import { Separator } from "@/components/ui/separator"
 import { listPresets } from "@/lib/timbrature/preset"
 import {
   getPresenzeIntervallo,
@@ -39,12 +37,13 @@ import {
 import { PresenzeChart } from "./presenze-chart"
 
 const GIORNI_ANDAMENTO = 14
-const N_ULTIME_TIMBRATURE = 8
+const N_ULTIME_TIMBRATURE = 15
 
-// Home per gli admin: le due zone di lavoro principali (Timbrature, Orari di
-// lavoro) in cima, seguite da una seconda riga con segnali dal marcatempo:
-// andamento delle presenze e ultimi eventi registrati. Server Component: fa
-// il fetch al proprio interno, come PersonalOverview.
+// Home per gli admin: colonna sinistra con le scorciatoie alle due zone di
+// lavoro principali (Timbrature, Orari di lavoro) e l'andamento delle
+// presenze; a destra gli ultimi eventi del marcatempo, alti quanto la colonna
+// di sinistra. Server Component: fa il fetch al proprio interno, come
+// PersonalOverview.
 export async function AdminOverview() {
   const oggi = format(new Date(), "yyyy-MM-dd")
   const inizioAndamento = format(
@@ -52,7 +51,7 @@ export async function AdminOverview() {
     "yyyy-MM-dd"
   )
 
-  const [dipendenti, presenzeAndamento, ultimeTimbrature, preset, orario] =
+  const [dipendenti, presenzeAndamento, ultimeTimbrature, preset] =
     await Promise.all([
       // Il marcatempo aziendale è un sistema esterno: se non è configurato o
       // non risponde, le card restano senza i dati invece di rompere tutta
@@ -61,12 +60,16 @@ export async function AdminOverview() {
       getPresenzeIntervallo(inizioAndamento, oggi).catch(() => null),
       getUltimeTimbrature(N_ULTIME_TIMBRATURE).catch(() => null),
       listPresets().then((p) => p.length),
-      getOrarioSettingsForAdmin(),
     ])
 
   const andamento =
     dipendenti && presenzeAndamento
-      ? presenzeGiornaliere(dipendenti, presenzeAndamento, inizioAndamento, oggi)
+      ? presenzeGiornaliere(
+          dipendenti,
+          presenzeAndamento,
+          inizioAndamento,
+          oggi
+        )
       : null
   const presentiOggi = andamento?.at(-1)?.presenti ?? null
   const nomiDipendenti = new Map(
@@ -77,87 +80,110 @@ export async function AdminOverview() {
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 lg:grid-cols-3 lg:grid-rows-[auto_auto]">
         <Card className="lg:col-span-2 lg:row-start-1">
-          <CardHeader>
-            <div className="flex flex-row items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <ClockIcon />
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-row items-start gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <ClockIcon />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Timbrature</CardTitle>
+                  <CardDescription>
+                    Consulta e correggi le timbrature dei dipendenti dal
+                    marcatempo aziendale.
+                  </CardDescription>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-base">Timbrature</CardTitle>
-                <CardDescription>
-                  Consulta e correggi le timbrature dei dipendenti dal
-                  marcatempo aziendale.
-                </CardDescription>
+              {dipendenti && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-2xl font-semibold tabular-nums">
+                      {presentiOggi ?? "—"}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      Presenti oggi
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-2xl font-semibold tabular-nums">
+                      {dipendenti.length}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      Nel marcatempo
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button asChild>
+                  <Link href="/admin/timbrature">
+                    <ClockIcon data-icon="inline-start" />
+                    Apri Timbrature
+                  </Link>
+                </Button>
               </div>
             </div>
-          </CardHeader>
-          {dipendenti && (
-            <CardContent className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <span className="text-2xl font-semibold tabular-nums">
-                  {presentiOggi ?? "—"}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  Presenti oggi
-                </span>
+
+            <Separator />
+
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-row items-start gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <CalendarClockIcon />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Orari di lavoro</CardTitle>
+                  <CardDescription>
+                    Gestisci i preset di orario da applicare in blocco alle
+                    correzioni delle timbrature.
+                  </CardDescription>
+                </div>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-2xl font-semibold tabular-nums">
-                  {dipendenti.length}
+                  {preset}
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  Nel marcatempo
+                  {preset === 1 ? "Preset configurato" : "Preset configurati"}
                 </span>
               </div>
-            </CardContent>
-          )}
-          <CardFooter className="justify-end">
-            <Button asChild>
-              <Link href="/admin/timbrature">
-                <ClockIcon data-icon="inline-start" />
-                Apri Timbrature
-              </Link>
-            </Button>
-          </CardFooter>
+              <div className="flex justify-end">
+                <Button asChild>
+                  <Link href="/admin/orari-lavoro">
+                    <CalendarClockIcon data-icon="inline-start" />
+                    Apri Orari di lavoro
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
         </Card>
 
         <Card className="lg:col-span-2 lg:row-start-2">
           <CardHeader>
-            <div className="flex flex-row items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <CalendarClockIcon />
-              </div>
-              <div>
-                <CardTitle className="text-base">Orari di lavoro</CardTitle>
-                <CardDescription>
-                  Gestisci i preset di orario da applicare in blocco alle
-                  correzioni delle timbrature.
-                </CardDescription>
-              </div>
-            </div>
+            <CardTitle>Presenze</CardTitle>
+            <CardDescription>
+              Dipendenti con almeno una timbratura al giorno, ultimi{" "}
+              {GIORNI_ANDAMENTO} giorni
+            </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-2xl font-semibold tabular-nums">
-                {preset}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {preset === 1 ? "Preset configurato" : "Preset configurati"}
-              </span>
-            </div>
-            <span className="text-sm tabular-nums text-muted-foreground">
-              Standard {orario.primoIngresso}–{orario.primaUscita} ·{" "}
-              {orario.secondoIngresso}–{orario.secondaUscita}
-            </span>
+          <CardContent>
+            {andamento ? (
+              <PresenzeChart data={andamento} />
+            ) : (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <ClockIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>Dati non disponibili</EmptyTitle>
+                  <EmptyDescription>
+                    Il marcatempo aziendale non è raggiungibile.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
           </CardContent>
-          <CardFooter className="justify-end">
-            <Button asChild>
-              <Link href="/admin/orari-lavoro">
-                <CalendarClockIcon data-icon="inline-start" />
-                Apri Orari di lavoro
-              </Link>
-            </Button>
-          </CardFooter>
         </Card>
 
         {/* Wrapper vuoto: la sua unica funzione è definire l'area di griglia
@@ -174,9 +200,7 @@ export async function AdminOverview() {
                   <HistoryIcon />
                 </div>
                 <div>
-                  <CardTitle className="text-base">
-                    Ultime timbrature
-                  </CardTitle>
+                  <CardTitle className="text-base">Ultime timbrature</CardTitle>
                   <CardDescription>
                     Gli eventi più recenti registrati dal marcatempo
                   </CardDescription>
@@ -218,7 +242,7 @@ export async function AdminOverview() {
                             </span>
                           </div>
                         </div>
-                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                        <span className="shrink-0 text-muted-foreground tabular-nums">
                           {format(
                             parseISO(`${t.data}T${t.ora}`),
                             "d MMM HH:mm",
@@ -231,39 +255,9 @@ export async function AdminOverview() {
                 </ul>
               )}
             </CardContent>
-            <KpiFooter href="/admin/timbrature" label="Apri Timbrature">
-              Vai alla pagina Timbrature
-            </KpiFooter>
           </Card>
         </div>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Presenze</CardTitle>
-          <CardDescription>
-            Dipendenti con almeno una timbratura al giorno, ultimi{" "}
-            {GIORNI_ANDAMENTO} giorni
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {andamento ? (
-            <PresenzeChart data={andamento} />
-          ) : (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <ClockIcon />
-                </EmptyMedia>
-                <EmptyTitle>Dati non disponibili</EmptyTitle>
-                <EmptyDescription>
-                  Il marcatempo aziendale non è raggiungibile.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-        </CardContent>
-      </Card>
     </div>
   )
 }
