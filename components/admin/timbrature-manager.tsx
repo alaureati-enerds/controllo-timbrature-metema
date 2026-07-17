@@ -1199,7 +1199,20 @@ export function TimbratureManager({
                         />
                       </TableCell>
                       <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                        <StatoIcon
+                          anomalie={r.anomalie}
+                          weekend={r.we}
+                          revisionata={r.revisionata}
+                          haRapportino={r.righeRapportino.length > 0}
+                          onClick={() => setDettaglioGiorno(r.giorno)}
+                        />
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        <div className="flex items-center gap-1.5">
+                          {format(r.data, "dd", { locale: it })}{" "}
+                          <span className="text-muted-foreground">
+                            {nomeGiorno(r.data, "EEE")}
+                          </span>
                           {r.pernottamento && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1211,20 +1224,7 @@ export function TimbratureManager({
                               <TooltipContent>Pernotto</TooltipContent>
                             </Tooltip>
                           )}
-                          <StatoIcon
-                            anomalie={r.anomalie}
-                            weekend={r.we}
-                            revisionata={r.revisionata}
-                            haRapportino={r.righeRapportino.length > 0}
-                            onClick={() => setDettaglioGiorno(r.giorno)}
-                          />
                         </div>
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {format(r.data, "dd", { locale: it })}{" "}
-                        <span className="text-muted-foreground">
-                          {nomeGiorno(r.data, "EEE")}
-                        </span>
                       </TableCell>
                       <TableCell
                         className={cn("text-center tabular-nums", COL_ORA)}
