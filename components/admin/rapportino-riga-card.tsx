@@ -2,13 +2,11 @@ import {
   CarIcon,
   FileTextIcon,
   MoonIcon,
-  PartyPopperIcon,
-  UtensilsIcon,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Separator } from "@/components/ui/separator"
 import type { RapportinoRiga } from "@/lib/mysql/rapportini"
 
 const EURO = new Intl.NumberFormat("it-IT", {
@@ -32,6 +30,9 @@ export function RapportinoRigaCard({ riga }: { riga: RapportinoRiga }) {
   return (
     <Card size="sm">
       <CardContent className="flex flex-col gap-3 p-4">
+        <span className="text-xs font-medium text-muted-foreground">
+          Rapportino n. {riga.progressivo}
+        </span>
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-col gap-0.5">
             <span className="inline-flex items-center gap-1.5 text-sm font-medium">
@@ -41,55 +42,19 @@ export function RapportinoRigaCard({ riga }: { riga: RapportinoRiga }) {
               />
               <span>
                 {riga.cmsCodice || "—"}
-                {riga.cmsDescrizione && (
-                  <span className="font-normal text-muted-foreground">
-                    {" "}
-                    · {riga.cmsDescrizione}
+                {riga.tipologia && (
+                  <span className="font-normal">
+                    {" · "}Sottocommessa {riga.tipologia}
                   </span>
                 )}
               </span>
             </span>
-            {riga.tipologia && (
+            {riga.cmsDescrizione && (
               <span className="text-xs text-muted-foreground">
-                Sottocommessa {riga.tipologia}
+                {riga.cmsDescrizione}
               </span>
             )}
           </div>
-          <span className="flex items-center gap-1.5">
-            {riga.pernottamento && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <MoonIcon
-                    className="size-4 text-muted-foreground"
-                    aria-label="Pernotto"
-                  />
-                </TooltipTrigger>
-                <TooltipContent>Pernotto</TooltipContent>
-              </Tooltip>
-            )}
-            {riga.vitto && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <UtensilsIcon
-                    className="size-4 text-muted-foreground"
-                    aria-label="Vitto"
-                  />
-                </TooltipTrigger>
-                <TooltipContent>Vitto</TooltipContent>
-              </Tooltip>
-            )}
-            {riga.giornoFestivo && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PartyPopperIcon
-                    className="size-4 text-muted-foreground"
-                    aria-label="Giorno festivo"
-                  />
-                </TooltipTrigger>
-                <TooltipContent>Giorno festivo</TooltipContent>
-              </Tooltip>
-            )}
-          </span>
         </div>
 
         {riga.descrizione && (
@@ -103,9 +68,17 @@ export function RapportinoRigaCard({ riga }: { riga: RapportinoRiga }) {
           <Badge variant="secondary" className="tabular-nums">
             Viaggio {formattaOreMin(riga.oreViaggio, riga.minutiViaggio)}
           </Badge>
+          {riga.pernottamento && (
+            <Badge variant="outline" className="gap-1">
+              <MoonIcon className="size-3" />
+              Pernotto
+            </Badge>
+          )}
         </div>
 
         {(haTrasferta || riga.targaAutomezzo || haGuida || riga.importoVitto > 0 || riga.importoAlloggio > 0) && (
+          <>
+          <Separator />
           <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1.5 text-xs">
             {haTrasferta && (
               <>
@@ -153,6 +126,7 @@ export function RapportinoRigaCard({ riga }: { riga: RapportinoRiga }) {
               </>
             )}
           </dl>
+          </>
         )}
       </CardContent>
     </Card>

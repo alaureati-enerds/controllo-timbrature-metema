@@ -6,6 +6,7 @@ import { it } from "date-fns/locale"
 import {
   CheckIcon,
   ClockIcon,
+  FileTextIcon,
   MoonIcon,
   RotateCcwIcon,
   TriangleAlertIcon,
@@ -304,57 +305,77 @@ function GiornoDettaglioSheet({
       <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>
-            {riga && format(riga.data, "dd MMMM yyyy", { locale: it })}
+            {riga && (
+              <>
+                {format(riga.data, "dd MMMM yyyy", { locale: it })}
+                <span className="text-muted-foreground">
+                  {" · "}
+                  {nomeGiorno(riga.data, "EEEE")}
+                </span>
+              </>
+            )}
           </SheetTitle>
-          <SheetDescription>
-            {riga?.revisionata && "Giorno segnato come revisionato. "}
-            {riga && riga.anomalie.length > 0
-              ? riga.anomalie.length === 1
-                ? "1 anomalia"
-                : `${riga.anomalie.length} anomalie`
-              : "Nessuna anomalia"}
-          </SheetDescription>
+          {riga?.revisionata && (
+            <SheetDescription>
+              Giorno segnato come revisionato.
+            </SheetDescription>
+          )}
         </SheetHeader>
         <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4">
           {riga && riga.anomalie.length > 0 && (
-            <ul className="flex flex-col gap-1.5">
-              {riga.anomalie.map((a) => (
-                <li
-                  key={a}
-                  className="flex items-center gap-2 text-sm text-muted-foreground"
-                >
-                  <TriangleAlertIcon
-                    className="size-4 shrink-0 text-destructive"
-                    aria-hidden="true"
-                  />
-                  {ANOMALIA_LABEL[a]}
-                </li>
-              ))}
-            </ul>
+            <div className="rounded-lg border border-destructive/15 bg-destructive/5 p-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                <TriangleAlertIcon className="size-4" aria-hidden="true" />
+                <span>
+                  {riga.anomalie.length === 1
+                    ? "1 anomalia"
+                    : `${riga.anomalie.length} anomalie`}
+                </span>
+              </div>
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {riga.anomalie.map((a) => (
+                  <li
+                    key={a}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <span
+                      className="size-1.5 shrink-0 rounded-full bg-destructive"
+                      aria-hidden="true"
+                    />
+                    {ANOMALIA_LABEL[a]}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          {riga && riga.righeRapportino.length > 0 && (
+          {riga && (riga.righeRapportino.length > 0 ? (
             <div className="flex flex-col gap-2">
               <h3 className="flex items-center gap-1.5 text-sm font-medium">
-                Rapportino
-                {riga.pernottamento && (
-                  <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
-                    <MoonIcon className="size-3.5" aria-hidden="true" />
-                    Pernotto
-                  </span>
-                )}
+                <FileTextIcon
+                  className="size-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                {riga.righeRapportino.length === 1
+                  ? "1 rapportino elaborato"
+                  : `${riga.righeRapportino.length} rapportini elaborati`}
               </h3>
               {riga.righeRapportino.map((r) => (
                 <RapportinoRigaCard key={r.progressivo} riga={r} />
               ))}
             </div>
-          )}
-          {riga &&
-            riga.anomalie.length === 0 &&
-            riga.righeRapportino.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Nessuna anomalia e nessun rapportino per questo giorno.
-              </p>
-            )}
+          ) : (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FileTextIcon />
+                </EmptyMedia>
+                <EmptyTitle>Nessun rapportino</EmptyTitle>
+                <EmptyDescription>
+                  Nessun rapportino elaborato per questo giorno.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ))}
         </div>
       </SheetContent>
     </Sheet>
