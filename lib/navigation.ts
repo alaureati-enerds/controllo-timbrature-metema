@@ -1,7 +1,7 @@
 import {
   CalendarClockIcon,
   ClockIcon,
-  LayoutDashboardIcon,
+  HouseIcon,
   ListChecksIcon,
   ScrollTextIcon,
   SettingsIcon,
@@ -22,7 +22,7 @@ export type NavItem = {
 // Nota: la pagina "I miei file" (/files) esiste ancora ed è raggiungibile, ma
 // per ora è volutamente fuori dai menu.
 export const navItems: NavItem[] = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboardIcon },
+  { title: "Home", url: "/", icon: HouseIcon },
 ]
 
 // Sempre nel gruppo "Piattaforma", ma solo per gli amministratori: sono le zone
