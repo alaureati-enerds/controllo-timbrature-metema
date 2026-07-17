@@ -19,10 +19,10 @@ function formattaOreMin(ore: number, minuti: number): string {
 }
 
 // Card di dettaglio di UNA riga di rapportino: usata dalla Sheet di dettaglio
-// sia in /admin/rapportini sia in /admin/timbrature, per non duplicare il
-// rendering. I campi sotto le ore (trasferta, guida, vitto/alloggio) vengono
-// dalla stessa query di lib/mysql/rapportini.ts ma restano nascosti quando
-// non c'è nulla da dire (niente righe "0 km" o "0,00 €" a riempire spazio).
+// di /admin/timbrature. I campi sotto le ore (trasferta, guida, vitto/alloggio)
+// vengono dalla stessa query di lib/mysql/rapportini.ts ma restano nascosti
+// quando non c'è nulla da dire (niente righe "0 km" o "0,00 €" a riempire
+// spazio).
 export function RapportinoRigaCard({ riga }: { riga: RapportinoRiga }) {
   const haTrasferta = riga.kilometri > 0 || riga.rimborsoChilometrico > 0
   const haGuida = Boolean(riga.guidatoDalle && riga.guidatoAlle)

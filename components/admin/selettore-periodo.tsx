@@ -18,8 +18,7 @@ export const MESI = [
 
 // Selettore del periodo (mese 0-based + anno): le frecce per il mese vicino,
 // il popover per il salto lontano (l'anno si sfoglia senza cambiare il mese
-// finché non se ne sceglie uno). Condiviso tra le pagine Timbrature e
-// Rapportini.
+// finché non se ne sceglie uno). Usato dalla pagina Timbrature.
 export function SelettorePeriodo({
   mese,
   anno,

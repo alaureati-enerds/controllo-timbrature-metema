@@ -1,7 +1,6 @@
 import {
   CalendarClockIcon,
   ClockIcon,
-  FileTextIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
   ScrollTextIcon,
@@ -31,7 +30,6 @@ export const navItems: NavItem[] = [
 // tra le voci di amministrazione.
 export const adminPrimaryNavItems: NavItem[] = [
   { title: "Timbrature", url: "/admin/timbrature", icon: ClockIcon },
-  { title: "Rapportini", url: "/admin/rapportini", icon: FileTextIcon },
   { title: "Orari di lavoro", url: "/admin/orari-lavoro", icon: CalendarClockIcon },
 ]
 
