@@ -11,16 +11,20 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { useReducedMotion } from "@/hooks/use-reduced-motion"
-import type { DailyPoint } from "@/lib/dashboard/admin-stats"
 
-// Grafico a barre delle nuove registrazioni utenti per giorno: il segnale di
-// crescita più immediato per un admin.
+// Grafico a barre dei dipendenti presenti per giorno (andamento delle
+// timbrature dal marcatempo aziendale): il segnale più diretto sulla card
+// "Presenze" della Home.
 
 const chartConfig = {
-  registrations: { label: "Registrazioni", color: "var(--chart-1)" },
+  presenti: { label: "Presenti", color: "var(--chart-1)" },
 } satisfies ChartConfig
 
-export function RegistrationsChart({ data }: { data: DailyPoint[] }) {
+export function PresenzeChart({
+  data,
+}: {
+  data: { date: string; presenti: number }[]
+}) {
   const reducedMotion = useReducedMotion()
   return (
     <ChartContainer config={chartConfig} className="h-[240px] w-full">
@@ -49,8 +53,8 @@ export function RegistrationsChart({ data }: { data: DailyPoint[] }) {
           }
         />
         <Bar
-          dataKey="registrations"
-          fill="var(--color-registrations)"
+          dataKey="presenti"
+          fill="var(--color-presenti)"
           radius={4}
           isAnimationActive={!reducedMotion}
         />

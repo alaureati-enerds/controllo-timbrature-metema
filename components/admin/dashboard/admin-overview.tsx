@@ -1,20 +1,17 @@
 import Link from "next/link"
-import { format, parseISO } from "date-fns"
+import { eachDayOfInterval, format, parseISO, subDays } from "date-fns"
 import { it } from "date-fns/locale"
 import {
-  ArrowRightIcon,
-  FolderIcon,
-  ListChecksIcon,
-  ScrollTextIcon,
-  ShieldCheckIcon,
-  UsersIcon,
+  CalendarClockIcon,
+  ClockIcon,
+  HistoryIcon,
+  LogInIcon,
+  LogOutIcon,
 } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -29,270 +26,275 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { getOrarioSettingsForAdmin } from "@/lib/settings/orario"
+import { listPresets } from "@/lib/timbrature/preset"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import type { AdminStats } from "@/lib/dashboard/admin-stats"
-import { formatSize, nf } from "@/lib/dashboard/utils"
-import type { JobStatus } from "@/lib/generated/prisma/client"
+  getPresenzeIntervallo,
+  getUltimeTimbrature,
+  listDipendenti,
+  type Dipendente,
+  type PresenzaGiorno,
+} from "@/lib/mysql/timbrature"
 
-import { ActivityChart } from "./activity-chart"
-import { RegistrationsChart } from "./registrations-chart"
+import { PresenzeChart } from "./presenze-chart"
 
-// Etichette e ordine di visualizzazione degli stati dei job.
-const JOB_STATUS: { key: JobStatus; label: string }[] = [
-  { key: "running", label: "In esecuzione" },
-  { key: "queued", label: "In coda" },
-  { key: "completed", label: "Completate" },
-  { key: "failed", label: "Fallite" },
-  { key: "cancelled", label: "Annullate" },
-]
+const GIORNI_ANDAMENTO = 14
+const N_ULTIME_TIMBRATURE = 8
 
-// Overview riservata agli admin: KPI di sistema, andamento e ultime attività.
-// È un Server Component: riceve i dati già aggregati (getAdminStats) e renderizza
-// markup statico; solo i grafici sono client (Recharts).
-export function AdminOverview({ stats }: { stats: AdminStats }) {
-  const { users, files, jobs, notifications, daily, recentAudit } = stats
+// Home per gli admin: le due zone di lavoro principali (Timbrature, Orari di
+// lavoro) in cima, seguite da una seconda riga con segnali dal marcatempo:
+// andamento delle presenze e ultimi eventi registrati. Server Component: fa
+// il fetch al proprio interno, come PersonalOverview.
+export async function AdminOverview() {
+  const oggi = format(new Date(), "yyyy-MM-dd")
+  const inizioAndamento = format(
+    subDays(new Date(), GIORNI_ANDAMENTO - 1),
+    "yyyy-MM-dd"
+  )
+
+  const [dipendenti, presenzeAndamento, ultimeTimbrature, preset, orario] =
+    await Promise.all([
+      // Il marcatempo aziendale è un sistema esterno: se non è configurato o
+      // non risponde, le card restano senza i dati invece di rompere tutta
+      // la Home (stesso principio tollerante usato per i rapportini in stampa).
+      listDipendenti().catch(() => null),
+      getPresenzeIntervallo(inizioAndamento, oggi).catch(() => null),
+      getUltimeTimbrature(N_ULTIME_TIMBRATURE).catch(() => null),
+      listPresets().then((p) => p.length),
+      getOrarioSettingsForAdmin(),
+    ])
+
+  const andamento =
+    dipendenti && presenzeAndamento
+      ? presenzeGiornaliere(dipendenti, presenzeAndamento, inizioAndamento, oggi)
+      : null
+  const presentiOggi = andamento?.at(-1)?.presenti ?? null
+  const nomiDipendenti = new Map(
+    (dipendenti ?? []).map((d) => [d.codice, d.descrizione])
+  )
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Riga di KPI */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
+      <div className="grid gap-4 lg:grid-cols-3 lg:grid-rows-[auto_auto]">
+        <Card className="lg:col-span-2 lg:row-start-1">
           <CardHeader>
-            <CardDescription>Utenti</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">
-              {nf.format(users.total)}
-            </CardTitle>
-            <CardAction>
-              <UsersIcon className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <KpiFooter href="/admin/users" label="Gestione utenti">
-            {users.newLast7 > 0
-              ? `+${nf.format(users.newLast7)} negli ultimi 7 giorni`
-              : "Nessuna nuova registrazione (7 giorni)"}
-          </KpiFooter>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>Operazioni attive</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">
-              {nf.format(jobs.active)}
-            </CardTitle>
-            <CardAction>
-              <ListChecksIcon className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <KpiFooter href="/admin/jobs" label="Operazioni in background">
-            {jobs.failedLast7 > 0 ? (
-              <span className="text-destructive">
-                {nf.format(jobs.failedLast7)} fallite negli ultimi 7 giorni
-              </span>
-            ) : (
-              "In coda o in esecuzione adesso"
-            )}
-          </KpiFooter>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>File</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">
-              {nf.format(files.total)}
-            </CardTitle>
-            <CardAction>
-              <FolderIcon className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <KpiFooter href="/files" label="I miei file">
-            {formatSize(files.totalSize)} occupati nello storage
-          </KpiFooter>
-        </Card>
-      </div>
-
-      {/* Riga dei grafici */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Attività di sicurezza</CardTitle>
-            <CardDescription>
-              Eventi del registro di audit per giorno (ultimi 14 giorni)
-            </CardDescription>
-            <CardAction>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/admin/audit">
-                  <ScrollTextIcon data-icon="inline-start" />
-                  Audit log
-                </Link>
-              </Button>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <ActivityChart data={daily} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Registrazioni</CardTitle>
-            <CardDescription>Nuovi utenti per giorno (14 giorni)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RegistrationsChart data={daily} />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Riga di dettaglio: stato utenti + stato operazioni */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Stato degli utenti</CardTitle>
-            <CardDescription>Composizione della base utenti</CardDescription>
-            <CardAction>
-              <ShieldCheckIcon className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex-1 grid grid-cols-3 gap-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-2xl font-semibold tabular-nums">
-                {nf.format(users.verified)}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                Email verificata
-              </span>
+            <div className="flex flex-row items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <ClockIcon />
+              </div>
+              <div>
+                <CardTitle className="text-base">Timbrature</CardTitle>
+                <CardDescription>
+                  Consulta e correggi le timbrature dei dipendenti dal
+                  marcatempo aziendale.
+                </CardDescription>
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-2xl font-semibold tabular-nums">
-                {nf.format(users.twoFactor)}
-              </span>
-              <span className="text-sm text-muted-foreground">Con 2FA</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-2xl font-semibold tabular-nums">
-                {nf.format(users.banned)}
-              </span>
-              <span className="text-sm text-muted-foreground">Bannati</span>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/admin/users">
-                Gestione utenti
-                <ArrowRightIcon data-icon="inline-end" />
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Operazioni in background</CardTitle>
-            <CardDescription>Job per stato</CardDescription>
-            <CardAction>
-              <ListChecksIcon className="text-muted-foreground" />
-            </CardAction>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col gap-2">
-            {JOB_STATUS.map(({ key, label }) => (
-              <div
-                key={key}
-                className="flex items-center justify-between text-sm"
-              >
-                <span className="text-muted-foreground">{label}</span>
-                <span className="font-medium tabular-nums">
-                  {nf.format(jobs.byStatus[key])}
+          {dipendenti && (
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-2xl font-semibold tabular-nums">
+                  {presentiOggi ?? "—"}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  Presenti oggi
                 </span>
               </div>
-            ))}
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/admin/jobs">
-                Vai alle operazioni
-                <ArrowRightIcon data-icon="inline-end" />
+              <div className="flex flex-col gap-1">
+                <span className="text-2xl font-semibold tabular-nums">
+                  {dipendenti.length}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  Nel marcatempo
+                </span>
+              </div>
+            </CardContent>
+          )}
+          <CardFooter className="justify-end">
+            <Button asChild>
+              <Link href="/admin/timbrature">
+                <ClockIcon data-icon="inline-start" />
+                Apri Timbrature
               </Link>
             </Button>
           </CardFooter>
         </Card>
-      </div>
 
-      {/* Ultime attività (audit log) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ultime attività</CardTitle>
-          <CardDescription>
-            Eventi recenti del registro di audit
-          </CardDescription>
-          <CardAction>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/admin/audit">
-                <ScrollTextIcon data-icon="inline-start" />
-                Vedi tutto
+        <Card className="lg:col-span-2 lg:row-start-2">
+          <CardHeader>
+            <div className="flex flex-row items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <CalendarClockIcon />
+              </div>
+              <div>
+                <CardTitle className="text-base">Orari di lavoro</CardTitle>
+                <CardDescription>
+                  Gestisci i preset di orario da applicare in blocco alle
+                  correzioni delle timbrature.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-2xl font-semibold tabular-nums">
+                {preset}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {preset === 1 ? "Preset configurato" : "Preset configurati"}
+              </span>
+            </div>
+            <span className="text-sm tabular-nums text-muted-foreground">
+              Standard {orario.primoIngresso}–{orario.primaUscita} ·{" "}
+              {orario.secondoIngresso}–{orario.secondaUscita}
+            </span>
+          </CardContent>
+          <CardFooter className="justify-end">
+            <Button asChild>
+              <Link href="/admin/orari-lavoro">
+                <CalendarClockIcon data-icon="inline-start" />
+                Apri Orari di lavoro
               </Link>
             </Button>
-          </CardAction>
+          </CardFooter>
+        </Card>
+
+        {/* Wrapper vuoto: la sua unica funzione è definire l'area di griglia
+            (colonna 3, righe 1-2) senza contribuire alla loro altezza, così le
+            due card di sinistra restano alla loro altezza naturale. La card è
+            posizionata in absolute per riempire esattamente quell'area, senza
+            forzare le righe a crescere in base al proprio contenuto: quando
+            eccede lo spazio disponibile, scrolla internamente. */}
+        <div className="relative lg:col-start-3 lg:row-start-1 lg:row-end-3">
+          <Card className="flex flex-col lg:absolute lg:inset-0">
+            <CardHeader>
+              <div className="flex flex-row items-start gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+                  <HistoryIcon />
+                </div>
+                <div>
+                  <CardTitle className="text-base">
+                    Ultime timbrature
+                  </CardTitle>
+                  <CardDescription>
+                    Gli eventi più recenti registrati dal marcatempo
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="min-h-0 flex-1 overflow-y-auto">
+              {ultimeTimbrature === null || ultimeTimbrature.length === 0 ? (
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <HistoryIcon />
+                    </EmptyMedia>
+                    <EmptyTitle>Nessuna timbratura</EmptyTitle>
+                    <EmptyDescription>
+                      {ultimeTimbrature === null
+                        ? "Il marcatempo aziendale non è raggiungibile."
+                        : "Non ci sono ancora eventi registrati."}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {ultimeTimbrature.map((t, i) => (
+                    <li key={`${t.codiceDip}-${t.data}-${t.ora}-${i}`}>
+                      <div className="flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm">
+                        <div className="flex min-w-0 items-center gap-3">
+                          {t.tipologia === "E" ? (
+                            <LogInIcon className="size-4 shrink-0 text-green-600 dark:text-green-500" />
+                          ) : (
+                            <LogOutIcon className="size-4 shrink-0 text-red-600 dark:text-red-500" />
+                          )}
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate font-medium">
+                              {nomiDipendenti.get(t.codiceDip) ?? t.codiceDip}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {t.tipologia === "E" ? "Entrata" : "Uscita"}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                          {format(
+                            parseISO(`${t.data}T${t.ora}`),
+                            "d MMM HH:mm",
+                            { locale: it }
+                          )}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+            <KpiFooter href="/admin/timbrature" label="Apri Timbrature">
+              Vai alla pagina Timbrature
+            </KpiFooter>
+          </Card>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Presenze</CardTitle>
+          <CardDescription>
+            Dipendenti con almeno una timbratura al giorno, ultimi{" "}
+            {GIORNI_ANDAMENTO} giorni
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {recentAudit.length === 0 ? (
+          {andamento ? (
+            <PresenzeChart data={andamento} />
+          ) : (
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <ScrollTextIcon />
+                  <ClockIcon />
                 </EmptyMedia>
-                <EmptyTitle>Nessuna attività</EmptyTitle>
+                <EmptyTitle>Dati non disponibili</EmptyTitle>
                 <EmptyDescription>
-                  Gli eventi tracciati compariranno qui.
+                  Il marcatempo aziendale non è raggiungibile.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Evento</TableHead>
-                  <TableHead>Esito</TableHead>
-                  <TableHead>Utente</TableHead>
-                  <TableHead className="text-right">Quando</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentAudit.map((e) => (
-                  <TableRow key={e.id}>
-                    <TableCell className="font-medium">
-                      {e.actionLabel}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          e.outcome === "failure" ? "destructive" : "outline"
-                        }
-                      >
-                        {e.outcome === "failure" ? "Fallito" : "OK"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {e.actorEmail ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {format(parseISO(e.createdAt), "d MMM HH:mm", {
-                        locale: it,
-                      })}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           )}
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/**
+ * Serie giornaliera (uno per ogni giorno dell'intervallo, incluso lo zero) di
+ * dipendenti distinti con un'entrata timbrata quel giorno. Scarta la
+ * sentinella 00:00 (marcatempo) e i dipendenti obsoleti, come fa il motore di
+ * calcolo delle timbrature.
+ */
+function presenzeGiornaliere(
+  dipendenti: Dipendente[],
+  presenze: PresenzaGiorno[],
+  dal: string,
+  al: string
+): { date: string; presenti: number }[] {
+  const codiciValidi = new Set(dipendenti.map((d) => d.codice))
+  const perGiorno = new Map<string, Set<string>>()
+  for (const p of presenze) {
+    if (p.tipologia !== "E") continue
+    if (p.ora.slice(0, 5) === "00:00") continue
+    if (!codiciValidi.has(p.codiceDip)) continue
+    const presenti = perGiorno.get(p.data) ?? new Set<string>()
+    presenti.add(p.codiceDip)
+    perGiorno.set(p.data, presenti)
+  }
+
+  return eachDayOfInterval({ start: parseISO(dal), end: parseISO(al) }).map(
+    (giorno) => {
+      const chiave = format(giorno, "yyyy-MM-dd")
+      return { date: chiave, presenti: perGiorno.get(chiave)?.size ?? 0 }
+    }
   )
 }

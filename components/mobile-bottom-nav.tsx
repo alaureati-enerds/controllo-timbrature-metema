@@ -6,7 +6,7 @@ import {
   BellIcon,
   ClockIcon,
   FolderIcon,
-  LayoutDashboardIcon,
+  HouseIcon,
   ListChecksIcon,
   MenuIcon,
   ScrollTextIcon,
@@ -24,13 +24,13 @@ type BottomNavItem = { label: string; url: string; icon: LucideIcon }
 // di amministrazione, l'utente normale le sue. Il 5° slot (Menu) è sempre uguale
 // e apre la pagina con la navigazione completa.
 const userItems: BottomNavItem[] = [
-  { label: "Home", url: "/", icon: LayoutDashboardIcon },
+  { label: "Home", url: "/", icon: HouseIcon },
   { label: "File", url: "/files", icon: FolderIcon },
   { label: "Notifiche", url: "/notifications", icon: BellIcon },
 ]
 
 const adminItems: BottomNavItem[] = [
-  { label: "Home", url: "/", icon: LayoutDashboardIcon },
+  { label: "Home", url: "/", icon: HouseIcon },
   { label: "Utenti", url: "/admin/users", icon: UsersIcon },
   { label: "Timbrature", url: "/admin/timbrature", icon: ClockIcon },
   { label: "Audit", url: "/admin/audit", icon: ScrollTextIcon },
