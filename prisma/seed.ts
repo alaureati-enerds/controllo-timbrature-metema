@@ -4,10 +4,15 @@ import { categoryOf } from "@/lib/notifications/catalog"
 import { prisma } from "@/lib/prisma"
 import { systemSettingsSchema } from "@/lib/settings/schema"
 
-// Seed idempotente: garantisce l'esistenza di alcuni account iniziali, così al
-// primo avvio c'è sempre un admin (per le aree riservate) e un utente normale
-// (per provare l'app senza privilegi). Le credenziali arrivano dalle variabili
-// d'ambiente (SEED_ADMIN_* e SEED_USER_*).
+// Bootstrap degli account iniziali: al PRIMO avvio (database senza utenti) crea
+// un admin (per le aree riservate) e un utente normale (per provare l'app senza
+// privilegi). Le credenziali arrivano dalle variabili d'ambiente (SEED_ADMIN_*
+// e SEED_USER_*). Vedi main() per la condizione di "database vuoto".
+//
+// Importante: NON è un seed che gira a ogni avvio ricreando gli account. Se lo
+// fosse, un utente eliminato dall'admin tornerebbe al riavvio successivo. Perciò
+// gli account si seminano solo quando non esiste ancora alcun utente: dopo il
+// primo avvio le eliminazioni restano.
 //
 // La creazione passa per l'API di Better Auth (signUpEmail) così la password
 // viene hashata esattamente come per le registrazioni normali; poi impostiamo il
@@ -118,6 +123,19 @@ async function seedNotifications(email: string) {
 
 async function main() {
   await seedSystemSettings()
+
+  // Gli account (e le notifiche demo) si creano SOLO su un database vuoto, cioè
+  // al primo avvio. Con almeno un utente presente il seed non tocca più gli
+  // account: così un utente eliminato dall'admin non ricompare al riavvio. Se
+  // il DB viene svuotato del tutto, admin e utente vengono ripristinati come
+  // rete di sicurezza (non resti mai senza un admin per accedere).
+  const userCount = await prisma.user.count()
+  if (userCount > 0) {
+    console.log(
+      `✔ Database già inizializzato (${userCount} utenti): salto il bootstrap degli account.`,
+    )
+    return
+  }
 
   await seedUser({
     email: env.SEED_ADMIN_EMAIL,

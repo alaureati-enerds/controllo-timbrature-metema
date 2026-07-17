@@ -172,6 +172,10 @@ model UserPreference {
   opera **solo** su quella riga, come [`lib/files.ts`](../lib/files.ts).
 - Niente RBAC `settings`: il controllo è `userId === session.user.id`.
 - La UI sta sotto `/settings` (o `/profile`), non sotto `/admin`.
+- **Già in uso** con questo pattern: i canali di notifica per-tipo
+  ([notifiche.md](notifiche.md)) e il **template di stampa predefinito**
+  (`stampa.templateId`, card «Stampa» in `/settings` — vedi
+  [stampa-timbrature.md](stampa-timbrature.md)).
 
 Per la precedenza del tema: la preferenza dell'utente, quando esisterà, batte il
 `defaultTheme` di sistema; `next-themes` legge comunque il `localStorage` del

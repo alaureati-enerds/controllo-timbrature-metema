@@ -3,7 +3,9 @@
 Dalla pagina **Timbrature** (`/admin/timbrature`) si genera il **registro
 presenze** del dipendente e del mese selezionati come **PDF scaricabile**. Il
 formato del foglio è un **template**: se ne può scegliere uno al momento della
-stampa e fissarlo come **predefinito** per tutti.
+stampa. Il template proposto di default è una **preferenza per-utente**,
+impostabile in [`/settings`](../app/(dashboard)/settings/page.tsx) (vedi
+`stampa.templateId` in [`lib/settings/user.ts`](../lib/settings/user.ts)).
 
 ---
 
@@ -12,32 +14,57 @@ stampa e fissarlo come **predefinito** per tutti.
 1. Nella toolbar della pagina, in fondo a destra, il bottone **Stampa** apre il
    dialog di stampa
    ([`components/admin/timbrature-stampa-dialog.tsx`](../components/admin/timbrature-stampa-dialog.tsx)).
-2. Si sceglie il **template** e, volendo, lo si imposta come predefinito
-   (`PUT /api/admin/settings/stampa`).
+2. Si sceglie il **template** (parte dal default per-utente). Per cambiare il
+   proprio default si va in [`/settings`](../app/(dashboard)/settings/page.tsx)
+   → card «Stampa» (`PUT /api/me/preferences`).
 3. «Genera PDF» chiama
    `GET /api/admin/timbrature/stampa?dipendente=&mese=&anno=&template=`
    ([route](../app/api/admin/timbrature/stampa/route.ts)), che risponde con un
    `application/pdf` in allegato. Il client lo scarica via `fetch` + blob, così
    un errore del server diventa un toast e non un file rotto.
 
+### Stampa cumulativa (tutti i dipendenti)
+
+Lo switch **«Stampa cumulativa»** nel dialog genera un **unico PDF** con tutti i
+dipendenti del mese, **uno per foglio** e in **ordine alfabetico** (l'ordine di
+`listDipendenti`). Sono **esclusi i dipendenti senza timbrature**, con un
+controllo sui valori **corretti** (`ce1…cu2`) e non sui grezzi: chi ha solo
+correzioni manuali compare comunque. In questa modalità il parametro
+`cumulativo=1` sostituisce `dipendente`; i dati di tutti i dipendenti sono
+costruiti da `getDatiStampaCumulativo`
+([`lib/timbrature/stampa/dati.ts`](../lib/timbrature/stampa/dati.ts)) e composti
+in un solo documento da `renderDocumentoCumulativo`
+([`lib/timbrature/stampa/documenti.tsx`](../lib/timbrature/stampa/documenti.tsx)).
+Il template resta lo stesso: ogni template espone la sua `<Page>` (es.
+`PaginaRegistroClassico`) e il wrapper `<Document>` — singolo o cumulativo —
+vive in `documenti.tsx`. Il piè di pagina «Pagina N di M» usa la numerazione
+globale del fascicolo.
+
 **Il contenuto della stampa non viene inviato dal browser.** Le correzioni sono
 già persistite mentre si modifica la tabella, quindi il server le rilegge e
 **ricalcola** tutto con le stesse funzioni usate a schermo
 ([`lib/timbrature/calcolo.ts`](../lib/timbrature/calcolo.ts)): il PDF non può
-divergere da ciò che si vede.
+divergere da ciò che si vede. Questo include i **rapportini**
+([`lib/timbrature/stampa/dati.ts`](../lib/timbrature/stampa/dati.ts) legge
+anche `getRapportini`, li raggruppa per giorno e li passa a `calcolaCorretti`
+esattamente come fa la pagina, con lo stesso fallback tollerante se il DB
+esterno non li espone): straordinario lavoro/viaggio separati e pernotto sono
+quindi sempre coerenti fra schermo e stampa, su entrambi i template.
 
 Ogni stampa è tracciata nell'**audit log** (evento `timbrature.stampa`, con
 dipendente, mese e template): è un export di dati sul personale.
 
 ### I pezzi
 
-| File | Ruolo |
-|---|---|
-| [`lib/timbrature/stampa/catalog.ts`](../lib/timbrature/stampa/catalog.ts) | Catalogo dei template: **solo metadati** (id, nome, descrizione). Importabile dal client. |
-| [`lib/timbrature/stampa/documenti.tsx`](../lib/timbrature/stampa/documenti.tsx) | Mappa `id → documento PDF`. **Server-only**: qui si importa `@react-pdf/renderer`. |
-| [`lib/timbrature/stampa/registro-classico.tsx`](../lib/timbrature/stampa/registro-classico.tsx) | Il template «Registro presenze». |
-| [`lib/timbrature/stampa/dati.ts`](../lib/timbrature/stampa/dati.ts) | Costruisce i `DatiStampa`: giornate + correzioni + totali, già calcolati. |
-| [`lib/settings/stampa.ts`](../lib/settings/stampa.ts) | Template predefinito (impostazione di **sistema**, blob `SystemSetting.data.stampa`). |
+| File                                                                                                  | Ruolo                                                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`lib/timbrature/stampa/catalog.ts`](../lib/timbrature/stampa/catalog.ts)                             | Catalogo dei template: **solo metadati** (id, nome, descrizione). Importabile dal client.                                                                                   |
+| [`lib/timbrature/stampa/documenti.tsx`](../lib/timbrature/stampa/documenti.tsx)                       | Mappa `id → <Page>` + wrapper `<Document>` (singolo e cumulativo). **Server-only**: qui si importa `@react-pdf/renderer`.                                                   |
+| [`lib/timbrature/stampa/registro-classico.tsx`](../lib/timbrature/stampa/registro-classico.tsx)       | Il template «Registro presenze»: espone la sua `<Page>` (`PaginaRegistroClassico`). Modulo cartaceo storico, con le 4 colonne di marcatempo grezzo.                         |
+| [`lib/timbrature/stampa/registro-compatto.tsx`](../lib/timbrature/stampa/registro-compatto.tsx)       | Il template «Registro presenze (compatto)» (`PaginaRegistroCompatto`): stessi dati, senza le 4 colonne di marcatempo grezzo — più spazio per gli orari corretti e i totali. |
+| [`lib/timbrature/stampa/dati.ts`](../lib/timbrature/stampa/dati.ts)                                   | Costruisce i `DatiStampa`: giornate + correzioni + totali, già calcolati (singolo e cumulativo).                                                                            |
+| [`lib/settings/user.ts`](../lib/settings/user.ts)                                                     | Template predefinito: **preferenza per-utente** (`stampa.templateId`), impostata in `/settings`.                                                                            |
+| [`components/profile/stampa-preferences-form.tsx`](../components/profile/stampa-preferences-form.tsx) | Card in `/settings` per scegliere il proprio template predefinito.                                                                                                          |
 
 La separazione catalogo/documenti è voluta: il client ha bisogno solo di
 `id` e `nome` per la Select, e `@react-pdf/renderer` non deve mai finire nel
@@ -50,22 +77,22 @@ bundle del browser (è dichiarato in `serverExternalPackages`, vedi
 
 Operazione **additiva**: nessun refactor, nessuna migrazione.
 
-1. **Scrivi il documento** in `lib/timbrature/stampa/<tuo-id>.tsx`. Riceve i
-   `DatiStampa` già calcolati e restituisce un `<Document>` di
-   `@react-pdf/renderer` — non deve sapere nulla di MySQL, Prisma o correzioni:
+1. **Scrivi la pagina** in `lib/timbrature/stampa/<tuo-id>.tsx`. Riceve i
+   `DatiStampa` già calcolati e restituisce una `<Page>` di
+   `@react-pdf/renderer` (il wrapper `<Document>` lo aggiunge `documenti.tsx`,
+   così la stessa pagina serve sia la stampa singola sia quella cumulativa) —
+   non deve sapere nulla di MySQL, Prisma o correzioni:
 
    ```tsx
-   import { Document, Page, Text } from "@react-pdf/renderer"
+   import { Page, Text } from "@react-pdf/renderer"
    import type { DatiStampa } from "@/lib/timbrature/stampa/dati"
 
-   export function RiepilogoCompatto({ dati }: { dati: DatiStampa }) {
+   export function PaginaRiepilogoCompatto({ dati }: { dati: DatiStampa }) {
      return (
-       <Document>
-         <Page size="A4">
-           <Text>{dati.dipendente.descrizione}</Text>
-           {/* … */}
-         </Page>
-       </Document>
+       <Page size="A4">
+         <Text>{dati.dipendente.descrizione}</Text>
+         {/* … */}
+       </Page>
      )
    }
    ```
@@ -77,15 +104,16 @@ Operazione **additiva**: nessun refactor, nessuna migrazione.
      descrizione: "Solo orari corretti e totali del mese." },
    ```
 
-3. **Mappalo in** `lib/timbrature/stampa/documenti.tsx`:
+3. **Mappalo in** `lib/timbrature/stampa/documenti.tsx` (nella mappa `pagine`):
 
    ```tsx
-   "riepilogo-compatto": (dati) => <RiepilogoCompatto dati={dati} />,
+   "riepilogo-compatto": (dati) => <PaginaRiepilogoCompatto dati={dati} />,
    ```
 
 Il template compare subito nella Select del dialog e diventa selezionabile come
-predefinito. Il tipo `StampaTemplateId` è derivato dal catalogo, quindi
-dimenticare il passo 3 è un **errore di compilazione**, non un bug a runtime.
+predefinito, e funziona sia in stampa singola sia cumulativa. Il tipo
+`StampaTemplateId` è derivato dal catalogo, quindi dimenticare il passo 3 è un
+**errore di compilazione**, non un bug a runtime.
 
 > **Font**: si usano i font integrati in PDF (Helvetica). Per usarne altri
 > servirebbe registrare un TTF con `Font.register()` e spedirlo con l'immagine.

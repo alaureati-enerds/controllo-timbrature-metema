@@ -35,7 +35,6 @@ import { cn } from "@/lib/utils"
 
 import type { Dipendente } from "@/lib/mysql/timbrature"
 import {
-  getStampaTemplate,
   stampaTemplates,
   type StampaTemplateId,
 } from "@/lib/timbrature/stampa/catalog"
@@ -67,28 +66,22 @@ export function TimbratureStampaDialog({
   const [open, setOpen] = useState(false)
   const [template, setTemplate] =
     useState<StampaTemplateId>(templatePredefinito)
-  const [predefinito, setPredefinito] = useState(false)
+  const [cumulativo, setCumulativo] = useState(false)
   const [generating, setGenerating] = useState(false)
 
   async function stampa() {
-    if (!dipendente) return
+    if (!cumulativo && !dipendente) return
     setGenerating(true)
     try {
-      if (predefinito && template !== templatePredefinito) {
-        const res = await fetch("/api/admin/settings/stampa", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ templateId: template }),
-        })
-        if (!res.ok)
-          throw new Error("Impossibile salvare il template predefinito")
-      }
-
+      // In modalità cumulativa il dipendente non serve: la route stampa tutti i
+      // dipendenti del mese (esclusi quelli senza timbrature corrette).
       const params = new URLSearchParams({
-        dipendente: dipendente.codice,
         mese: String(mese),
         anno: String(anno),
         template,
+        ...(cumulativo
+          ? { cumulativo: "1" }
+          : { dipendente: dipendente!.codice }),
       })
       // Scarichiamo via fetch (non con un link diretto) per poter mostrare lo
       // spinner e trasformare un errore del server (es. MySQL irraggiungibile)
@@ -126,7 +119,7 @@ export function TimbratureStampaDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
-          disabled={disabled || !dipendente}
+          disabled={disabled}
           className={cn("w-full sm:w-auto", className)}
         >
           <PrinterIcon data-icon="inline-start" />
@@ -138,15 +131,16 @@ export function TimbratureStampaDialog({
         <DialogHeader>
           <DialogTitle>Stampa registro presenze</DialogTitle>
           <DialogDescription>
-            {dipendente?.descrizione || dipendente?.codice} —{" "}
-            <span className="tabular-nums">{meseLabel}</span>. Il PDF riporta le
-            timbrature così come le vedi ora, correzioni comprese.
+            Periodo selezionato:{" "}
+            <span className="tabular-nums font-medium text-foreground">
+              {meseLabel}
+            </span>
           </DialogDescription>
         </DialogHeader>
 
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="stampa-template">Template</FieldLabel>
+            <FieldLabel htmlFor="stampa-template">Modello di stampa</FieldLabel>
             <Select
               value={template}
               onValueChange={(v) => setTemplate(v as StampaTemplateId)}
@@ -162,25 +156,21 @@ export function TimbratureStampaDialog({
                 ))}
               </SelectContent>
             </Select>
-            <FieldDescription>
-              {getStampaTemplate(template).descrizione}
-            </FieldDescription>
           </Field>
 
-          <Field orientation="responsive">
+          <Field orientation="horizontal" className="!items-center">
             <FieldContent>
-              <FieldLabel htmlFor="stampa-predefinito">
-                Imposta come predefinito
+              <FieldLabel htmlFor="stampa-cumulativo">
+                Stampa cumulativa
               </FieldLabel>
               <FieldDescription>
-                Il template scelto sarà quello proposto alle prossime stampe,
-                per tutti gli amministratori.
+                Include tutti i dipendenti
               </FieldDescription>
             </FieldContent>
             <Switch
-              id="stampa-predefinito"
-              checked={predefinito}
-              onCheckedChange={setPredefinito}
+              id="stampa-cumulativo"
+              checked={cumulativo}
+              onCheckedChange={setCumulativo}
             />
           </Field>
         </FieldGroup>
@@ -191,7 +181,10 @@ export function TimbratureStampaDialog({
               Annulla
             </Button>
           </DialogClose>
-          <Button onClick={stampa} disabled={generating}>
+          <Button
+            onClick={stampa}
+            disabled={generating || (!cumulativo && !dipendente)}
+          >
             {generating ? (
               <Spinner aria-hidden="true" />
             ) : (

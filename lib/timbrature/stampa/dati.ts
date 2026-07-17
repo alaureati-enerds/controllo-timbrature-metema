@@ -1,8 +1,14 @@
 import { endOfMonth, format, startOfMonth } from "date-fns"
 
 import { ApiError } from "@/lib/api"
-import { getDipendente, type Dipendente } from "@/lib/mysql/timbrature"
+import { getRapportini, type RapportinoRiga } from "@/lib/mysql/rapportini"
+import {
+  getDipendente,
+  listDipendenti,
+  type Dipendente,
+} from "@/lib/mysql/timbrature"
 import { prisma } from "@/lib/prisma"
+import { raggruppaPerGiorno, sommaGiorno } from "@/lib/rapportini/calcolo"
 import {
   calcolaCorretti,
   calcolaTotaliMese,
@@ -25,7 +31,12 @@ export type DatiStampa = {
   mese: number // 1-12
   anno: number
   righe: RigaStampa[]
-  totali: { totale: number; ordinario: number; straordinario: number }
+  totali: {
+    totale: number
+    ordinario: number
+    straordinario: number
+    straordinarioViaggio: number
+  }
   /** Momento della generazione: finisce nel piè di pagina («Stampato il …»). */
   stampatoIl: Date
 }
@@ -39,9 +50,15 @@ export async function getDatiStampa(
   const dal = format(startOfMonth(primo), "yyyy-MM-dd")
   const al = format(endOfMonth(primo), "yyyy-MM-dd")
 
-  const [dipendente, { giornate, orario, regole }, correzioni] = await Promise.all([
+  const [
+    dipendente,
+    { giornate, orario, regole },
+    correzioni,
+    rapportiniPerGiorno,
+  ] = await Promise.all([
     getDipendente(codiceDipendente).catch((error: unknown) => {
-      const detail = error instanceof Error ? error.message : "errore sconosciuto"
+      const detail =
+        error instanceof Error ? error.message : "errore sconosciuto"
       throw new ApiError(`Impossibile leggere il dipendente: ${detail}`, 502)
     }),
     getGiornate(codiceDipendente, mese, anno),
@@ -56,6 +73,12 @@ export async function getDatiStampa(
         revisionata: true,
       },
     }),
+    // I rapportini sono un'estensione: se il DB esterno non li espone (o la
+    // richiesta fallisce) la stampa non deve rompersi, resta senza — stesso
+    // comportamento tollerante della pagina a schermo.
+    getRapportini(codiceDipendente, dal, al)
+      .then(raggruppaPerGiorno)
+      .catch(() => new Map<string, RapportinoRiga[]>()),
   ])
 
   if (!dipendente) throw new ApiError("Dipendente non trovato", 404)
@@ -79,7 +102,13 @@ export async function getDatiStampa(
   )
   const righe: RigaStampa[] = giornate.map((g) => ({
     ...g,
-    ...calcolaCorretti(g, override.get(g.giorno), regole, orario),
+    ...calcolaCorretti(
+      g,
+      override.get(g.giorno),
+      regole,
+      orario,
+      sommaGiorno(rapportiniPerGiorno.get(g.giorno) ?? [])
+    ),
     weekend: isWeekend(g.giornoSettimana),
     revisionata: revisionati.has(g.giorno),
   }))
@@ -92,4 +121,36 @@ export async function getDatiStampa(
     totali: calcolaTotaliMese(righe),
     stampatoIl: new Date(),
   }
+}
+
+/**
+ * Dati di stampa CUMULATIVA: un `DatiStampa` per ogni dipendente del mese, in
+ * ordine alfabetico (l'ordine di `listDipendenti`, che è già `ORDER BY
+ * DESCRIZIONE` ed esclude gli obsoleti). Sono esclusi i dipendenti **senza
+ * alcuna timbratura corretta** nel mese: il controllo è sui valori corretti
+ * (`ce1…cu2`), non sui grezzi, così chi ha solo correzioni manuali compare
+ * comunque. La stampa iterata usa le stesse funzioni della singola.
+ *
+ * Il loop è sequenziale: `getDatiStampa` apre una connessione MySQL per
+ * chiamata, e un export on-demand di poche decine di dipendenti resta rapido
+ * senza aprire connessioni in parallelo.
+ */
+export async function getDatiStampaCumulativo(
+  mese: number,
+  anno: number
+): Promise<DatiStampa[]> {
+  const dipendenti = await listDipendenti().catch((error: unknown) => {
+    const detail = error instanceof Error ? error.message : "errore sconosciuto"
+    throw new ApiError(`Impossibile leggere i dipendenti: ${detail}`, 502)
+  })
+
+  const risultati: DatiStampa[] = []
+  for (const d of dipendenti) {
+    const dati = await getDatiStampa(d.codice, mese, anno)
+    const haTimbrature = dati.righe.some(
+      (r) => r.ce1 || r.cu1 || r.ce2 || r.cu2
+    )
+    if (haTimbrature) risultati.push(dati)
+  }
+  return risultati
 }

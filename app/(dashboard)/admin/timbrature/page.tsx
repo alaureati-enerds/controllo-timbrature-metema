@@ -2,16 +2,19 @@ import type { Metadata } from "next"
 
 import { TimbratureManager } from "@/components/admin/timbrature-manager"
 import { requireRole } from "@/lib/auth-helpers"
-import { getStampaSettings } from "@/lib/settings/stampa"
+import { getUserPreferences } from "@/lib/settings/user"
 
 export const metadata: Metadata = { title: "Timbrature" }
 
 export default async function AdminTimbraturePage() {
-  await requireRole("admin")
+  const session = await requireRole("admin")
 
-  // Template di stampa predefinito: lo leggiamo qui (server) così il dialog lo
-  // ha già pronto e non deve fare un fetch all'apertura.
-  const { templateId } = await getStampaSettings()
+  // Template di stampa predefinito: preferenza PER-UTENTE (impostabile in
+  // /settings). La leggiamo qui (server) così il dialog parte già dal valore
+  // giusto senza un fetch all'apertura.
+  const {
+    stampa: { templateId },
+  } = await getUserPreferences(session.user.id)
 
   return (
     <div className="flex flex-col gap-6">

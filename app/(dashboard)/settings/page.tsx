@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { NotificationPreferencesForm } from "@/components/profile/notification-preferences-form"
+import { StampaPreferencesForm } from "@/components/profile/stampa-preferences-form"
 import { ThemeSelector } from "@/components/profile/theme-selector"
 import { requireUser } from "@/lib/auth-helpers"
 import { getUserPreferences } from "@/lib/settings/user"
@@ -25,6 +26,8 @@ export default async function SettingsPage() {
       <ThemeSelector />
 
       <NotificationPreferencesForm initial={preferences} />
+
+      <StampaPreferencesForm initial={preferences} />
     </div>
   )
 }
