@@ -4,17 +4,16 @@ import { it } from "date-fns/locale"
 
 import type { DatiStampa } from "@/lib/timbrature/stampa/dati"
 
-// Template «Registro presenze»: riproduce il modulo cartaceo storico —  una
-// riga per ogni giorno del mese, orari da marcatempo affiancati a quelli
-// arrotondati, ordinario e straordinario (lavoro/viaggio) a destra, totali del
-// mese in fondo. Data e giorno sono un'unica colonna breve («01 Lun»), come
-// nella pagina a schermo: mese e anno sono già nell'intestazione del
-// documento. Il pernotto (dal rapportino) è la colonna «Trasferta» subito
-// prima della prima entrata, con una X quando presente.
+// Template «Registro presenze (compatto)»: stessi dati del registro classico
+// ma SENZA le 4 colonne del marcatempo grezzo — solo gli orari corretti, più
+// larghi, e i totali (ordinario, straordinario lavoro/viaggio, TR). Per chi
+// non ha bisogno della fedeltà al modulo cartaceo storico e preferisce più
+// respiro sui dati corretti e su ciò che arriva dai rapportini.
 //
-// Questo componente rende la SOLA `<Page>` di un dipendente: il wrapper
-// `<Document>` è in ./documenti.tsx, così la stessa pagina si usa sia nella
-// stampa singola sia in quella cumulativa (più pagine in un unico documento).
+// Pagina autosufficiente come ./registro-classico.tsx (stesso pattern
+// «Aggiungere un template» di docs/stampa-timbrature.md): le funzioni di
+// formattazione sono duplicate qui apposta, non estratte in un modulo
+// condiviso, per tenere ogni template un file indipendente.
 //
 // NB: componenti di @react-pdf/renderer, NON di React DOM. Questo file è
 // server-only: non importarlo mai da un client component (vedi ./catalog.ts,
@@ -103,10 +102,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   intestazione: { fontSize: 7, color: GRIGIO, textAlign: "center" },
-  // «Straord. viag.» è la più lunga delle tre etichette di totale: un punto
-  // in meno di corpo evita che vada a capo, mentre le altre due restano
-  // leggibili alla pari (stessa dimensione, per coerenza fra loro).
-  intestazioneTot: { fontSize: 6, color: GRIGIO, textAlign: "center" },
 
   riga: {
     flexDirection: "row",
@@ -117,14 +112,14 @@ const styles = StyleSheet.create({
   },
   cella: { textAlign: "center" },
 
-  // Larghezze: sommano a 100%. wData è stretta (basta «01 Lun»): lo spazio
-  // liberato rispetto alla vecchia colonna data+giorno separata diventa
-  // margine fra i blocchi (wSpacer), non altra larghezza sprecata.
+  // Larghezze: sommano a 100%. wData è stretta (basta «01 Lun», mese/anno
+  // sono già in intestazione): lo spazio va tutto agli orari corretti e ai
+  // totali, molto più larghi che nel registro classico (niente colonne di
+  // marcatempo grezzo con cui condividere la riga).
   wData: { width: "9%", paddingLeft: 2 },
   wTR: { width: "6%" },
-  wOra: { width: "7%" },
-  wTot: { width: "7%" },
-  wSpacer: { width: "4%" },
+  wOra: { width: "14.2%" },
+  wTot: { width: "9.4%" },
 
   // Ordinario/straordinario: cella riquadrata come sul modulo storico.
   boxTot: {
@@ -184,17 +179,6 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
         {r.pernottamento ? "X" : ""}
       </Text>
 
-      {[r.entrata1, r.uscita1, r.entrata2, r.uscita2].map((v, i) => (
-        <Text
-          key={`reale-${i}`}
-          style={[styles.cella, styles.wOra, { color: NERO }]}
-        >
-          {ora(v)}
-        </Text>
-      ))}
-
-      <Text style={styles.wSpacer} />
-
       {[r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
         <Text
           key={`corretto-${i}`}
@@ -203,8 +187,6 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
           {ora(v)}
         </Text>
       ))}
-
-      <Text style={styles.wSpacer} />
 
       <View style={styles.wTot}>
         <Text style={styles.boxTot}>{oreHHMM(r.ordinario)}</Text>
@@ -219,7 +201,7 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
   )
 }
 
-export function PaginaRegistroClassico({ dati }: { dati: DatiStampa }) {
+export function PaginaRegistroCompatto({ dati }: { dati: DatiStampa }) {
   const { dipendente, righe, totali, stampatoIl } = dati
 
   return (
@@ -237,28 +219,14 @@ export function PaginaRegistroClassico({ dati }: { dati: DatiStampa }) {
         <View style={styles.gruppi}>
           <Text style={styles.wData}>Data</Text>
           <Text style={[styles.gruppo, styles.wTR]}>Trasferta</Text>
-          <Text style={[styles.gruppo, { width: "28%" }]}>
-            Situazione da marcatempo
-          </Text>
-          <Text style={styles.wSpacer} />
-          <Text style={[styles.gruppo, { width: "28%" }]}>
+          <Text style={[styles.gruppo, { width: "56.8%" }]}>
             Situazione arrotondata
           </Text>
-          <Text style={styles.wSpacer} />
-          <Text style={[styles.gruppo, { width: "21%" }]}>Totale</Text>
+          <Text style={[styles.gruppo, { width: "28.2%" }]}>Totale</Text>
         </View>
         <View style={styles.colonne}>
           <Text style={styles.wData} />
           <Text style={styles.wTR} />
-          {["Entrata", "Uscita", "Entrata", "Uscita"].map((t, i) => (
-            <Text
-              key={`h-reale-${i}`}
-              style={[styles.intestazione, styles.wOra]}
-            >
-              {t}
-            </Text>
-          ))}
-          <Text style={styles.wSpacer} />
           {["Entrata", "Uscita", "Entrata", "Uscita"].map((t, i) => (
             <Text
               key={`h-corretto-${i}`}
@@ -267,14 +235,9 @@ export function PaginaRegistroClassico({ dati }: { dati: DatiStampa }) {
               {t}
             </Text>
           ))}
-          <Text style={styles.wSpacer} />
-          <Text style={[styles.intestazioneTot, styles.wTot]}>Ord.</Text>
-          <Text style={[styles.intestazioneTot, styles.wTot]}>
-            Straord. lav.
-          </Text>
-          <Text style={[styles.intestazioneTot, styles.wTot]}>
-            Straord. viag.
-          </Text>
+          <Text style={[styles.intestazione, styles.wTot]}>Ord.</Text>
+          <Text style={[styles.intestazione, styles.wTot]}>Straord. lav.</Text>
+          <Text style={[styles.intestazione, styles.wTot]}>Straord. viag.</Text>
         </View>
       </View>
 

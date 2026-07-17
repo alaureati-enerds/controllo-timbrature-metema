@@ -1,12 +1,14 @@
 import { endOfMonth, format, startOfMonth } from "date-fns"
 
 import { ApiError } from "@/lib/api"
+import { getRapportini, type RapportinoRiga } from "@/lib/mysql/rapportini"
 import {
   getDipendente,
   listDipendenti,
   type Dipendente,
 } from "@/lib/mysql/timbrature"
 import { prisma } from "@/lib/prisma"
+import { raggruppaPerGiorno, sommaGiorno } from "@/lib/rapportini/calcolo"
 import {
   calcolaCorretti,
   calcolaTotaliMese,
@@ -29,7 +31,12 @@ export type DatiStampa = {
   mese: number // 1-12
   anno: number
   righe: RigaStampa[]
-  totali: { totale: number; ordinario: number; straordinario: number }
+  totali: {
+    totale: number
+    ordinario: number
+    straordinario: number
+    straordinarioViaggio: number
+  }
   /** Momento della generazione: finisce nel piè di pagina («Stampato il …»). */
   stampatoIl: Date
 }
@@ -43,26 +50,36 @@ export async function getDatiStampa(
   const dal = format(startOfMonth(primo), "yyyy-MM-dd")
   const al = format(endOfMonth(primo), "yyyy-MM-dd")
 
-  const [dipendente, { giornate, orario, regole }, correzioni] =
-    await Promise.all([
-      getDipendente(codiceDipendente).catch((error: unknown) => {
-        const detail =
-          error instanceof Error ? error.message : "errore sconosciuto"
-        throw new ApiError(`Impossibile leggere il dipendente: ${detail}`, 502)
-      }),
-      getGiornate(codiceDipendente, mese, anno),
-      prisma.timbraturaCorretta.findMany({
-        where: { dipendente: codiceDipendente, giorno: { gte: dal, lte: al } },
-        select: {
-          giorno: true,
-          entrata1: true,
-          uscita1: true,
-          entrata2: true,
-          uscita2: true,
-          revisionata: true,
-        },
-      }),
-    ])
+  const [
+    dipendente,
+    { giornate, orario, regole },
+    correzioni,
+    rapportiniPerGiorno,
+  ] = await Promise.all([
+    getDipendente(codiceDipendente).catch((error: unknown) => {
+      const detail =
+        error instanceof Error ? error.message : "errore sconosciuto"
+      throw new ApiError(`Impossibile leggere il dipendente: ${detail}`, 502)
+    }),
+    getGiornate(codiceDipendente, mese, anno),
+    prisma.timbraturaCorretta.findMany({
+      where: { dipendente: codiceDipendente, giorno: { gte: dal, lte: al } },
+      select: {
+        giorno: true,
+        entrata1: true,
+        uscita1: true,
+        entrata2: true,
+        uscita2: true,
+        revisionata: true,
+      },
+    }),
+    // I rapportini sono un'estensione: se il DB esterno non li espone (o la
+    // richiesta fallisce) la stampa non deve rompersi, resta senza — stesso
+    // comportamento tollerante della pagina a schermo.
+    getRapportini(codiceDipendente, dal, al)
+      .then(raggruppaPerGiorno)
+      .catch(() => new Map<string, RapportinoRiga[]>()),
+  ])
 
   if (!dipendente) throw new ApiError("Dipendente non trovato", 404)
 
@@ -85,7 +102,13 @@ export async function getDatiStampa(
   )
   const righe: RigaStampa[] = giornate.map((g) => ({
     ...g,
-    ...calcolaCorretti(g, override.get(g.giorno), regole, orario),
+    ...calcolaCorretti(
+      g,
+      override.get(g.giorno),
+      regole,
+      orario,
+      sommaGiorno(rapportiniPerGiorno.get(g.giorno) ?? [])
+    ),
     weekend: isWeekend(g.giornoSettimana),
     revisionata: revisionati.has(g.giorno),
   }))

@@ -27,6 +27,12 @@ export const stampaTemplates = [
     descrizione:
       "Formato classico: orari da marcatempo, orari arrotondati e totali giornalieri.",
   },
+  {
+    id: "registro-compatto",
+    nome: "Registro presenze (compatto)",
+    descrizione:
+      "Come il registro classico, senza le colonne del marcatempo grezzo: orari corretti, straordinario lavoro/viaggio e pernotto.",
+  },
 ] as const satisfies readonly StampaTemplateDef[]
 
 export type StampaTemplateId = (typeof stampaTemplates)[number]["id"]

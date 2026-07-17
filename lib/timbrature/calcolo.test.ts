@@ -5,7 +5,12 @@ import type {
   CalcoloSettingsAdmin,
   OrarioLavoroSettingsAdmin,
 } from "@/lib/settings/schema"
-import { calcolaCorretti } from "@/lib/timbrature/calcolo"
+import {
+  calcolaCorretti,
+  calcolaOreSplit,
+  costruisciOrario,
+} from "@/lib/timbrature/calcolo"
+import type { RiepilogoRapportino } from "@/lib/timbrature/calcolo"
 import type { Giornata } from "@/lib/timbrature/giornate"
 import { assegnaTurni, type Timbratura } from "@/lib/timbrature/turni"
 
@@ -42,9 +47,16 @@ function calc(
   raw: string,
   giorno: number,
   regole: CalcoloSettingsAdmin = CALCOLO_DEFAULTS,
-  override?: Record<string, string | null>
+  override?: Record<string, string | null>,
+  rapportino?: RiepilogoRapportino
 ) {
-  return calcolaCorretti(giornata(raw, giorno), override, regole, ORARIO)
+  return calcolaCorretti(
+    giornata(raw, giorno),
+    override,
+    regole,
+    ORARIO,
+    rapportino
+  )
 }
 
 describe("calcolaCorretti — casi reali BONI giugno 2026", () => {
@@ -192,5 +204,227 @@ describe("guardia di monotonia del fill", () => {
     expect(r.cu1).toBeNull()
     expect(r.ce2).toBeNull()
     expect(r.anomalie).toContain("turno_incompleto")
+  })
+})
+
+// Standard usato negli esempi dell'utente per il rapportino: 07:30–12:30 /
+// 14:00–17:00 (8h). Diverso da ORARIO sopra apposta, per non confondere i due
+// gruppi di test.
+const ORARIO_RAPPORTINO: OrarioLavoroSettingsAdmin = {
+  primoIngresso: "07:30",
+  primaUscita: "12:30",
+  secondoIngresso: "14:00",
+  secondaUscita: "17:00",
+}
+
+const MINUTI_ORDINARI = 480 // 8h, CALCOLO_DEFAULTS.minutiOrdinari
+
+describe("calcolaOreSplit — esempi dell'utente", () => {
+  it("8h lavoro + 2h viaggio → 8 ordinario, 2 straord. viaggio", () => {
+    const r = calcolaOreSplit(8 * 60, 2 * 60, MINUTI_ORDINARI)
+    expect(r.ordinario).toBe(480)
+    expect(r.straordinarioLavoro).toBe(0)
+    expect(r.straordinarioViaggio).toBe(120)
+    expect(r.totale).toBe(600)
+  })
+
+  it("6h lavoro + 2h viaggio → 8 ordinario, nessuno straordinario", () => {
+    const r = calcolaOreSplit(6 * 60, 2 * 60, MINUTI_ORDINARI)
+    expect(r.ordinario).toBe(480)
+    expect(r.straordinarioLavoro).toBe(0)
+    expect(r.straordinarioViaggio).toBe(0)
+    expect(r.totale).toBe(480)
+  })
+
+  it("10h lavoro + 1h viaggio → 8 ordinario, 2 straord. lavoro, 1 straord. viaggio", () => {
+    const r = calcolaOreSplit(10 * 60, 1 * 60, MINUTI_ORDINARI)
+    expect(r.ordinario).toBe(480)
+    expect(r.straordinarioLavoro).toBe(120)
+    expect(r.straordinarioViaggio).toBe(60)
+    expect(r.totale).toBe(660)
+  })
+
+  it("nessun lavoro né viaggio → tutto zero", () => {
+    const r = calcolaOreSplit(0, 0, MINUTI_ORDINARI)
+    expect(r).toEqual({
+      ordinario: 0,
+      straordinarioLavoro: 0,
+      straordinarioViaggio: 0,
+      totale: 0,
+    })
+  })
+})
+
+describe("costruisciOrario", () => {
+  it("8h totali → riempie esattamente il mattino e il pomeriggio standard", () => {
+    const r = costruisciOrario(8 * 60, ORARIO_RAPPORTINO)
+    expect(r).toEqual({
+      entrata1: "07:30",
+      uscita1: "12:30",
+      entrata2: "14:00",
+      uscita2: "17:00",
+    })
+  })
+
+  it("meno della capacità del mattino → solo il primo turno, parziale", () => {
+    const r = costruisciOrario(3 * 60, ORARIO_RAPPORTINO)
+    expect(r).toEqual({
+      entrata1: "07:30",
+      uscita1: "10:30",
+      entrata2: null,
+      uscita2: null,
+    })
+  })
+
+  it("più di 8h → il pomeriggio si estende oltre l'orario standard (straordinario)", () => {
+    const r = costruisciOrario(10 * 60, ORARIO_RAPPORTINO)
+    expect(r).toEqual({
+      entrata1: "07:30",
+      uscita1: "12:30",
+      entrata2: "14:00",
+      uscita2: "19:00",
+    })
+  })
+
+  it("0 minuti → nessun orario", () => {
+    expect(costruisciOrario(0, ORARIO_RAPPORTINO)).toEqual({
+      entrata1: null,
+      uscita1: null,
+      entrata2: null,
+      uscita2: null,
+    })
+  })
+})
+
+describe("calcolaCorretti — un rapportino guida la giornata", () => {
+  it("sostituisce il marcatempo (giorno senza timbrature) con l'orario ricostruito", () => {
+    const r = calc("", 10, CALCOLO_DEFAULTS, undefined, {
+      lavoroMinuti: 8 * 60,
+      viaggioMinuti: 0,
+      pernottamento: false,
+    })
+    expect(r.ce1).toBe("08:00")
+    expect(r.cu1).toBe("12:00")
+    expect(r.ce2).toBe("13:30")
+    expect(r.cu2).toBe("17:30")
+    expect(r.ordinario).toBe(480)
+    expect(r.straordinario).toBe(0)
+    expect(r.straordinarioViaggio).toBe(0)
+    expect(r.anomalie).toEqual([])
+    expect(r.provenienza).toEqual({
+      e1: "rapportino",
+      u1: "rapportino",
+      e2: "rapportino",
+      u2: "rapportino",
+    })
+  })
+
+  it("lavoro + viaggio oltre l'ordinario finisce in straordinario viaggio", () => {
+    const r = calc("", 10, CALCOLO_DEFAULTS, undefined, {
+      lavoroMinuti: 8 * 60,
+      viaggioMinuti: 2 * 60,
+      pernottamento: false,
+    })
+    expect(r.totale).toBe(600)
+    expect(r.ordinario).toBe(480)
+    expect(r.straordinario).toBe(0)
+    expect(r.straordinarioViaggio).toBe(120)
+    expect(r.cu2).toBe("19:30") // il pomeriggio si estende oltre le 17:30
+  })
+
+  it("un giorno senza rapportino (o con rapportino a zero ore) resta invariato", () => {
+    const base = calc("E 07:26 U 17:01", 4)
+    const conRapportinoVuoto = calc("E 07:26 U 17:01", 4, CALCOLO_DEFAULTS, undefined, {
+      lavoroMinuti: 0,
+      viaggioMinuti: 0,
+      pernottamento: false,
+    })
+    expect(conRapportinoVuoto).toEqual(base)
+  })
+
+  it("la correzione manuale vince sul rapportino, slot per slot", () => {
+    const r = calc(
+      "",
+      10,
+      CALCOLO_DEFAULTS,
+      { entrata1: "09:00" },
+      { lavoroMinuti: 8 * 60, viaggioMinuti: 0, pernottamento: false }
+    )
+    expect(r.ce1).toBe("09:00")
+    expect(r.provenienza.e1).toBe("corretta")
+    // Gli altri slot restano guidati dal rapportino, non toccati dall'override.
+    expect(r.cu1).toBe("12:00")
+    expect(r.provenienza.u1).toBe("rapportino")
+  })
+
+  it("una correzione manuale ricalcola ordinario/straordinario dall'orario finale, non resta congelata sul totale del rapportino (bug segnalato: 'corretto ma non ricalcola')", () => {
+    // Rapportino da 8h piatte (8:00-12:00 + 13:30-17:30, tutto ordinario).
+    // L'admin sposta a mano l'entrata di un'ora: 9:00-12:00 + 13:30-17:30 =
+    // 3h + 4h = 7h. Il totale/ordinario DEVE riflettere l'orario corretto.
+    const r = calc(
+      "",
+      10,
+      CALCOLO_DEFAULTS,
+      { entrata1: "09:00" },
+      { lavoroMinuti: 8 * 60, viaggioMinuti: 0, pernottamento: false }
+    )
+    expect(r.totale).toBe(7 * 60)
+    expect(r.ordinario).toBe(7 * 60)
+    expect(r.straordinario).toBe(0)
+    expect(r.straordinarioViaggio).toBe(0)
+  })
+
+  it("una correzione manuale che riduce l'uscita rimescola la categoria dello straordinario (non più viaggio)", () => {
+    // Rapportino da 8h lavoro + 2h viaggio: senza correzioni farebbe 8
+    // ordinario + 2 straord. VIAGGIO (uscita ricostruita alle 19:30, vedi
+    // test sopra). L'admin però corregge a mano l'uscita serale alle 18:00
+    // (mezz'ora di straordinario in meno): 8:00-12:00 + 13:30-18:00 = 4h30
+    // + 4h30 = 8h30. Una volta corretto a mano non si può più sapere quanto
+    // di quel totale sia viaggio: lo straordinario residuo (30m) ricade sul
+    // lavoro (bucket unico), non più sul viaggio.
+    const r = calc(
+      "",
+      10,
+      CALCOLO_DEFAULTS,
+      { uscita2: "18:00" },
+      { lavoroMinuti: 8 * 60, viaggioMinuti: 2 * 60, pernottamento: false }
+    )
+    expect(r.cu2).toBe("18:00")
+    expect(r.totale).toBe(8 * 60 + 30)
+    expect(r.ordinario).toBe(8 * 60)
+    expect(r.straordinario).toBe(30)
+    expect(r.straordinarioViaggio).toBe(0)
+  })
+
+  it("un rapportino spiega il giorno: silenzia assente e timbratura sospetta", () => {
+    const g: Giornata = {
+      giorno: "2026-06-10",
+      giornoSettimana: new Date(2026, 5, 10).getDay(),
+      entrata1: null,
+      uscita1: null,
+      entrata2: null,
+      uscita2: null,
+      totaleMinuti: 0,
+      nTimbrature: 0,
+      haSentinella0000: true,
+    }
+    const r = calcolaCorretti(g, undefined, CALCOLO_DEFAULTS, ORARIO, {
+      lavoroMinuti: 8 * 60,
+      viaggioMinuti: 0,
+      pernottamento: false,
+    })
+    expect(r.anomalie).toEqual([])
+  })
+
+  it("il pernotto passa sempre, anche su un rapportino a zero ore che non guida il giorno", () => {
+    const r = calc("", 23, CALCOLO_DEFAULTS, undefined, {
+      lavoroMinuti: 0,
+      viaggioMinuti: 0,
+      pernottamento: true,
+    })
+    expect(r.pernottamento).toBe(true)
+    // Zero ore non spiega il giorno: l'anomalia "assente" resta.
+    expect(r.anomalie).toEqual(["assente"])
+    expect(r.ce1).toBeNull()
   })
 })
