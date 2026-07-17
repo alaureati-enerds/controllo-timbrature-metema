@@ -26,6 +26,10 @@ async function conn() {
 export type RapportinoRiga = {
   progressivo: number
   cmsCodice: string
+  // DESCRIZIONE1 + DESCRIZIONE2 della commessa (tabella `cms`, join su
+  // CODICE), concatenate con uno spazio; stringa vuota se la commessa non è
+  // (più) censita in `cms`.
+  cmsDescrizione: string
   tipologia: string | null
   descrizione: string
   giorno: string // YYYY-MM-DD (data_competenza, o DATA_REGISTRAZIONE se assente)
@@ -52,6 +56,8 @@ export type RapportinoRiga = {
 type RapportinoRow = {
   PROGRESSIVO: number
   CMS_CODICE: string | null
+  CMS_DESCRIZIONE1: string | null
+  CMS_DESCRIZIONE2: string | null
   TIPOLOGIA: string | null
   DESCRIZIONE: string | null
   DATA: string
@@ -84,39 +90,46 @@ export async function getRapportini(
   try {
     const [rows] = await c.execute<mysql.RowDataPacket[]>(
       `SELECT
-          PROGRESSIVO,
-          CMS_CODICE,
-          TIPOLOGIA,
-          DESCRIZIONE,
-          DATE_FORMAT(COALESCE(data_competenza, DATA_REGISTRAZIONE), '%Y-%m-%d') AS DATA,
-          orelavorazione,
-          minutilavorazione,
-          oreviaggio,
-          minutiviaggio,
-          ORE,
-          MINUTI,
-          COSTO_ORARIO,
-          COSTO_TOTALE,
-          IMPORTO_VITTO,
-          IMPORTO_ALLOGGIO,
-          KILOMETRI,
-          RIMBORSO_CHILOMETRICO,
-          targa_automezzo,
-          pernottamento,
-          guidatodalle,
-          guidatoalle,
-          GIORNO_FESTIVO,
-          VITTO
+          cmd.PROGRESSIVO,
+          cmd.CMS_CODICE,
+          cms.DESCRIZIONE1 AS CMS_DESCRIZIONE1,
+          cms.DESCRIZIONE2 AS CMS_DESCRIZIONE2,
+          cmd.TIPOLOGIA,
+          cmd.DESCRIZIONE,
+          DATE_FORMAT(COALESCE(cmd.data_competenza, cmd.DATA_REGISTRAZIONE), '%Y-%m-%d') AS DATA,
+          cmd.orelavorazione,
+          cmd.minutilavorazione,
+          cmd.oreviaggio,
+          cmd.minutiviaggio,
+          cmd.ORE,
+          cmd.MINUTI,
+          cmd.COSTO_ORARIO,
+          cmd.COSTO_TOTALE,
+          cmd.IMPORTO_VITTO,
+          cmd.IMPORTO_ALLOGGIO,
+          cmd.KILOMETRI,
+          cmd.RIMBORSO_CHILOMETRICO,
+          cmd.targa_automezzo,
+          cmd.pernottamento,
+          cmd.guidatodalle,
+          cmd.guidatoalle,
+          cmd.GIORNO_FESTIVO,
+          cmd.VITTO
        FROM cmd
-       WHERE DIP_CODICE = ?
-         AND documento_origine <> 'assistenza tecnica'
-         AND COALESCE(data_competenza, DATA_REGISTRAZIONE) BETWEEN ? AND ?
-       ORDER BY COALESCE(data_competenza, DATA_REGISTRAZIONE) DESC, PROGRESSIVO DESC`,
+       LEFT JOIN cms ON cms.CODICE = cmd.CMS_CODICE
+       WHERE cmd.DIP_CODICE = ?
+         AND cmd.documento_origine <> 'assistenza tecnica'
+         AND COALESCE(cmd.data_competenza, cmd.DATA_REGISTRAZIONE) BETWEEN ? AND ?
+       ORDER BY COALESCE(cmd.data_competenza, cmd.DATA_REGISTRAZIONE) DESC, cmd.PROGRESSIVO DESC`,
       [codiceDip, dal, al]
     )
     return (rows as RapportinoRow[]).map((r) => ({
       progressivo: r.PROGRESSIVO,
       cmsCodice: r.CMS_CODICE ?? "",
+      cmsDescrizione: [r.CMS_DESCRIZIONE1, r.CMS_DESCRIZIONE2]
+        .map((s) => s?.trim())
+        .filter(Boolean)
+        .join(" "),
       tipologia: r.TIPOLOGIA,
       descrizione: r.DESCRIZIONE ?? "",
       giorno: r.DATA,

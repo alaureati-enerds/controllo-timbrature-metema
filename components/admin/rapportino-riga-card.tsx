@@ -1,25 +1,60 @@
-import { FileTextIcon, MoonIcon, PartyPopperIcon, UtensilsIcon } from "lucide-react"
+import {
+  CarIcon,
+  FileTextIcon,
+  MoonIcon,
+  PartyPopperIcon,
+  UtensilsIcon,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { RapportinoRiga } from "@/lib/mysql/rapportini"
 
-// Card di dettaglio di UNA riga di rapportino (commessa, descrizione, ore,
-// badge vitto/festivo/pernotto): usata dalla Sheet di dettaglio sia in
-// /admin/rapportini sia in /admin/timbrature, per non duplicare il rendering.
+const EURO = new Intl.NumberFormat("it-IT", {
+  style: "currency",
+  currency: "EUR",
+})
+
+function formattaOreMin(ore: number, minuti: number): string {
+  return ore === 0 && minuti === 0 ? "—" : `${ore}h ${minuti}m`
+}
+
+// Card di dettaglio di UNA riga di rapportino: usata dalla Sheet di dettaglio
+// sia in /admin/rapportini sia in /admin/timbrature, per non duplicare il
+// rendering. I campi sotto le ore (trasferta, guida, vitto/alloggio) vengono
+// dalla stessa query di lib/mysql/rapportini.ts ma restano nascosti quando
+// non c'è nulla da dire (niente righe "0 km" o "0,00 €" a riempire spazio).
 export function RapportinoRigaCard({ riga }: { riga: RapportinoRiga }) {
+  const haTrasferta = riga.kilometri > 0 || riga.rimborsoChilometrico > 0
+  const haGuida = Boolean(riga.guidatoDalle && riga.guidatoAlle)
+
   return (
     <Card size="sm">
-      <CardContent className="flex flex-col gap-2 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-            <FileTextIcon
-              className="size-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            {riga.cmsCodice || "—"}
-          </span>
+      <CardContent className="flex flex-col gap-3 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+              <FileTextIcon
+                className="size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span>
+                {riga.cmsCodice || "—"}
+                {riga.cmsDescrizione && (
+                  <span className="font-normal text-muted-foreground">
+                    {" "}
+                    · {riga.cmsDescrizione}
+                  </span>
+                )}
+              </span>
+            </span>
+            {riga.tipologia && (
+              <span className="text-xs text-muted-foreground">
+                Sottocommessa {riga.tipologia}
+              </span>
+            )}
+          </div>
           <span className="flex items-center gap-1.5">
             {riga.pernottamento && (
               <Tooltip>
@@ -56,18 +91,69 @@ export function RapportinoRigaCard({ riga }: { riga: RapportinoRiga }) {
             )}
           </span>
         </div>
+
         {riga.descrizione && (
           <p className="text-sm text-muted-foreground">{riga.descrizione}</p>
         )}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs tabular-nums text-muted-foreground">
-          <Badge variant="secondary">
-            Lavoro {riga.oreLavorazione}h {riga.minutiLavorazione}m
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="tabular-nums">
+            Lavoro {formattaOreMin(riga.oreLavorazione, riga.minutiLavorazione)}
           </Badge>
-          <Badge variant="secondary">
-            Viaggio {riga.oreViaggio}h {riga.minutiViaggio}m
+          <Badge variant="secondary" className="tabular-nums">
+            Viaggio {formattaOreMin(riga.oreViaggio, riga.minutiViaggio)}
           </Badge>
-          {riga.tipologia && <span>Tipo {riga.tipologia}</span>}
         </div>
+
+        {(haTrasferta || riga.targaAutomezzo || haGuida || riga.importoVitto > 0 || riga.importoAlloggio > 0) && (
+          <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1.5 text-xs">
+            {haTrasferta && (
+              <>
+                <dt className="text-muted-foreground">Trasferta</dt>
+                <dd className="tabular-nums">
+                  {riga.kilometri > 0 && `${riga.kilometri} km`}
+                  {riga.kilometri > 0 && riga.rimborsoChilometrico > 0 && " · "}
+                  {riga.rimborsoChilometrico > 0 &&
+                    `rimborso ${EURO.format(riga.rimborsoChilometrico)}`}
+                </dd>
+              </>
+            )}
+            {riga.targaAutomezzo && (
+              <>
+                <dt className="text-muted-foreground">Automezzo</dt>
+                <dd className="inline-flex items-center gap-1.5 tabular-nums">
+                  <CarIcon
+                    className="size-3.5 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  {riga.targaAutomezzo}
+                </dd>
+              </>
+            )}
+            {haGuida && (
+              <>
+                <dt className="text-muted-foreground">Alla guida</dt>
+                <dd className="tabular-nums">
+                  {riga.guidatoDalle?.slice(0, 5)}–{riga.guidatoAlle?.slice(0, 5)}
+                </dd>
+              </>
+            )}
+            {riga.importoVitto > 0 && (
+              <>
+                <dt className="text-muted-foreground">Vitto</dt>
+                <dd className="tabular-nums">{EURO.format(riga.importoVitto)}</dd>
+              </>
+            )}
+            {riga.importoAlloggio > 0 && (
+              <>
+                <dt className="text-muted-foreground">Alloggio</dt>
+                <dd className="tabular-nums">
+                  {EURO.format(riga.importoAlloggio)}
+                </dd>
+              </>
+            )}
+          </dl>
+        )}
       </CardContent>
     </Card>
   )

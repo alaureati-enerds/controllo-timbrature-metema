@@ -14,6 +14,7 @@ function riga(
   return {
     progressivo: 1,
     cmsCodice: "000000001",
+    cmsDescrizione: "",
     tipologia: "1",
     descrizione: "",
     giorno,
