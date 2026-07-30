@@ -48,14 +48,16 @@ function calc(
   giorno: number,
   regole: CalcoloSettingsAdmin = CALCOLO_DEFAULTS,
   override?: Record<string, string | null>,
-  rapportino?: RiepilogoRapportino
+  rapportino?: RiepilogoRapportino,
+  oggi?: string
 ) {
   return calcolaCorretti(
     giornata(raw, giorno),
     override,
     regole,
     ORARIO,
-    rapportino
+    rapportino,
+    oggi
   )
 }
 
@@ -122,6 +124,24 @@ describe("calcolaCorretti — casi reali BONI giugno 2026", () => {
   it("06-07/06 weekend senza timbrature → 0h, nessuna anomalia", () => {
     expect(calc("", 6).anomalie).toEqual([]) // sabato
     expect(calc("", 7).anomalie).toEqual([]) // domenica
+  })
+})
+
+describe("assente non si segnala su giorni non ancora trascorsi", () => {
+  it("giorno feriale futuro senza timbrature → nessuna anomalia (non è ancora accaduto)", () => {
+    // "oggi" fittizio è il 20/06: il 23 non è ancora arrivato.
+    const r = calc("", 23, CALCOLO_DEFAULTS, undefined, undefined, "2026-06-20")
+    expect(r.anomalie).toEqual([])
+  })
+
+  it("il giorno di oggi stesso, senza timbrature → nessuna anomalia (giornata non conclusa)", () => {
+    const r = calc("", 23, CALCOLO_DEFAULTS, undefined, undefined, "2026-06-23")
+    expect(r.anomalie).toEqual([])
+  })
+
+  it("un giorno passato senza timbrature resta assente anche con oggi esplicito", () => {
+    const r = calc("", 23, CALCOLO_DEFAULTS, undefined, undefined, "2026-06-25")
+    expect(r.anomalie).toEqual(["assente"])
   })
 })
 

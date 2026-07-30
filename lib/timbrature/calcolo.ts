@@ -1,3 +1,5 @@
+import { format } from "date-fns"
+
 import type {
   CalcoloSettingsAdmin,
   OrarioLavoroSettingsAdmin,
@@ -208,7 +210,12 @@ export function calcolaCorretti(
   override: Record<string, string | null> | undefined,
   regole: CalcoloSettingsAdmin,
   orario: OrarioLavoroSettingsAdmin,
-  rapportino?: RiepilogoRapportino
+  rapportino?: RiepilogoRapportino,
+  // Data di riferimento (YYYY-MM-DD, come `g.giorno`) usata per non segnalare
+  // "assente" su giorni non ancora passati: default "oggi" reale, esplicito
+  // solo nei test o quando il chiamante vuole garantire lo stesso istante di
+  // un altro calcolo fatto nello stesso render (vedi timbrature-manager.tsx).
+  oggi: string = format(new Date(), "yyyy-MM-dd")
 ): GiornataCalcolata {
   const roundE = (o: string) => arrotondaEntrata(o, regole)
   const roundU = (o: string) => arrotondaUscita(o, regole)
@@ -295,9 +302,12 @@ export function calcolaCorretti(
   const giornoSpiegato = correttoManualmente || rap != null
   const anomalie: Anomalia[] = []
   if (g.nTimbrature === 0) {
-    // Giorno feriale senza alcuna timbratura; mai nel weekend, e non se già
-    // spiegato (a mano o da rapportino).
-    if (!isWeekend(g.giornoSettimana) && !giornoSpiegato)
+    // Giorno feriale senza alcuna timbratura; mai nel weekend, non se già
+    // spiegato (a mano o da rapportino), e non se il giorno non è ancora
+    // trascorso (da oggi in avanti): non è "assente", semplicemente non è
+    // ancora accaduto — oggi stesso incluso, la giornata potrebbe non essere
+    // conclusa.
+    if (!isWeekend(g.giornoSettimana) && !giornoSpiegato && g.giorno < oggi)
       anomalie.push("assente")
   } else if (ce1 == null && ce2 == null) {
     anomalie.push("entrata_mancante")
