@@ -213,18 +213,22 @@ const ANOMALIA_LABEL: Record<Anomalia, string> = {
 function StatoIcon({
   anomalie,
   weekend,
+  futuro,
   revisionata,
   haRapportino,
   onClick,
 }: {
   anomalie: Anomalia[]
   weekend: boolean
+  futuro: boolean
   revisionata: boolean
   haRapportino: boolean
   onClick: () => void
 }) {
   const haAnomalie = anomalie.length > 0 && !revisionata
-  if (!haAnomalie && weekend && !haRapportino) return null
+  // Weekend e giorni futuri si comportano uguale: nulla da controllare, icona
+  // vuota — a meno che un rapportino non esista comunque per quel giorno.
+  if (!haAnomalie && (weekend || futuro) && !haRapportino) return null
 
   const etichette = anomalie.map((a) => ANOMALIA_LABEL[a]).join(" · ")
   const label = haAnomalie
@@ -842,6 +846,10 @@ export function TimbratureManager({
   // Ricalcolo a ogni render: sono al massimo 31 righe di aritmetica, e un
   // useMemo qui impedirebbe al React Compiler di ottimizzare il componente.
   const rapportiniPerGiorno = raggruppaPerGiorno(rapportini)
+  // Stesso "oggi" per l'anomalia "assente" (calcolaCorretti) e per il flag
+  // `futuro` sotto: un giorno non ancora trascorso non è "assente", è solo
+  // non ancora accaduto.
+  const oggi = format(new Date(), "yyyy-MM-dd")
   const righe = giornate.map((g) => {
     const righeRapportino = rapportiniPerGiorno.get(g.giorno) ?? []
     return {
@@ -851,10 +859,12 @@ export function TimbratureManager({
         correzioni.get(g.giorno),
         regole,
         orario,
-        sommaGiorno(righeRapportino)
+        sommaGiorno(righeRapportino),
+        oggi
       ),
       righeRapportino,
       we: isWeekend(g.giornoSettimana),
+      futuro: g.giorno >= oggi,
       revisionata: revisionati.has(g.giorno),
       // Mezzogiorno: la data è un giorno civile, non un istante — così nessun
       // fuso la fa scivolare al giorno prima.
@@ -1223,6 +1233,7 @@ export function TimbratureManager({
                         <StatoIcon
                           anomalie={r.anomalie}
                           weekend={r.we}
+                          futuro={r.futuro}
                           revisionata={r.revisionata}
                           haRapportino={r.righeRapportino.length > 0}
                           onClick={() => setDettaglioGiorno(r.giorno)}
@@ -1431,6 +1442,7 @@ export function TimbratureManager({
                         <StatoIcon
                           anomalie={r.anomalie}
                           weekend={r.we}
+                          futuro={r.futuro}
                           revisionata={r.revisionata}
                           haRapportino={r.righeRapportino.length > 0}
                           onClick={() => setDettaglioGiorno(r.giorno)}

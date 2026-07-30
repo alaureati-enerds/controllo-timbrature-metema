@@ -125,7 +125,7 @@ un badge per riga, tinge la riga di rosso tenue e offre il filtro «Da verificar
 | `turno_incompleto` | Dopo il fill un turno ha un solo estremo. | corretti |
 | `durata_eccessiva` | Totale oltre `oreMassimeGiorno`. | corretti |
 | `timbratura_sospetta` | Il giorno conteneva una sentinella `00:00`. | **grezzo** |
-| `assente` | Giorno **feriale** senza alcuna timbratura (mai nel weekend). | **grezzo** |
+| `assente` | Giorno **feriale e già trascorso** senza alcuna timbratura (mai nel weekend, mai da oggi in avanti). | **grezzo** |
 
 **Un'anomalia si spegne quando l'admin sistema il giorno.** È il principio: il
 badge dice «da rivedere», quindi una volta rivisto deve sparire. Le anomalie di
@@ -137,6 +137,14 @@ segnala.
 
 In pratica: su un giorno con timbratura a `00:00`, appena assegni un preset o
 correggi un orario, il badge «timbratura sospetta» sparisce.
+
+**`assente` non guarda solo il weekend, anche il calendario.** `calcolaCorretti`
+riceve un parametro `oggi` (default: la data odierna reale, `YYYY-MM-DD`) e
+segnala `assente` solo se `giorno < oggi`: un giorno futuro — oggi compreso,
+la giornata potrebbe non essere ancora conclusa — non è "assente", è solo non
+ancora accaduto. Guardando il mese corrente a metà mese, i giorni successivi
+non hanno né badge né icona di stato (stesso trattamento riservato ai
+weekend, in `timbrature-manager.tsx`).
 
 **Segnalare un'anomalia come revisionata, senza correggere nulla.** A volte
 l'anomalia è corretta così com'è — un'assenza giustificata, una durata
