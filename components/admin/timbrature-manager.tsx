@@ -242,6 +242,31 @@ function StatoIcon({
       ? `Revisionata: ${etichette}`
       : "Dettaglio giornata"
 
+  // Il tooltip mostra le anomalie come elenco verticale invece di un'unica
+  // riga concatenata: più leggibile quando ce n'è più di una. L'aria-label
+  // sopra resta piatto per lo screen reader, che non legge questo JSX.
+  const tooltipContent =
+    anomalie.length === 0 ? (
+      label
+    ) : (
+      <div className="flex flex-col items-start gap-1.5">
+        <span className="font-medium">
+          {haAnomalie ? "Anomalie" : "Revisionata"}
+        </span>
+        <ul className="flex flex-col gap-1">
+          {anomalie.map((a) => (
+            <li key={a} className="flex items-center gap-1.5">
+              <span
+                className="size-1 shrink-0 rounded-full bg-background"
+                aria-hidden="true"
+              />
+              {ANOMALIA_LABEL[a]}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -279,7 +304,11 @@ function StatoIcon({
           />
         )}
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent
+        className={anomalie.length > 0 ? "flex-col items-start gap-1.5" : undefined}
+      >
+        {tooltipContent}
+      </TooltipContent>
     </Tooltip>
   )
 }
