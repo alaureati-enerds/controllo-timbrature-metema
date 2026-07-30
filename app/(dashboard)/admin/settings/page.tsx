@@ -2,13 +2,15 @@ import type { Metadata } from "next"
 
 import { AuditSettingsForm } from "@/components/admin/audit-settings-form"
 import { CalcoloSettingsForm } from "@/components/admin/calcolo-settings-form"
+import { DipendentiSettingsForm } from "@/components/admin/dipendenti-settings-form"
 import { EmailSettingsForm } from "@/components/admin/email-settings-form"
 import { MySqlSettingsForm } from "@/components/admin/mysql-settings-form"
 import { NotificationSettingsForm } from "@/components/admin/notification-settings-form"
 import { OrarioSettingsForm } from "@/components/admin/orario-settings-form"
-import { RapportinoRichiestoForm } from "@/components/admin/rapportino-richiesto-form"
 import { SystemSettingsForm } from "@/components/admin/system-settings-form"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { requireRole } from "@/lib/auth-helpers"
+import { listDipendentiNascosti } from "@/lib/dipendenti/nascosti"
 import { listDipendenti } from "@/lib/mysql/timbrature"
 import { listDipendentiRichiesti } from "@/lib/rapportini/richiesti"
 import { getAuditSettings } from "@/lib/settings/audit"
@@ -33,6 +35,7 @@ export default async function AdminSettingsPage() {
     calcoloSettings,
     dipendenti,
     dipendentiRichiesti,
+    dipendentiNascosti,
   ] = await Promise.all([
     getSystemSettings(),
     getEmailSettingsForAdmin(),
@@ -43,6 +46,7 @@ export default async function AdminSettingsPage() {
     getCalcoloSettingsForAdmin(),
     listDipendenti().catch(() => []),
     listDipendentiRichiesti(),
+    listDipendentiNascosti(),
   ])
 
   return (
@@ -57,17 +61,30 @@ export default async function AdminSettingsPage() {
         </p>
       </header>
 
-      <SystemSettingsForm initial={settings} />
-      <EmailSettingsForm initial={emailSettings} />
-      <MySqlSettingsForm initial={mysqlSettings} />
-      <OrarioSettingsForm initial={orarioSettings} />
-      <CalcoloSettingsForm initial={calcoloSettings} />
-      <RapportinoRichiestoForm
-        dipendenti={dipendenti}
-        richiesti={dipendentiRichiesti}
-      />
-      <AuditSettingsForm initial={auditSettings} />
-      <NotificationSettingsForm initial={notificationSettings} />
+      <Tabs defaultValue="generale">
+        <TabsList>
+          <TabsTrigger value="generale">Generale</TabsTrigger>
+          <TabsTrigger value="dipendenti">Dipendenti</TabsTrigger>
+        </TabsList>
+        <TabsContent value="generale">
+          <div className="flex flex-col gap-6">
+            <SystemSettingsForm initial={settings} />
+            <EmailSettingsForm initial={emailSettings} />
+            <MySqlSettingsForm initial={mysqlSettings} />
+            <OrarioSettingsForm initial={orarioSettings} />
+            <CalcoloSettingsForm initial={calcoloSettings} />
+            <AuditSettingsForm initial={auditSettings} />
+            <NotificationSettingsForm initial={notificationSettings} />
+          </div>
+        </TabsContent>
+        <TabsContent value="dipendenti">
+          <DipendentiSettingsForm
+            dipendenti={dipendenti}
+            richiesti={dipendentiRichiesti}
+            nascosti={dipendentiNascosti}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

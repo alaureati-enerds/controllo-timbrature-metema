@@ -382,3 +382,15 @@ model DipendenteRapportino {
 
   @@map("dipendente_rapportino")
 }
+
+/// Dipendenti (codice del gestionale MySQL) NASCOSTI dalla select della
+/// pagina Timbrature: la sola presenza di una riga significa "nascosto",
+/// stesso pattern di DipendenteRapportino. Nessuna FK: legame per
+/// convenzione di stringa al codice esterno.
+model DipendenteNascosto {
+  id         String   @id @default(cuid())
+  dipendente String   @unique
+  createdAt  DateTime @default(now())
+
+  @@map("dipendente_nascosto")
+}
