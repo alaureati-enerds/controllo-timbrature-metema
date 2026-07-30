@@ -326,6 +326,59 @@ model Notification {
 }
 
 // ============================================================================
+// Storico delle stampe del registro presenze
+// ============================================================================
+
+/// Una stampa PDF del registro presenze già generata e conservata come
+/// SNAPSHOT: a differenza della generazione (sempre ricalcolata al volo, vedi
+/// app/api/admin/timbrature/stampa/route.ts), questa riga fissa il documento
+/// esatto prodotto in quel momento, così resta consultabile anche se le
+/// timbrature del periodo vengono corrette in seguito.
+///
+/// NON riusa il modello generico `File`/`lib/files.ts`: quello rende i file
+/// `ownerType: "system"` pubblici senza alcun controllo RBAC (vedi
+/// `lib/files.ts` e `app/api/files/[id]/route.ts`), inadatto per PDF con dati
+/// personali dei dipendenti. I byte vivono comunque nello stesso storage
+/// (`lib/storage/`) sotto `storageKey`, ma il download passa da una route
+/// dedicata con il permesso `timbrature.read` (vedi
+/// lib/timbrature/stampe-storico.ts).
+///
+/// Visibile a tutti gli admin con permesso timbrature (non solo a chi ha
+/// generato la stampa). La pulizia periodica (retention configurabile) è un
+/// job dedicato, mirror di `audit-prune`: vedi
+/// `lib/jobs/handlers/stampa-prune.ts`.
+model StampaGenerata {
+  id           String @id @default(cuid())
+  storageKey   String @unique
+  mimeType     String
+  size         Int
+  originalName String
+
+  // Codice del gestionale MySQL; null se stampa cumulativa (tutti i
+  // dipendenti). Nessuna FK: stessa convenzione di stringa di
+  // TimbraturaCorretta/DipendenteRapportino, che vivono nel DB locale e si
+  // legano solo per convenzione al codice esterno.
+  dipendente      String?
+  dipendenteLabel String?
+  cumulativo      Boolean @default(false)
+  mese            Int
+  anno            Int
+  templateId      String
+
+  // Denormalizzati di proposito, come in AuditLog: lo storico deve restare
+  // leggibile anche dopo che l'utente è stato eliminato.
+  actorId    String?
+  actorEmail String?
+
+  createdAt DateTime @default(now())
+
+  @@index([mese, anno])
+  @@index([dipendente])
+  @@index([createdAt])
+  @@map("stampa_generata")
+}
+
+// ============================================================================
 // Timbrature corrette (override manuali salvati)
 // ============================================================================
 
@@ -368,4 +421,29 @@ model TimbraturaPreset {
   updatedAt DateTime @updatedAt
 
   @@map("timbratura_preset")
+}
+
+/// Dipendenti (codice del gestionale MySQL) per cui il rapportino è
+/// obbligatorio: la sola presenza di una riga significa "richiesto", niente
+/// colonna booleana ridondante. Nessuna FK verso il dipendente: come
+/// TimbraturaCorretta, vive nel DB locale e si lega solo per convenzione di
+/// stringa al codice esterno.
+model DipendenteRapportino {
+  id         String   @id @default(cuid())
+  dipendente String   @unique
+  createdAt  DateTime @default(now())
+
+  @@map("dipendente_rapportino")
+}
+
+/// Dipendenti (codice del gestionale MySQL) NASCOSTI dalla select della
+/// pagina Timbrature: la sola presenza di una riga significa "nascosto",
+/// stesso pattern di DipendenteRapportino. Nessuna FK: legame per
+/// convenzione di stringa al codice esterno.
+model DipendenteNascosto {
+  id         String   @id @default(cuid())
+  dipendente String   @unique
+  createdAt  DateTime @default(now())
+
+  @@map("dipendente_nascosto")
 }

@@ -31,6 +31,9 @@ export async function getCalcoloSettingsForAdmin(): Promise<CalcoloSettingsAdmin
     minutiOrdinari: db.minutiOrdinari ?? CALCOLO_DEFAULTS.minutiOrdinari,
     oreMassimeGiorno:
       db.oreMassimeGiorno ?? CALCOLO_DEFAULTS.oreMassimeGiorno,
+    sogliaScostamentoRapportino:
+      db.sogliaScostamentoRapportino ??
+      CALCOLO_DEFAULTS.sogliaScostamentoRapportino,
   }
 }
 

@@ -71,6 +71,8 @@ export function CalcoloSettingsForm({
   const [oreMassimeGiorno, setOreMassimeGiorno] = useState(
     String(initial.oreMassimeGiorno)
   )
+  const [sogliaScostamentoRapportino, setSogliaScostamentoRapportino] =
+    useState(String(initial.sogliaScostamentoRapportino))
   const [saving, setSaving] = useState(false)
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
@@ -92,6 +94,7 @@ export function CalcoloSettingsForm({
           pausaSpanMinimo: Number(pausaSpanMinimo),
           minutiOrdinari: Number(minutiOrdinari),
           oreMassimeGiorno: Number(oreMassimeGiorno),
+          sogliaScostamentoRapportino: Number(sogliaScostamentoRapportino),
         }),
       })
       if (!res.ok) {
@@ -358,6 +361,32 @@ export function CalcoloSettingsForm({
                   </FieldDescription>
                 </Field>
               </div>
+            </FieldSet>
+
+            <FieldSeparator />
+
+            <FieldSet>
+              <FieldLegend variant="label">Confronto con il rapportino</FieldLegend>
+              <Field>
+                <FieldLabel htmlFor="calcolo-scostamento-rapportino">
+                  Soglia di scostamento (minuti)
+                </FieldLabel>
+                <Input
+                  id="calcolo-scostamento-rapportino"
+                  name="sogliaScostamentoRapportino"
+                  type="number"
+                  min={0}
+                  className="w-full tabular-nums md:w-40"
+                  value={sogliaScostamentoRapportino}
+                  onChange={(e) => setSogliaScostamentoRapportino(e.target.value)}
+                  disabled={saving}
+                />
+                <FieldDescription>
+                  Oltre questa differenza fra le ore da timbratura e le ore da
+                  rapportino, il giorno viene segnalato come anomalo (solo sui
+                  giorni senza correzioni manuali). 0 = disattivato.
+                </FieldDescription>
+              </Field>
             </FieldSet>
           </FieldGroup>
         </CardContent>

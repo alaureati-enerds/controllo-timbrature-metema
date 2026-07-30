@@ -73,6 +73,7 @@ i default di fallback sono in `CALCOLO_DEFAULTS`
 | `pausaSpanMinimo` | `360` | Sotto le 6h di span fra entrata e uscita la pausa **non** viene ricostruita (resta una mezza giornata). |
 | `minutiOrdinari` | `480` | Oltre le 8h il tempo diventa straordinario. |
 | `oreMassimeGiorno` | `720` | Oltre le 12h il giorno è segnalato `durata_eccessiva`. |
+| `sogliaScostamentoRapportino` | `60` | Oltre questa differenza (minuti) fra ore da timbratura e ore da rapportino, il giorno è segnalato `scostamento_rapportino`. `0` = disattivato. Calibrato sui dati reali: sui giorni "puliti" il 93% degli scostamenti sta entro 30', il 97% entro 60' — oltre inizia la coda degli errori veri (solo l'1.3% supera i 120'). |
 
 ## La ricostruzione della pausa
 
@@ -116,7 +117,7 @@ orario compare fra i corretti ma non fra i grezzi, è dedotto.
 
 Calcolate **dopo** overlay e fill (`GiornataCalcolata.anomalie`). La pagina mostra
 un badge per riga, tinge la riga di rosso tenue e offre il filtro «Da verificare»
-(col conteggio) nell'header della tabella; la stampa ne riporta il conteggio.
+(col conteggio) nell'header della tabella. La stampa non elenca le anomalie.
 
 | Anomalia | Quando | Origine |
 | --- | --- | --- |
@@ -125,7 +126,51 @@ un badge per riga, tinge la riga di rosso tenue e offre il filtro «Da verificar
 | `turno_incompleto` | Dopo il fill un turno ha un solo estremo. | corretti |
 | `durata_eccessiva` | Totale oltre `oreMassimeGiorno`. | corretti |
 | `timbratura_sospetta` | Il giorno conteneva una sentinella `00:00`. | **grezzo** |
-| `assente` | Giorno **feriale** senza alcuna timbratura (mai nel weekend). | **grezzo** |
+| `assente` | Giorno **feriale e già trascorso** senza alcuna timbratura (mai nel weekend, mai da oggi in avanti). | **grezzo** |
+| `rapportino_mancante` | Dipendente soggetto all'obbligo (impostazioni di sistema), giorno feriale già trascorso, nessun rapportino registrato — può comparire insieme ad `assente`. | **UI** |
+| `scostamento_rapportino` | Giorno determinabile automaticamente (nessuna correzione manuale, nessuna anomalia calcolata dal solo marcatempo) con rapportino attivo, e differenza fra i due totali oltre `sogliaScostamentoRapportino`. | **UI** |
+
+**`rapportino_mancante` e `scostamento_rapportino` sono un'eccezione: non
+nascono in `calcolaCorretti`.** Le altre sei sono calcolate dentro il motore
+puro, che lavora solo su orari. Queste due dipendono da dati esterni al
+motore — quali dipendenti sono soggetti all'obbligo di rapportino
+(`lib/rapportini/richiesti.ts`, configurabile in Impostazioni di sistema) o il
+contenuto stesso del rapportino — quindi le condizioni vivono come funzioni
+pure in [`lib/rapportini/calcolo.ts`](../lib/rapportini/calcolo.ts)
+(`mancaRapportinoObbligatorio`, `scostamentoRapportinoEccessivo`) e si
+uniscono all'array `anomalie` in `timbrature-manager.tsx`, nello stesso punto
+in cui si costruiscono le righe della tabella. Da lì in poi badge, tinta riga,
+tab «Da verificare» e Sheet di dettaglio le trattano come una qualunque altra
+anomalia, perché leggono tutti lo stesso array. Non essendo calcolate da
+`calcolaCorretti`, oggi non sono nella stampa (che non elenca comunque le
+anomalie).
+
+**`rapportino_mancante` può comparire insieme ad `assente`.** Le due
+anomalie rispondono a domande diverse — «manca la timbratura» e «manca il
+rapportino» — e su un giorno senza nessuno dei due è corretto mostrarle
+entrambe: lascia a chi rivede la decisione se aggiungere la presenza a mano
+o sollecitare il rapportino al tecnico. `mancaRapportinoObbligatorio` non
+guarda l'anomalia `assente`.
+
+**`scostamento_rapportino` confronta due grandezze diverse per natura, non
+solo per rumore.** Il marcatempo misura la presenza fisica badge-in/badge-out
+(arrotondata secondo le regole sopra); il rapportino misura ore di
+lavoro+viaggio autodichiarate dal tecnico, spesso arrotondate a mano in blocchi
+più larghi. Un confronto senza tolleranza avrebbe segnalato quasi ogni giorno
+con rapportino attivo — puro rumore, non segnale. Un'analisi sui dati reali
+(32 dipendenti, 13 mesi) ha mostrato che sui giorni "puliti" il match è invece
+stretto (93% entro 30', 97% entro 60'), con un salto netto verso una coda di
+pochi errori veri (1.3% oltre 120', fino a scostamenti di intere ore): da qui
+il default di `sogliaScostamentoRapportino` a 60 minuti. Il confronto si
+calcola chiamando una **seconda volta** `calcolaCorretti` con `override` e
+`rapportino` entrambi `undefined`: è l'unico modo di ottenere il totale
+marcatempo "puro", perché quando un rapportino è attivo esso **sostituisce**
+(non affianca) il totale nel calcolo normale della riga — vedi più sopra "1.
+Overlay a 3 livelli". L'anomalia scatta solo se quel calcolo puro non ha già
+anomalie proprie (`entrata_mancante`, `uscita_mancante`, `turno_incompleto`,
+`timbratura_sospetta`, `durata_eccessiva`, `assente`) e il giorno non ha una
+correzione manuale: è la lettura di "timbrature corrette determinabili
+automaticamente".
 
 **Un'anomalia si spegne quando l'admin sistema il giorno.** È il principio: il
 badge dice «da rivedere», quindi una volta rivisto deve sparire. Le anomalie di
@@ -137,6 +182,14 @@ segnala.
 
 In pratica: su un giorno con timbratura a `00:00`, appena assegni un preset o
 correggi un orario, il badge «timbratura sospetta» sparisce.
+
+**`assente` non guarda solo il weekend, anche il calendario.** `calcolaCorretti`
+riceve un parametro `oggi` (default: la data odierna reale, `YYYY-MM-DD`) e
+segnala `assente` solo se `giorno < oggi`: un giorno futuro — oggi compreso,
+la giornata potrebbe non essere ancora conclusa — non è "assente", è solo non
+ancora accaduto. Guardando il mese corrente a metà mese, i giorni successivi
+non hanno né badge né icona di stato (stesso trattamento riservato ai
+weekend, in `timbrature-manager.tsx`).
 
 **Segnalare un'anomalia come revisionata, senza correggere nulla.** A volte
 l'anomalia è corretta così com'è — un'assenza giustificata, una durata
@@ -162,9 +215,18 @@ toggle: selezionando giorni già revisionati il bottone smarca la revisione.
   `getCalcoloSettingsForAdmin` ([`lib/settings/calcolo.ts`](../lib/settings/calcolo.ts)),
   usalo nel motore (`turni.ts`/`calcolo.ts`) ed esponilo nel form. Nessuna
   migrazione: il blob è schemaless.
-- **Aggiungere un'anomalia:** aggiungi il valore al tipo `Anomalia`, la
-  condizione in `calcolaCorretti` (dopo overlay+fill) e l'etichetta in
-  `ANOMALIA_LABEL` ([`components/admin/timbrature-manager.tsx`](../components/admin/timbrature-manager.tsx)).
+- **Aggiungere un'anomalia calcolata dagli orari:** aggiungi il valore al tipo
+  `Anomalia`, la condizione in `calcolaCorretti` (dopo overlay+fill) e
+  l'etichetta in `ANOMALIA_LABEL`
+  ([`components/admin/timbrature-manager.tsx`](../components/admin/timbrature-manager.tsx)).
+- **Aggiungere un'anomalia che dipende da un dato esterno al motore** (come
+  `rapportino_mancante`, che dipende dalla configurazione per dipendente, o
+  `scostamento_rapportino`, che dipende dal contenuto del rapportino):
+  aggiungi comunque il valore al tipo `Anomalia` e l'etichetta in
+  `ANOMALIA_LABEL`, ma calcola la condizione come funzione pura vicino al dato
+  da cui dipende (es. `lib/rapportini/calcolo.ts`) e uniscila all'array
+  `anomalie` nel punto in cui `timbrature-manager.tsx` costruisce le righe —
+  mai dentro `calcolaCorretti`, che deve restare un calcolo puro di orari.
 
 ## Test
 

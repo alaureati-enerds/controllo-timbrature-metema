@@ -1,3 +1,5 @@
+import { format } from "date-fns"
+
 import type {
   CalcoloSettingsAdmin,
   OrarioLavoroSettingsAdmin,
@@ -143,6 +145,21 @@ export type Anomalia =
   | "timbratura_sospetta"
   | "durata_eccessiva"
   | "assente"
+  // Giorno feriale già trascorso, dipendente soggetto all'obbligo, nessun
+  // rapportino registrato. A differenza delle altre, NON è calcolata qui
+  // dentro (il motore resta un calcolo puro di orari, senza sapere quali
+  // dipendenti richiedono il rapportino): la condizione vive in
+  // lib/rapportini/calcolo.ts (`mancaRapportinoObbligatorio`) ed è unita
+  // all'array `anomalie` lato UI, in timbrature-manager.tsx. Vedi
+  // docs/calcolo-timbrature.md.
+  | "rapportino_mancante"
+  // Giorno determinabile automaticamente (nessuna anomalia dal solo
+  // marcatempo, nessuna correzione manuale), con rapportino attivo, e
+  // differenza fra i due totali oltre `sogliaScostamentoRapportino`. Stessa
+  // eccezione di `rapportino_mancante`: non calcolata qui, vive in
+  // lib/rapportini/calcolo.ts (`scostamentoRapportinoEccessivo`) e si unisce
+  // in timbrature-manager.tsx.
+  | "scostamento_rapportino"
 
 // Valore corretto di un turno, con la sua provenienza:
 // - stringa vuota nell'override = turno azzerato esplicitamente dalla
@@ -208,7 +225,12 @@ export function calcolaCorretti(
   override: Record<string, string | null> | undefined,
   regole: CalcoloSettingsAdmin,
   orario: OrarioLavoroSettingsAdmin,
-  rapportino?: RiepilogoRapportino
+  rapportino?: RiepilogoRapportino,
+  // Data di riferimento (YYYY-MM-DD, come `g.giorno`) usata per non segnalare
+  // "assente" su giorni non ancora passati: default "oggi" reale, esplicito
+  // solo nei test o quando il chiamante vuole garantire lo stesso istante di
+  // un altro calcolo fatto nello stesso render (vedi timbrature-manager.tsx).
+  oggi: string = format(new Date(), "yyyy-MM-dd")
 ): GiornataCalcolata {
   const roundE = (o: string) => arrotondaEntrata(o, regole)
   const roundU = (o: string) => arrotondaUscita(o, regole)
@@ -295,9 +317,12 @@ export function calcolaCorretti(
   const giornoSpiegato = correttoManualmente || rap != null
   const anomalie: Anomalia[] = []
   if (g.nTimbrature === 0) {
-    // Giorno feriale senza alcuna timbratura; mai nel weekend, e non se già
-    // spiegato (a mano o da rapportino).
-    if (!isWeekend(g.giornoSettimana) && !giornoSpiegato)
+    // Giorno feriale senza alcuna timbratura; mai nel weekend, non se già
+    // spiegato (a mano o da rapportino), e non se il giorno non è ancora
+    // trascorso (da oggi in avanti): non è "assente", semplicemente non è
+    // ancora accaduto — oggi stesso incluso, la giornata potrebbe non essere
+    // conclusa.
+    if (!isWeekend(g.giornoSettimana) && !giornoSpiegato && g.giorno < oggi)
       anomalie.push("assente")
   } else if (ce1 == null && ce2 == null) {
     anomalie.push("entrata_mancante")
@@ -356,6 +381,7 @@ export function calcolaTotaliMese(righe: GiornataCalcolata[]) {
     ordinario: righe.reduce((s, r) => s + r.ordinario, 0),
     straordinario: righe.reduce((s, r) => s + r.straordinario, 0),
     straordinarioViaggio: righe.reduce((s, r) => s + r.straordinarioViaggio, 0),
+    giorniTrasferta: righe.filter((r) => r.pernottamento).length,
   }
 }
 

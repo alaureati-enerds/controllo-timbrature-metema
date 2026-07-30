@@ -37,3 +37,39 @@ export function sommaGiorno(righe: RapportinoRiga[]): RiepilogoRapportino {
   }
   return { lavoroMinuti, viaggioMinuti, pernottamento }
 }
+
+/**
+ * Un giorno segnala "rapportino mancante" se il dipendente è soggetto
+ * all'obbligo (`richiesto`, configurato dall'admin — vedi
+ * lib/rapportini/richiesti.ts), il giorno è feriale e già trascorso (stessa
+ * soglia usata per l'anomalia "assente" in calcolo.ts) e non ha un
+ * rapportino registrato. Compare anche sui giorni già segnalati "assente"
+ * (nessuna timbratura): mancano entrambi gli elementi, e chi rivede deve
+ * poterlo vedere per decidere se aggiungere la presenza a mano o
+ * sollecitare il rapportino al tecnico.
+ */
+export function mancaRapportinoObbligatorio(opts: {
+  richiesto: boolean
+  weekend: boolean
+  futuro: boolean
+  haRapportino: boolean
+}): boolean {
+  return opts.richiesto && !opts.weekend && !opts.futuro && !opts.haRapportino
+}
+
+/**
+ * Un giorno "determinabile automaticamente" (nessuna anomalia dal solo
+ * marcatempo, nessuna correzione manuale) segnala uno scostamento eccessivo
+ * se la differenza assoluta fra il totale marcatempo puro e il totale
+ * rapportino (lavoro+viaggio) supera la soglia configurata.
+ * `sogliaMinuti <= 0` disattiva il controllo (stesso pattern di `dedupMinuti`
+ * in lib/settings/schema.ts).
+ */
+export function scostamentoRapportinoEccessivo(opts: {
+  totaleMarcatempo: number
+  totaleRapportino: number
+  sogliaMinuti: number
+}): boolean {
+  if (opts.sogliaMinuti <= 0) return false
+  return Math.abs(opts.totaleMarcatempo - opts.totaleRapportino) > opts.sogliaMinuti
+}

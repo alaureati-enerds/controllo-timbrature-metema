@@ -4,6 +4,7 @@ import { z } from "zod"
 import { ApiError, safeHandler } from "@/lib/api"
 import { audit } from "@/lib/audit"
 import { getSession } from "@/lib/auth-helpers"
+import { logger } from "@/lib/logger"
 import { requireTimbraturePermission } from "@/lib/timbrature/authz"
 import {
   DEFAULT_TEMPLATE_ID,
@@ -17,6 +18,7 @@ import {
   renderDocumento,
   renderDocumentoCumulativo,
 } from "@/lib/timbrature/stampa/documenti"
+import { saveStampaStorico } from "@/lib/timbrature/stampe-storico"
 
 // GET /api/admin/timbrature/stampa?dipendente=X&mese=6&anno=2026&template=…
 // Restituisce il registro presenze come PDF scaricabile: di un singolo
@@ -24,7 +26,10 @@ import {
 // foglio, in ordine alfabetico, esclusi quelli senza timbrature corrette). Il
 // contenuto è RICALCOLATO qui (le correzioni sono già persistite mentre si
 // modifica la tabella), quindi la stampa rispecchia sempre ciò che si vede a
-// schermo. Vedi docs/stampa-timbrature.md.
+// schermo. Ogni PDF generato viene anche salvato come SNAPSHOT nello storico
+// (vedi lib/timbrature/stampe-storico.ts): resta consultabile da
+// /admin/timbrature/stampe anche se il periodo viene corretto in seguito. Vedi
+// docs/stampa-timbrature.md.
 
 const paramsSchema = z
   .object({
@@ -52,6 +57,26 @@ function slug(testo: string): string {
       .replace(/^-+|-+$/g, "")
       .toLowerCase() || "dipendente"
   )
+}
+
+/**
+ * Salva lo snapshot della stampa nello storico. FAIL-SOFT: un errore di
+ * storage non deve rompere il download per l'utente (stesso spirito
+ * "fail-open" di audit()). Vedi lib/timbrature/stampe-storico.ts.
+ */
+async function salvaNelloStorico(
+  pdf: Buffer,
+  meta: Omit<Parameters<typeof saveStampaStorico>[0], "buffer" | "mimeType">
+): Promise<void> {
+  try {
+    await saveStampaStorico({
+      buffer: pdf,
+      mimeType: "application/pdf",
+      ...meta,
+    })
+  } catch (error) {
+    logger.error("Stampa non salvata nello storico", error)
+  }
 }
 
 export const GET = safeHandler(async (request) => {
@@ -88,6 +113,18 @@ export const GET = safeHandler(async (request) => {
       request,
     })
 
+    await salvaNelloStorico(pdf, {
+      originalName: `registro-presenze-cumulativo-${periodo}.pdf`,
+      dipendente: null,
+      dipendenteLabel: "Tutti i dipendenti",
+      cumulativo: true,
+      mese,
+      anno,
+      templateId,
+      actorId: session?.user.id ?? null,
+      actorEmail: session?.user.email ?? null,
+    })
+
     return new Response(new Uint8Array(pdf), {
       headers: {
         "Content-Type": "application/pdf",
@@ -116,6 +153,18 @@ export const GET = safeHandler(async (request) => {
   })
 
   const nome = slug(dati.dipendente.descrizione || dati.dipendente.codice)
+
+  await salvaNelloStorico(pdf, {
+    originalName: `registro-presenze-${nome}-${periodo}.pdf`,
+    dipendente: dati.dipendente.codice,
+    dipendenteLabel: dati.dipendente.descrizione,
+    cumulativo: false,
+    mese,
+    anno,
+    templateId,
+    actorId: session?.user.id ?? null,
+    actorEmail: session?.user.email ?? null,
+  })
 
   return new Response(new Uint8Array(pdf), {
     headers: {

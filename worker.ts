@@ -52,6 +52,15 @@ const schedules: {
     type: "notification-prune",
     payload: {},
   },
+  // Retention dello storico stampe: ogni giorno alle 04:00 elimina gli
+  // snapshot PDF più vecchi del periodo configurato. Vedi
+  // docs/stampa-timbrature.md.
+  {
+    key: "stampa-prune-giornaliero",
+    cron: "0 4 * * *",
+    type: "stampa-prune",
+    payload: {},
+  },
 ]
 
 async function main() {

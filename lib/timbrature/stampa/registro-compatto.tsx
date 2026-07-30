@@ -271,6 +271,10 @@ export function PaginaRegistroCompatto({ dati }: { dati: DatiStampa }) {
               {formattaTotale(totali.totale)}
             </Text>
           </View>
+          <View style={styles.totale}>
+            <Text>Giorni trasferta</Text>
+            <Text style={styles.totaleValore}>{totali.giorniTrasferta}</Text>
+          </View>
         </View>
       </View>
 
