@@ -74,6 +74,9 @@ export const auditCatalog = [
 
   // --- Timbrature (stampa) --------------------------------------------------
   { action: "timbrature.stampa", category: "timbrature", label: "Registro presenze stampato" },
+
+  // --- Timbrature (obbligo rapportino) --------------------------------------
+  { action: "timbrature.rapportino_richiesto.update", category: "timbrature", label: "Obbligo rapportino modificato" },
 ] as const satisfies readonly AuditEventDef[]
 
 // Tutte le `action` conosciute, come tipo stretto: dà autocompletamento e

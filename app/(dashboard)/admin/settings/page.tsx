@@ -6,8 +6,11 @@ import { EmailSettingsForm } from "@/components/admin/email-settings-form"
 import { MySqlSettingsForm } from "@/components/admin/mysql-settings-form"
 import { NotificationSettingsForm } from "@/components/admin/notification-settings-form"
 import { OrarioSettingsForm } from "@/components/admin/orario-settings-form"
+import { RapportinoRichiestoForm } from "@/components/admin/rapportino-richiesto-form"
 import { SystemSettingsForm } from "@/components/admin/system-settings-form"
 import { requireRole } from "@/lib/auth-helpers"
+import { listDipendenti } from "@/lib/mysql/timbrature"
+import { listDipendentiRichiesti } from "@/lib/rapportini/richiesti"
 import { getAuditSettings } from "@/lib/settings/audit"
 import { getCalcoloSettingsForAdmin } from "@/lib/settings/calcolo"
 import { getEmailSettingsForAdmin } from "@/lib/settings/email"
@@ -28,6 +31,8 @@ export default async function AdminSettingsPage() {
     mysqlSettings,
     orarioSettings,
     calcoloSettings,
+    dipendenti,
+    dipendentiRichiesti,
   ] = await Promise.all([
     getSystemSettings(),
     getEmailSettingsForAdmin(),
@@ -36,6 +41,8 @@ export default async function AdminSettingsPage() {
     getMySqlSettingsForAdmin(),
     getOrarioSettingsForAdmin(),
     getCalcoloSettingsForAdmin(),
+    listDipendenti().catch(() => []),
+    listDipendentiRichiesti(),
   ])
 
   return (
@@ -55,6 +62,10 @@ export default async function AdminSettingsPage() {
       <MySqlSettingsForm initial={mysqlSettings} />
       <OrarioSettingsForm initial={orarioSettings} />
       <CalcoloSettingsForm initial={calcoloSettings} />
+      <RapportinoRichiestoForm
+        dipendenti={dipendenti}
+        richiesti={dipendentiRichiesti}
+      />
       <AuditSettingsForm initial={auditSettings} />
       <NotificationSettingsForm initial={notificationSettings} />
     </div>

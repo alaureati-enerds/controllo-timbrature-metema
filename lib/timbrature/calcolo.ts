@@ -145,6 +145,14 @@ export type Anomalia =
   | "timbratura_sospetta"
   | "durata_eccessiva"
   | "assente"
+  // Giorno feriale già trascorso, dipendente soggetto all'obbligo, nessun
+  // rapportino registrato. A differenza delle altre, NON è calcolata qui
+  // dentro (il motore resta un calcolo puro di orari, senza sapere quali
+  // dipendenti richiedono il rapportino): la condizione vive in
+  // lib/rapportini/calcolo.ts (`mancaRapportinoObbligatorio`) ed è unita
+  // all'array `anomalie` lato UI, in timbrature-manager.tsx. Vedi
+  // docs/calcolo-timbrature.md.
+  | "rapportino_mancante"
 
 // Valore corretto di un turno, con la sua provenienza:
 // - stringa vuota nell'override = turno azzerato esplicitamente dalla
