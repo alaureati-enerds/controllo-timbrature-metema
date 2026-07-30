@@ -36,6 +36,7 @@ export type DatiStampa = {
     ordinario: number
     straordinario: number
     straordinarioViaggio: number
+    giorniTrasferta: number
   }
   /** Momento della generazione: finisce nel piè di pagina («Stampato il …»). */
   stampatoIl: Date

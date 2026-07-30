@@ -356,6 +356,7 @@ export function calcolaTotaliMese(righe: GiornataCalcolata[]) {
     ordinario: righe.reduce((s, r) => s + r.ordinario, 0),
     straordinario: righe.reduce((s, r) => s + r.straordinario, 0),
     straordinarioViaggio: righe.reduce((s, r) => s + r.straordinarioViaggio, 0),
+    giorniTrasferta: righe.filter((r) => r.pernottamento).length,
   }
 }
 
