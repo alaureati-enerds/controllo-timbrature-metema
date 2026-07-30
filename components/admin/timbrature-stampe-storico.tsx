@@ -9,6 +9,7 @@ import {
   FileArchiveIcon,
   FilterIcon,
   InfoIcon,
+  MoreHorizontalIcon,
   RefreshCwIcon,
   Trash2Icon,
   XIcon,
@@ -39,6 +40,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Drawer,
   DrawerContent,
@@ -145,6 +153,7 @@ export function TimbratureStampeStorico() {
   const [refreshing, setRefreshing] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState<Entry | null>(null)
   const [bulkBusy, setBulkBusy] = useState<"zip" | "delete" | null>(null)
 
   // Selezione multipla (righe della pagina corrente).
@@ -279,6 +288,7 @@ export function TimbratureStampeStorico() {
       toast.error(error instanceof Error ? error.message : "Errore imprevisto")
     } finally {
       setDeletingId(null)
+      setPendingDeleteEntry(null)
     }
   }
 
@@ -370,73 +380,44 @@ export function TimbratureStampeStorico() {
     </Select>
   )
 
-  // Azioni di riga: Visualizza (nuova scheda, inline) / Scarica / Elimina
-  // (con conferma AlertDialog, distruttiva). Riusata da tabella e card list.
   const rigaAzioni = (e: Entry) => (
-    <div className="flex items-center gap-1">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Visualizza PDF"
-            onClick={() => handleView(e)}
-          >
-            <EyeIcon />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Visualizza</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Scarica PDF"
-            disabled={downloadingId === e.id}
-            onClick={() => handleDownload(e)}
-          >
-            {downloadingId === e.id ? <Spinner /> : <DownloadIcon />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Scarica</TooltipContent>
-      </Tooltip>
-      <AlertDialog>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Elimina stampa"
-                disabled={deletingId === e.id}
-              >
-                {deletingId === e.id ? <Spinner /> : <Trash2Icon />}
-              </Button>
-            </AlertDialogTrigger>
-          </TooltipTrigger>
-          <TooltipContent>Elimina</TooltipContent>
-        </Tooltip>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare questa stampa?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Il PDF di {dipendenteLabel(e)} ({MESI[e.mese - 1]} {e.anno}) verrà
-              eliminato in modo permanente dallo storico.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => handleDeleteOne(e)}
-            >
-              Elimina
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label="Azioni">
+          <MoreHorizontalIcon />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => handleView(e)}>
+          <EyeIcon data-icon="inline-start" />
+          Visualizza
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => handleDownload(e)}
+          disabled={downloadingId === e.id}
+        >
+          {downloadingId === e.id ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <DownloadIcon data-icon="inline-start" />
+          )}
+          Scarica
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={() => setPendingDeleteEntry(e)}
+          disabled={deletingId === e.id}
+        >
+          {deletingId === e.id ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <Trash2Icon data-icon="inline-start" />
+          )}
+          Elimina
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 
   return (
@@ -768,6 +749,38 @@ export function TimbratureStampeStorico() {
             ))
           )}
         </div>
+
+        <AlertDialog
+          open={pendingDeleteEntry !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingDeleteEntry(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminare questa stampa?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pendingDeleteEntry &&
+                  `Il PDF di ${dipendenteLabel(pendingDeleteEntry)} (${MESI[pendingDeleteEntry.mese - 1]} ${pendingDeleteEntry.anno}) verrà eliminato in modo permanente dallo storico.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setPendingDeleteEntry(null)}>
+                Annulla
+              </AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => {
+                  const entry = pendingDeleteEntry
+                  setPendingDeleteEntry(null)
+                  if (entry) handleDeleteOne(entry)
+                }}
+              >
+                Elimina
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
       <CardFooter className="flex-col items-center gap-3 md:flex-row md:justify-between">
         <span className="text-xs text-muted-foreground tabular-nums">
