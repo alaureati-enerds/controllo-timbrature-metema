@@ -1,6 +1,7 @@
 import {
   CalendarClockIcon,
   ClockIcon,
+  FileClockIcon,
   HouseIcon,
   ListChecksIcon,
   ScrollTextIcon,
@@ -40,5 +41,10 @@ export const adminNavItems: NavItem[] = [
   { title: "Gestione utenti", url: "/admin/users", icon: UsersIcon },
   { title: "Operazioni in background", url: "/admin/jobs", icon: ListChecksIcon },
   { title: "Audit log", url: "/admin/audit", icon: ScrollTextIcon },
+  {
+    title: "Storico stampe",
+    url: "/admin/timbrature/stampe",
+    icon: FileClockIcon,
+  },
   { title: "Impostazioni di sistema", url: "/admin/settings", icon: SettingsIcon },
 ]
