@@ -7,6 +7,7 @@ import { EmailSettingsForm } from "@/components/admin/email-settings-form"
 import { MySqlSettingsForm } from "@/components/admin/mysql-settings-form"
 import { NotificationSettingsForm } from "@/components/admin/notification-settings-form"
 import { OrarioSettingsForm } from "@/components/admin/orario-settings-form"
+import { StampeStoricoSettingsForm } from "@/components/admin/stampe-storico-settings-form"
 import { SystemSettingsForm } from "@/components/admin/system-settings-form"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { requireRole } from "@/lib/auth-helpers"
@@ -19,6 +20,7 @@ import { getEmailSettingsForAdmin } from "@/lib/settings/email"
 import { getMySqlSettingsForAdmin } from "@/lib/settings/mysql"
 import { getNotificationSettings } from "@/lib/settings/notifications"
 import { getOrarioSettingsForAdmin } from "@/lib/settings/orario"
+import { getStampeStoricoSettings } from "@/lib/settings/stampe-storico"
 import { getSystemSettings } from "@/lib/settings/system"
 
 export const metadata: Metadata = { title: "Impostazioni di sistema" }
@@ -30,6 +32,7 @@ export default async function AdminSettingsPage() {
     emailSettings,
     auditSettings,
     notificationSettings,
+    stampeSettings,
     mysqlSettings,
     orarioSettings,
     calcoloSettings,
@@ -41,6 +44,7 @@ export default async function AdminSettingsPage() {
     getEmailSettingsForAdmin(),
     getAuditSettings(),
     getNotificationSettings(),
+    getStampeStoricoSettings(),
     getMySqlSettingsForAdmin(),
     getOrarioSettingsForAdmin(),
     getCalcoloSettingsForAdmin(),
@@ -57,7 +61,8 @@ export default async function AdminSettingsPage() {
         </h1>
         <p className="text-sm text-muted-foreground">
           Configurazione globale dell&apos;applicazione: branding, email, MySQL,
-          orario di lavoro, regole di calcolo, audit log e notifiche.
+          orario di lavoro, regole di calcolo, audit log, notifiche e storico
+          stampe.
         </p>
       </header>
 
@@ -75,6 +80,7 @@ export default async function AdminSettingsPage() {
             <CalcoloSettingsForm initial={calcoloSettings} />
             <AuditSettingsForm initial={auditSettings} />
             <NotificationSettingsForm initial={notificationSettings} />
+            <StampeStoricoSettingsForm initial={stampeSettings} />
           </div>
         </TabsContent>
         <TabsContent value="dipendenti">

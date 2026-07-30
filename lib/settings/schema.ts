@@ -78,6 +78,18 @@ export const notificationSettingsSchema = z.object({
 
 export type NotificationSettings = z.infer<typeof notificationSettingsSchema>
 
+// Config dello STORICO STAMPE persistita nel blob del singleton. Server-only
+// (mai in toPublicSettings). Governa solo la retention: a differenza di audit
+// e notifiche non ha un interruttore generale né toggle per evento, perché il
+// salvataggio è un side-effect fisso della stampa (vedi
+// lib/timbrature/stampe-storico.ts e docs/stampa-timbrature.md).
+export const stampeSettingsSchema = z.object({
+  // Giorni di conservazione prima del pruning automatico. 0 = conserva sempre.
+  retentionDays: z.coerce.number().int().min(0).max(3650).default(365),
+})
+
+export type StampeSettings = z.infer<typeof stampeSettingsSchema>
+
 // Config MySQL esterna persistita nel blob del singleton. Server-only (mai in
 // toPublicSettings). `passwordEnc` è la password cifrata con lib/crypto.ts.
 export const mysqlSettingsSchema = z.object({
@@ -216,6 +228,8 @@ export const systemSettingsSchema = z.object({
   notifications: notificationSettingsSchema.default(
     notificationSettingsSchema.parse({})
   ),
+  // Config dello storico stampe (server-only). Default = retention 365gg.
+  stampe: stampeSettingsSchema.default(stampeSettingsSchema.parse({})),
   // Config MySQL esterna (server-only, vedi sopra). Default = i default dello
   // schema (password cifrata con lib/crypto.ts).
   mysql: mysqlSettingsSchema.default({}),
@@ -245,14 +259,15 @@ export function toPublicSettings(s: SystemSettings): PublicSystemSettings {
 }
 
 // Schema per gli aggiornamenti dal form admin del BRANDING: tutti i campi
-// opzionali (patch parziale). `email`, `audit`, `notifications`, `mysql`,
-// `orario` e `calcolo` sono esclusi di proposito — si aggiornano solo dai
-// rispettivi endpoint dedicati.
+// opzionali (patch parziale). `email`, `audit`, `notifications`, `stampe`,
+// `mysql`, `orario` e `calcolo` sono esclusi di proposito — si aggiornano solo
+// dai rispettivi endpoint dedicati.
 export const systemSettingsPatchSchema = systemSettingsSchema
   .omit({
     email: true,
     audit: true,
     notifications: true,
+    stampe: true,
     mysql: true,
     orario: true,
     calcolo: true,

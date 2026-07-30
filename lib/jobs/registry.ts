@@ -2,6 +2,7 @@ import { auditPruneHandler } from "@/lib/jobs/handlers/audit-prune"
 import { demoHandler } from "@/lib/jobs/handlers/demo"
 import { notificationEmailHandler } from "@/lib/jobs/handlers/notification-email"
 import { notificationPruneHandler } from "@/lib/jobs/handlers/notification-prune"
+import { stampaPruneHandler } from "@/lib/jobs/handlers/stampa-prune"
 import type { JobHandler } from "@/lib/jobs/types"
 
 // Registro dei tipi di job: la mappa `type → handler`. È il punto di
@@ -18,6 +19,7 @@ const handlers: JobHandler[] = [
   auditPruneHandler,
   notificationEmailHandler,
   notificationPruneHandler,
+  stampaPruneHandler,
 ]
 
 // Indicizzati per `type` per il dispatch nel worker.
