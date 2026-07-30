@@ -84,6 +84,7 @@ import type { RapportinoRiga } from "@/lib/mysql/rapportini"
 import {
   mancaRapportinoObbligatorio,
   raggruppaPerGiorno,
+  scostamentoRapportinoEccessivo,
   sommaGiorno,
 } from "@/lib/rapportini/calcolo"
 import { CALCOLO_DEFAULTS } from "@/lib/settings/schema"
@@ -200,6 +201,7 @@ const ANOMALIA_LABEL: Record<Anomalia, string> = {
   durata_eccessiva: "Durata eccessiva",
   assente: "Assente",
   rapportino_mancante: "Rapportino mancante",
+  scostamento_rapportino: "Scostamento rapportino",
 }
 
 // Icona di stato della giornata, cliccabile: apre la Sheet di dettaglio
@@ -322,6 +324,7 @@ type RigaConDettaglio = {
   revisionata: boolean
   righeRapportino: RapportinoRiga[]
   pernottamento: boolean
+  confrontoRapportino: { totaleMarcatempo: number; totaleRapportino: number } | null
 }
 
 // Sheet unica per il dettaglio di un giorno: riunisce ciò che prima erano due
@@ -384,6 +387,33 @@ function GiornoDettaglioSheet({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {riga?.confrontoRapportino && (
+            <div className="flex flex-col gap-1.5 rounded-lg border p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Timbrature</span>
+                <span className="tabular-nums">
+                  {formattaMinuti(riga.confrontoRapportino.totaleMarcatempo)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Rapportino</span>
+                <span className="tabular-nums">
+                  {formattaMinuti(riga.confrontoRapportino.totaleRapportino)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between font-medium">
+                <span>Differenza</span>
+                <span className="tabular-nums">
+                  {formattaMinuti(
+                    Math.abs(
+                      riga.confrontoRapportino.totaleMarcatempo -
+                        riga.confrontoRapportino.totaleRapportino
+                    )
+                  )}
+                </span>
+              </div>
             </div>
           )}
           {riga && (riga.righeRapportino.length > 0 ? (
@@ -901,12 +931,13 @@ export function TimbratureManager({
     const haRapportino = righeRapportino.length > 0
     const we = isWeekend(g.giornoSettimana)
     const futuro = g.giorno >= oggi
+    const rapportinoGiorno = sommaGiorno(righeRapportino)
     const corretti = calcolaCorretti(
       g,
       correzioni.get(g.giorno),
       regole,
       orario,
-      sommaGiorno(righeRapportino),
+      rapportinoGiorno,
       oggi
     )
     // "rapportino_mancante" non è calcolata dal motore (che non conosce quali
@@ -922,14 +953,50 @@ export function TimbratureManager({
         futuro,
         haRapportino,
       })
+    // "scostamento_rapportino": stessa eccezione di "rapportino_mancante",
+    // non calcolata dentro calcolaCorretti (dipende dal rapportino, dato
+    // esterno al motore puro). Il confronto vale solo sui giorni
+    // "determinabili automaticamente" (nessuna correzione manuale, e il
+    // marcatempo da solo — senza overlay di rapportino — non ha anomalie):
+    // per questo serve una SECONDA chiamata a calcolaCorretti con gli overlay
+    // disattivati, l'unico modo di ottenere il totale marcatempo puro (vedi
+    // docs/calcolo-timbrature.md).
+    const overrideGiorno = correzioni.get(g.giorno)
+    const correttoManualmente =
+      overrideGiorno != null && Object.keys(overrideGiorno).length > 0
+    const rapportinoAttivo =
+      rapportinoGiorno.lavoroMinuti + rapportinoGiorno.viaggioMinuti > 0
+    const corrPuro =
+      !correttoManualmente && rapportinoAttivo
+        ? calcolaCorretti(g, undefined, regole, orario, undefined, oggi)
+        : null
+    const confrontoRapportino =
+      corrPuro && corrPuro.anomalie.length === 0
+        ? {
+            totaleMarcatempo: corrPuro.totale,
+            totaleRapportino:
+              rapportinoGiorno.lavoroMinuti + rapportinoGiorno.viaggioMinuti,
+          }
+        : null
+    const scostamento =
+      confrontoRapportino != null &&
+      scostamentoRapportinoEccessivo({
+        totaleMarcatempo: confrontoRapportino.totaleMarcatempo,
+        totaleRapportino: confrontoRapportino.totaleRapportino,
+        sogliaMinuti: regole.sogliaScostamentoRapportino,
+      })
+    const anomalieExtra: Anomalia[] = []
+    if (mancaRapportino) anomalieExtra.push("rapportino_mancante")
+    if (scostamento) anomalieExtra.push("scostamento_rapportino")
     return {
       ...g,
       ...corretti,
-      anomalie: mancaRapportino
-        ? [...corretti.anomalie, "rapportino_mancante" as const]
+      anomalie: anomalieExtra.length
+        ? [...corretti.anomalie, ...anomalieExtra]
         : corretti.anomalie,
       righeRapportino,
       haRapportino,
+      confrontoRapportino,
       we,
       futuro,
       revisionata: revisionati.has(g.giorno),

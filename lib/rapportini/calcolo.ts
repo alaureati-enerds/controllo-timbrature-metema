@@ -56,3 +56,20 @@ export function mancaRapportinoObbligatorio(opts: {
 }): boolean {
   return opts.richiesto && !opts.weekend && !opts.futuro && !opts.haRapportino
 }
+
+/**
+ * Un giorno "determinabile automaticamente" (nessuna anomalia dal solo
+ * marcatempo, nessuna correzione manuale) segnala uno scostamento eccessivo
+ * se la differenza assoluta fra il totale marcatempo puro e il totale
+ * rapportino (lavoro+viaggio) supera la soglia configurata.
+ * `sogliaMinuti <= 0` disattiva il controllo (stesso pattern di `dedupMinuti`
+ * in lib/settings/schema.ts).
+ */
+export function scostamentoRapportinoEccessivo(opts: {
+  totaleMarcatempo: number
+  totaleRapportino: number
+  sogliaMinuti: number
+}): boolean {
+  if (opts.sogliaMinuti <= 0) return false
+  return Math.abs(opts.totaleMarcatempo - opts.totaleRapportino) > opts.sogliaMinuti
+}
