@@ -149,6 +149,7 @@ export const calcoloSettingsSchema = z.object({
   pausaSpanMinimo: z.coerce.number().int().min(0).optional(),
   minutiOrdinari: z.coerce.number().int().min(0).optional(),
   oreMassimeGiorno: z.coerce.number().int().min(0).optional(),
+  sogliaScostamentoRapportino: z.coerce.number().int().min(0).optional(),
 })
 
 export type CalcoloSettings = z.infer<typeof calcoloSettingsSchema>
@@ -166,6 +167,7 @@ export const calcoloSettingsInputSchema = z.object({
   pausaSpanMinimo: z.coerce.number().int().min(0),
   minutiOrdinari: z.coerce.number().int().min(0),
   oreMassimeGiorno: z.coerce.number().int().min(0),
+  sogliaScostamentoRapportino: z.coerce.number().int().min(0),
 })
 
 export type CalcoloSettingsInput = z.infer<typeof calcoloSettingsInputSchema>
@@ -190,6 +192,11 @@ export const CALCOLO_DEFAULTS: CalcoloSettingsAdmin = {
   pausaSpanMinimo: 360,
   minutiOrdinari: 480,
   oreMassimeGiorno: 720,
+  // 60' sta nel salto fra il rumore fisiologico di arrotondamento (sui dati
+  // reali: 93% dei giorni puliti entro 30', 97% entro 60') e la coda di
+  // errori veri (solo l'1.3% oltre 120', spesso di ore): vedi
+  // docs/calcolo-timbrature.md.
+  sogliaScostamentoRapportino: 60,
 }
 
 export const systemSettingsSchema = z.object({

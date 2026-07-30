@@ -153,6 +153,13 @@ export type Anomalia =
   // all'array `anomalie` lato UI, in timbrature-manager.tsx. Vedi
   // docs/calcolo-timbrature.md.
   | "rapportino_mancante"
+  // Giorno determinabile automaticamente (nessuna anomalia dal solo
+  // marcatempo, nessuna correzione manuale), con rapportino attivo, e
+  // differenza fra i due totali oltre `sogliaScostamentoRapportino`. Stessa
+  // eccezione di `rapportino_mancante`: non calcolata qui, vive in
+  // lib/rapportini/calcolo.ts (`scostamentoRapportinoEccessivo`) e si unisce
+  // in timbrature-manager.tsx.
+  | "scostamento_rapportino"
 
 // Valore corretto di un turno, con la sua provenienza:
 // - stringa vuota nell'override = turno azzerato esplicitamente dalla

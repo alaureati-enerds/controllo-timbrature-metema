@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   mancaRapportinoObbligatorio,
   raggruppaPerGiorno,
+  scostamentoRapportinoEccessivo,
   sommaGiorno,
 } from "@/lib/rapportini/calcolo"
 import type { RapportinoRiga } from "@/lib/mysql/rapportini"
@@ -95,5 +96,47 @@ describe("mancaRapportinoObbligatorio", () => {
 
   it("non segnala se il rapportino esiste", () => {
     expect(mancaRapportinoObbligatorio({ ...base, haRapportino: true })).toBe(false)
+  })
+})
+
+describe("scostamentoRapportinoEccessivo", () => {
+  it("non segnala con soglia disattivata (0), qualunque sia il delta", () => {
+    expect(
+      scostamentoRapportinoEccessivo({
+        totaleMarcatempo: 480,
+        totaleRapportino: 0,
+        sogliaMinuti: 0,
+      })
+    ).toBe(false)
+  })
+
+  it("non segnala quando il delta è esattamente pari alla soglia", () => {
+    expect(
+      scostamentoRapportinoEccessivo({
+        totaleMarcatempo: 480,
+        totaleRapportino: 420,
+        sogliaMinuti: 60,
+      })
+    ).toBe(false)
+  })
+
+  it("segnala quando il delta supera la soglia", () => {
+    expect(
+      scostamentoRapportinoEccessivo({
+        totaleMarcatempo: 480,
+        totaleRapportino: 400,
+        sogliaMinuti: 60,
+      })
+    ).toBe(true)
+  })
+
+  it("è simmetrica: segnala anche quando il rapportino supera il marcatempo", () => {
+    expect(
+      scostamentoRapportinoEccessivo({
+        totaleMarcatempo: 400,
+        totaleRapportino: 480,
+        sogliaMinuti: 60,
+      })
+    ).toBe(true)
   })
 })
