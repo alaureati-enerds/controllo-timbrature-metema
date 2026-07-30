@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { raggruppaPerGiorno, sommaGiorno } from "@/lib/rapportini/calcolo"
+import {
+  mancaRapportinoObbligatorio,
+  raggruppaPerGiorno,
+  sommaGiorno,
+} from "@/lib/rapportini/calcolo"
 import type { RapportinoRiga } from "@/lib/mysql/rapportini"
 
 function riga(
@@ -62,5 +66,39 @@ describe("raggruppaPerGiorno / sommaGiorno", () => {
       viaggioMinuti: 0,
       pernottamento: false,
     })
+  })
+})
+
+describe("mancaRapportinoObbligatorio", () => {
+  const base = {
+    richiesto: true,
+    weekend: false,
+    futuro: false,
+    assente: false,
+    haRapportino: false,
+  }
+
+  it("segnala un giorno feriale passato, senza rapportino, dipendente soggetto all'obbligo", () => {
+    expect(mancaRapportinoObbligatorio(base)).toBe(true)
+  })
+
+  it("non segnala se il dipendente non è soggetto all'obbligo", () => {
+    expect(mancaRapportinoObbligatorio({ ...base, richiesto: false })).toBe(false)
+  })
+
+  it("non segnala nel weekend", () => {
+    expect(mancaRapportinoObbligatorio({ ...base, weekend: true })).toBe(false)
+  })
+
+  it("non segnala su un giorno futuro od odierno", () => {
+    expect(mancaRapportinoObbligatorio({ ...base, futuro: true })).toBe(false)
+  })
+
+  it("non segnala se il giorno è già 'assente' (spiegazione già presente)", () => {
+    expect(mancaRapportinoObbligatorio({ ...base, assente: true })).toBe(false)
+  })
+
+  it("non segnala se il rapportino esiste", () => {
+    expect(mancaRapportinoObbligatorio({ ...base, haRapportino: true })).toBe(false)
   })
 })

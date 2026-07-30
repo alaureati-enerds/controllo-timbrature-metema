@@ -81,7 +81,11 @@ import { SelettorePeriodo, MESI } from "@/components/admin/selettore-periodo"
 import { TimbratureStampaDialog } from "@/components/admin/timbrature-stampa-dialog"
 import type { Dipendente } from "@/lib/mysql/timbrature"
 import type { RapportinoRiga } from "@/lib/mysql/rapportini"
-import { raggruppaPerGiorno, sommaGiorno } from "@/lib/rapportini/calcolo"
+import {
+  mancaRapportinoObbligatorio,
+  raggruppaPerGiorno,
+  sommaGiorno,
+} from "@/lib/rapportini/calcolo"
 import { CALCOLO_DEFAULTS } from "@/lib/settings/schema"
 import type { CalcoloSettingsAdmin } from "@/lib/settings/schema"
 import {
@@ -195,6 +199,7 @@ const ANOMALIA_LABEL: Record<Anomalia, string> = {
   timbratura_sospetta: "Timbratura sospetta (00:00)",
   durata_eccessiva: "Durata eccessiva",
   assente: "Assente",
+  rapportino_mancante: "Rapportino mancante",
 }
 
 // Icona di stato della giornata, cliccabile: apre la Sheet di dettaglio
@@ -515,6 +520,11 @@ export function TimbratureManager({
   // giorno ne ha, guidano il calcolo al posto del marcatempo (vedi
   // lib/timbrature/calcolo.ts, 5° parametro di calcolaCorretti).
   const [rapportini, setRapportini] = useState<RapportinoRiga[]>([])
+  // Codici dei dipendenti per cui il rapportino è obbligatorio (impostazioni
+  // di sistema): guida l'anomalia "rapportino_mancante", unita in `righe`.
+  const [richiestiRapportino, setRichiestiRapportino] = useState<Set<string>>(
+    new Set()
+  )
   const [orario, setOrario] = useState({
     primoIngresso: "08:00",
     primaUscita: "12:00",
@@ -763,6 +773,13 @@ export function TimbratureManager({
       })
   }, [])
 
+  useEffect(() => {
+    fetch("/api/admin/dipendenti-rapportino")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setRichiestiRapportino(new Set(data as string[])))
+      .catch(() => {})
+  }, [])
+
   const carica = useCallback(() => {
     if (!dipendente) return
     const richiesta = ++richiestaRef.current
@@ -852,19 +869,41 @@ export function TimbratureManager({
   const oggi = format(new Date(), "yyyy-MM-dd")
   const righe = giornate.map((g) => {
     const righeRapportino = rapportiniPerGiorno.get(g.giorno) ?? []
+    const haRapportino = righeRapportino.length > 0
+    const we = isWeekend(g.giornoSettimana)
+    const futuro = g.giorno >= oggi
+    const corretti = calcolaCorretti(
+      g,
+      correzioni.get(g.giorno),
+      regole,
+      orario,
+      sommaGiorno(righeRapportino),
+      oggi
+    )
+    // "rapportino_mancante" non è calcolata dal motore (che non conosce quali
+    // dipendenti richiedono il rapportino): si unisce qui, l'unico punto che
+    // ha insieme calendario, esito del motore e configurazione del
+    // dipendente. Da qui in poi badge/tinta riga/tab "Da verificare"/Sheet
+    // leggono tutti `anomalie` e la trattano come le altre.
+    const mancaRapportino =
+      dipendente != null &&
+      mancaRapportinoObbligatorio({
+        richiesto: richiestiRapportino.has(dipendente.codice),
+        weekend: we,
+        futuro,
+        assente: corretti.anomalie.includes("assente"),
+        haRapportino,
+      })
     return {
       ...g,
-      ...calcolaCorretti(
-        g,
-        correzioni.get(g.giorno),
-        regole,
-        orario,
-        sommaGiorno(righeRapportino),
-        oggi
-      ),
+      ...corretti,
+      anomalie: mancaRapportino
+        ? [...corretti.anomalie, "rapportino_mancante" as const]
+        : corretti.anomalie,
       righeRapportino,
-      we: isWeekend(g.giornoSettimana),
-      futuro: g.giorno >= oggi,
+      haRapportino,
+      we,
+      futuro,
       revisionata: revisionati.has(g.giorno),
       // Mezzogiorno: la data è un giorno civile, non un istante — così nessun
       // fuso la fa scivolare al giorno prima.
@@ -1235,7 +1274,7 @@ export function TimbratureManager({
                           weekend={r.we}
                           futuro={r.futuro}
                           revisionata={r.revisionata}
-                          haRapportino={r.righeRapportino.length > 0}
+                          haRapportino={r.haRapportino}
                           onClick={() => setDettaglioGiorno(r.giorno)}
                         />
                       </TableCell>
@@ -1444,7 +1483,7 @@ export function TimbratureManager({
                           weekend={r.we}
                           futuro={r.futuro}
                           revisionata={r.revisionata}
-                          haRapportino={r.righeRapportino.length > 0}
+                          haRapportino={r.haRapportino}
                           onClick={() => setDettaglioGiorno(r.giorno)}
                         />
                       </div>

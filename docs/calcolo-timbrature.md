@@ -116,7 +116,7 @@ orario compare fra i corretti ma non fra i grezzi, è dedotto.
 
 Calcolate **dopo** overlay e fill (`GiornataCalcolata.anomalie`). La pagina mostra
 un badge per riga, tinge la riga di rosso tenue e offre il filtro «Da verificare»
-(col conteggio) nell'header della tabella; la stampa ne riporta il conteggio.
+(col conteggio) nell'header della tabella. La stampa non elenca le anomalie.
 
 | Anomalia | Quando | Origine |
 | --- | --- | --- |
@@ -126,6 +126,20 @@ un badge per riga, tinge la riga di rosso tenue e offre il filtro «Da verificar
 | `durata_eccessiva` | Totale oltre `oreMassimeGiorno`. | corretti |
 | `timbratura_sospetta` | Il giorno conteneva una sentinella `00:00`. | **grezzo** |
 | `assente` | Giorno **feriale e già trascorso** senza alcuna timbratura (mai nel weekend, mai da oggi in avanti). | **grezzo** |
+| `rapportino_mancante` | Dipendente soggetto all'obbligo (impostazioni di sistema), giorno feriale già trascorso, nessun `assente` già segnalato, nessun rapportino registrato. | **UI** |
+
+**`rapportino_mancante` è un'eccezione: non nasce in `calcolaCorretti`.** Le
+altre sei sono calcolate dentro il motore puro, che lavora solo su orari. Questa
+dipende anche da un dato anagrafico esterno al motore — quali dipendenti sono
+soggetti all'obbligo (`lib/rapportini/richiesti.ts`, configurabile in
+Impostazioni di sistema) — quindi la condizione vive come funzione pura in
+[`lib/rapportini/calcolo.ts`](../lib/rapportini/calcolo.ts)
+(`mancaRapportinoObbligatorio`) e viene unita all'array `anomalie` in
+`timbrature-manager.tsx`, nello stesso punto in cui si costruiscono le righe
+della tabella. Da lì in poi badge, tinta riga, tab «Da verificare» e Sheet di
+dettaglio la trattano come una qualunque altra anomalia, perché leggono tutti lo
+stesso array. Non essendo calcolata da `calcolaCorretti`, oggi non è nella
+stampa (che non elenca comunque le anomalie).
 
 **Un'anomalia si spegne quando l'admin sistema il giorno.** È il principio: il
 badge dice «da rivedere», quindi una volta rivisto deve sparire. Le anomalie di
@@ -170,9 +184,17 @@ toggle: selezionando giorni già revisionati il bottone smarca la revisione.
   `getCalcoloSettingsForAdmin` ([`lib/settings/calcolo.ts`](../lib/settings/calcolo.ts)),
   usalo nel motore (`turni.ts`/`calcolo.ts`) ed esponilo nel form. Nessuna
   migrazione: il blob è schemaless.
-- **Aggiungere un'anomalia:** aggiungi il valore al tipo `Anomalia`, la
-  condizione in `calcolaCorretti` (dopo overlay+fill) e l'etichetta in
-  `ANOMALIA_LABEL` ([`components/admin/timbrature-manager.tsx`](../components/admin/timbrature-manager.tsx)).
+- **Aggiungere un'anomalia calcolata dagli orari:** aggiungi il valore al tipo
+  `Anomalia`, la condizione in `calcolaCorretti` (dopo overlay+fill) e
+  l'etichetta in `ANOMALIA_LABEL`
+  ([`components/admin/timbrature-manager.tsx`](../components/admin/timbrature-manager.tsx)).
+- **Aggiungere un'anomalia che dipende da un dato esterno al motore** (come
+  `rapportino_mancante`, che dipende dalla configurazione per dipendente):
+  aggiungi comunque il valore al tipo `Anomalia` e l'etichetta in
+  `ANOMALIA_LABEL`, ma calcola la condizione come funzione pura vicino al dato
+  da cui dipende (es. `lib/rapportini/calcolo.ts`) e uniscila all'array
+  `anomalie` nel punto in cui `timbrature-manager.tsx` costruisce le righe —
+  mai dentro `calcolaCorretti`, che deve restare un calcolo puro di orari.
 
 ## Test
 

@@ -369,3 +369,16 @@ model TimbraturaPreset {
 
   @@map("timbratura_preset")
 }
+
+/// Dipendenti (codice del gestionale MySQL) per cui il rapportino è
+/// obbligatorio: la sola presenza di una riga significa "richiesto", niente
+/// colonna booleana ridondante. Nessuna FK verso il dipendente: come
+/// TimbraturaCorretta, vive nel DB locale e si lega solo per convenzione di
+/// stringa al codice esterno.
+model DipendenteRapportino {
+  id         String   @id @default(cuid())
+  dipendente String   @unique
+  createdAt  DateTime @default(now())
+
+  @@map("dipendente_rapportino")
+}
