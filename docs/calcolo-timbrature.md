@@ -126,7 +126,7 @@ un badge per riga, tinge la riga di rosso tenue e offre il filtro «Da verificar
 | `durata_eccessiva` | Totale oltre `oreMassimeGiorno`. | corretti |
 | `timbratura_sospetta` | Il giorno conteneva una sentinella `00:00`. | **grezzo** |
 | `assente` | Giorno **feriale e già trascorso** senza alcuna timbratura (mai nel weekend, mai da oggi in avanti). | **grezzo** |
-| `rapportino_mancante` | Dipendente soggetto all'obbligo (impostazioni di sistema), giorno feriale già trascorso, nessun `assente` già segnalato, nessun rapportino registrato. | **UI** |
+| `rapportino_mancante` | Dipendente soggetto all'obbligo (impostazioni di sistema), giorno feriale già trascorso, nessun rapportino registrato — può comparire insieme ad `assente`. | **UI** |
 
 **`rapportino_mancante` è un'eccezione: non nasce in `calcolaCorretti`.** Le
 altre sei sono calcolate dentro il motore puro, che lavora solo su orari. Questa
@@ -140,6 +140,13 @@ della tabella. Da lì in poi badge, tinta riga, tab «Da verificare» e Sheet di
 dettaglio la trattano come una qualunque altra anomalia, perché leggono tutti lo
 stesso array. Non essendo calcolata da `calcolaCorretti`, oggi non è nella
 stampa (che non elenca comunque le anomalie).
+
+**`rapportino_mancante` può comparire insieme ad `assente`.** Le due
+anomalie rispondono a domande diverse — «manca la timbratura» e «manca il
+rapportino» — e su un giorno senza nessuno dei due è corretto mostrarle
+entrambe: lascia a chi rivede la decisione se aggiungere la presenza a mano
+o sollecitare il rapportino al tecnico. `mancaRapportinoObbligatorio` non
+guarda l'anomalia `assente`.
 
 **Un'anomalia si spegne quando l'admin sistema il giorno.** È il principio: il
 badge dice «da rivedere», quindi una volta rivisto deve sparire. Le anomalie di

@@ -74,7 +74,6 @@ describe("mancaRapportinoObbligatorio", () => {
     richiesto: true,
     weekend: false,
     futuro: false,
-    assente: false,
     haRapportino: false,
   }
 
@@ -92,10 +91,6 @@ describe("mancaRapportinoObbligatorio", () => {
 
   it("non segnala su un giorno futuro od odierno", () => {
     expect(mancaRapportinoObbligatorio({ ...base, futuro: true })).toBe(false)
-  })
-
-  it("non segnala se il giorno è già 'assente' (spiegazione già presente)", () => {
-    expect(mancaRapportinoObbligatorio({ ...base, assente: true })).toBe(false)
   })
 
   it("non segnala se il rapportino esiste", () => {

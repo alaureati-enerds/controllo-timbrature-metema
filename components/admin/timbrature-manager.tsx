@@ -891,7 +891,6 @@ export function TimbratureManager({
         richiesto: richiestiRapportino.has(dipendente.codice),
         weekend: we,
         futuro,
-        assente: corretti.anomalie.includes("assente"),
         haRapportino,
       })
     return {

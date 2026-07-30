@@ -39,26 +39,20 @@ export function sommaGiorno(righe: RapportinoRiga[]): RiepilogoRapportino {
 }
 
 /**
- * Un giorno segnala "rapportino mancante" solo se il dipendente è soggetto
+ * Un giorno segnala "rapportino mancante" se il dipendente è soggetto
  * all'obbligo (`richiesto`, configurato dall'admin — vedi
  * lib/rapportini/richiesti.ts), il giorno è feriale e già trascorso (stessa
- * soglia usata per l'anomalia "assente" in calcolo.ts), non ha già
- * l'anomalia "assente" (giornata senza alcuna timbratura: l'assenza è già la
- * spiegazione, richiedere anche il rapportino sarebbe ridondante) e non ha
- * un rapportino registrato.
+ * soglia usata per l'anomalia "assente" in calcolo.ts) e non ha un
+ * rapportino registrato. Compare anche sui giorni già segnalati "assente"
+ * (nessuna timbratura): mancano entrambi gli elementi, e chi rivede deve
+ * poterlo vedere per decidere se aggiungere la presenza a mano o
+ * sollecitare il rapportino al tecnico.
  */
 export function mancaRapportinoObbligatorio(opts: {
   richiesto: boolean
   weekend: boolean
   futuro: boolean
-  assente: boolean
   haRapportino: boolean
 }): boolean {
-  return (
-    opts.richiesto &&
-    !opts.weekend &&
-    !opts.futuro &&
-    !opts.assente &&
-    !opts.haRapportino
-  )
+  return opts.richiesto && !opts.weekend && !opts.futuro && !opts.haRapportino
 }
