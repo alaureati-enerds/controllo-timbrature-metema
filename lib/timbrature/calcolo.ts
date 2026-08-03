@@ -93,6 +93,10 @@ export type OrarioRicostruito = {
  * prima il mattino, poi il pomeriggio, oltre estende l'uscita serale (unico
  * modo di rappresentare lo straordinario con soli 4 slot). Non inventa mai
  * un'entrata prima di `primoIngresso`.
+ *
+ * È il caso "al buio": nessuna timbratura a cui agganciarsi. Quando invece il
+ * marcatempo ha lasciato un timbro, il giorno passa da
+ * `costruisciOrarioAncorato`, che usa quello.
  */
 export function costruisciOrario(
   totaleMinuti: number,
@@ -127,6 +131,163 @@ export function costruisciOrario(
     entrata2: orario.secondoIngresso,
     uscita2: oraDaMinuti(inizioPomeriggio + restante),
   }
+}
+
+/**
+ * Le timbrature REALI del giorno a cui ancorare l'orario ricostruito dal
+ * rapportino, già arrotondate secondo le regole (minuti dall'inizio del
+ * giorno). Sono i punti fermi: il rapportino dice QUANTE ore, il marcatempo
+ * dice QUANDO.
+ */
+export type AncoreGiornata = {
+  /** Entrata del mattino: l'ancora di inizio. */
+  inizio: number | null
+  /** Ultima uscita: `uscita2`, o `uscita1` sulle mezze giornate. */
+  fine: number | null
+  /**
+   * `fine` è l'uscita SERALE (`uscita2`), non un'uscita di mezzogiorno. Solo
+   * un'uscita serale può reggere da sola la giornata: vedi
+   * `costruisciOrarioAncorato`.
+   */
+  fineSerale: boolean
+  /** Uscita per il pranzo, solo se la giornata ha anche un rientro. */
+  pranzo: number | null
+}
+
+/** Le ancore di una giornata grezza, con gli stessi arrotondamenti degli slot "timbrata". */
+export function ancoreGiornata(
+  g: Giornata,
+  regole: CalcoloSettingsAdmin
+): AncoreGiornata {
+  const E = (o: string | null) =>
+    o ? minutiDaOra(arrotondaEntrata(o, regole)) : null
+  const U = (o: string | null) =>
+    o ? minutiDaOra(arrotondaUscita(o, regole)) : null
+
+  return {
+    inizio: E(g.entrata1),
+    fine: U(g.uscita2) ?? U(g.uscita1),
+    fineSerale: g.uscita2 != null,
+    // Serve come inizio della pausa: ha senso solo se il giorno prosegue nel
+    // pomeriggio, altrimenti `uscita1` È la fine della giornata (ed è già in
+    // `fine`).
+    pranzo: g.uscita2 ? U(g.uscita1) : null,
+  }
+}
+
+function turnoUnico(da: number, a: number): OrarioRicostruito {
+  return {
+    entrata1: oraDaMinuti(da),
+    uscita1: oraDaMinuti(a),
+    entrata2: null,
+    uscita2: null,
+  }
+}
+
+/**
+ * Come `costruisciOrario`, ma ANCORATO alle timbrature reali del giorno: le ore
+ * del rapportino vengono spalmate sugli orari davvero timbrati, così che prima
+ * entrata e ultima uscita coincidano con il marcatempo invece di ricadere
+ * sull'orario standard di tutti. Il totale resta per costruzione uguale a
+ * `totaleMinuti` in ogni ramo: cambia la giornata rappresentata, mai le ore.
+ *
+ * Quattro casi, nell'ordine:
+ *
+ * - **A** — entrambe le ancore e le ore ci stanno dentro: la differenza fra lo
+ *   span timbrato e le ore del rapportino È la pausa pranzo. Sui dati reali
+ *   (giugno-luglio 2026, 177 giorni con entrambi gli estremi) sta fra 0 e 120'
+ *   nel 98,9% dei casi, mediana 75': è una pausa plausibile, non un residuo.
+ * - **C** — regge l'uscita serale: si riempie ALL'INDIETRO da `fine`. Copre il
+ *   timbro del mattino dimenticato e i giorni in cui le ore dichiarate non
+ *   entrano nella finestra timbrata.
+ * - **B** — regge l'entrata: si riempie in AVANTI da `inizio`, come faceva
+ *   l'orario standard ma dal timbro vero.
+ * - **D** — nessuna timbratura: non c'è niente a cui ancorarsi, si ricade su
+ *   `costruisciOrario` e sull'orario standard.
+ */
+export function costruisciOrarioAncorato(
+  totaleMinuti: number,
+  orario: OrarioLavoroSettingsAdmin,
+  ancore: AncoreGiornata
+): OrarioRicostruito {
+  if (totaleMinuti <= 0) {
+    return { entrata1: null, uscita1: null, entrata2: null, uscita2: null }
+  }
+
+  const { inizio, fine } = ancore
+  // Fine del mattino: la pausa parte da lì. Il timbro reale quando c'è (così
+  // su una giornata con tutti e 4 i colpi tre slot su quattro restano quelli
+  // veri), altrimenti l'orario standard.
+  const fineMattina = ancore.pranzo ?? minutiDaOra(orario.primaUscita)
+  const inizioPomeriggio = minutiDaOra(orario.secondoIngresso)
+
+  // A. Due ancore e le ore ci stanno: la pausa assorbe la differenza.
+  if (inizio != null && fine != null && fine - inizio >= totaleMinuti) {
+    const pausa = fine - inizio - totaleMinuti
+    if (pausa === 0) return turnoUnico(inizio, fine)
+    // Stessa guardia di monotonia del completamento della pausa: la sequenza
+    // risultante deve essere entrata1 < uscita1 < entrata2 < uscita2.
+    if (inizio < fineMattina && fineMattina + pausa < fine) {
+      return {
+        entrata1: oraDaMinuti(inizio),
+        uscita1: oraDaMinuti(fineMattina),
+        entrata2: oraDaMinuti(fineMattina + pausa),
+        uscita2: oraDaMinuti(fine),
+      }
+    }
+    // La giornata non attraversa la fascia della pausa (es. tutta di
+    // pomeriggio): un turno solo, ancorato all'inizio. È l'unico ramo in cui
+    // una delle due ancore cede.
+    return turnoUnico(inizio, inizio + totaleMinuti)
+  }
+
+  // Da qui in poi una sola ancora può reggere: le ore non entrano nella
+  // finestra timbrata, oppure un estremo non è stato timbrato. Regge l'USCITA
+  // se è quella serale — mostrare ore DOPO l'ultimo timbro è esattamente il
+  // difetto che stiamo correggendo, mentre chi ha lavorato prima di timbrare è
+  // plausibile (il timbro del mattino dimenticato è il caso reale più
+  // frequente). Un'uscita di mezzogiorno invece non è la fine della giornata:
+  // lì regge l'entrata.
+  const reggeUscita = fine != null && (inizio == null || ancore.fineSerale)
+
+  // C. Si riempie ALL'INDIETRO dall'uscita: prima il pomeriggio, il resto in
+  // coda al mattino.
+  if (reggeUscita && fine != null) {
+    const capacitaPomeriggio = fine - inizioPomeriggio
+    if (totaleMinuti <= capacitaPomeriggio || capacitaPomeriggio <= 0) {
+      return turnoUnico(fine - totaleMinuti, fine)
+    }
+    const entrata = fineMattina - (totaleMinuti - capacitaPomeriggio)
+    // Ore talmente tante da far arretrare l'entrata prima di mezzanotte:
+    // `oraDaMinuti` non gestisce i negativi e un orario all'indietro sarebbe
+    // peggio del dato standard. Si prova con l'altra ancora, poi si rinuncia.
+    if (entrata >= 0) {
+      return {
+        entrata1: oraDaMinuti(entrata),
+        uscita1: oraDaMinuti(fineMattina),
+        entrata2: oraDaMinuti(inizioPomeriggio),
+        uscita2: oraDaMinuti(fine),
+      }
+    }
+  }
+
+  // B. Si riempie IN AVANTI dall'entrata: mattino fino alla pausa, il resto dal
+  // secondo ingresso in poi (come l'orario standard, ma dal timbro vero).
+  if (inizio != null) {
+    const capacitaMattina = fineMattina - inizio
+    if (totaleMinuti <= capacitaMattina || capacitaMattina <= 0) {
+      return turnoUnico(inizio, inizio + totaleMinuti)
+    }
+    return {
+      entrata1: oraDaMinuti(inizio),
+      uscita1: oraDaMinuti(fineMattina),
+      entrata2: oraDaMinuti(inizioPomeriggio),
+      uscita2: oraDaMinuti(inizioPomeriggio + totaleMinuti - capacitaMattina),
+    }
+  }
+
+  // D. Niente a cui ancorarsi.
+  return costruisciOrario(totaleMinuti, orario)
 }
 
 // Provenienza di uno slot corretto: la garanzia di onestà del sistema — la UI
@@ -209,7 +370,11 @@ export type GiornataCalcolata = {
  *    `rapportino` (se presente e con ore > 0) > dato reale del marcatempo
  *    (arrotondato). Un rapportino "spiega" la giornata al posto del
  *    marcatempo, ma una correzione manuale resta comunque la fonte di verità
- *    più alta, sopra a qualunque fonte automatica.
+ *    più alta, sopra a qualunque fonte automatica. Il rapportino dice QUANTE
+ *    ore, non QUANDO: con `ancoraRapportinoAlleTimbrature` (default) le sue
+ *    ore vengono spalmate sugli orari davvero timbrati
+ *    (`costruisciOrarioAncorato`) invece di ricadere sull'orario standard di
+ *    tutti, così prima entrata e ultima uscita restano quelle vere.
  * 2. Completamento (se `pausaAutomatica`): SOLO se la giornata è chiusa ai due
  *    estremi (entrata mattutina + uscita serale) e lo span è sufficiente,
  *    ricostruisce la pausa con gli orari standard. Mai inventare entrata/uscita.
@@ -283,8 +448,11 @@ export function calcolaCorretti(
     rapportino && rapportino.lavoroMinuti + rapportino.viaggioMinuti > 0
       ? rapportino
       : null
+  const oreRapportino = rap ? rap.lavoroMinuti + rap.viaggioMinuti : 0
   const daRapportino = rap
-    ? costruisciOrario(rap.lavoroMinuti + rap.viaggioMinuti, orario)
+    ? regole.ancoraRapportinoAlleTimbrature
+      ? costruisciOrarioAncorato(oreRapportino, orario, ancoreGiornata(g, regole))
+      : costruisciOrario(oreRapportino, orario)
     : null
 
   function fallback(
@@ -294,9 +462,12 @@ export function calcolaCorretti(
   ): { valore: string | null; origine: ProvenienzaSlot } {
     if (daRapportino) {
       const v = daRapportino[campo]
-      return v
-        ? { valore: v, origine: "rapportino" }
-        : { valore: null, origine: "assente" }
+      if (!v) return { valore: null, origine: "assente" }
+      // Con l'ancoraggio uno slot ricostruito può COINCIDERE con il timbro
+      // reale (è il punto della modifica): dichiararlo "rapportino" sarebbe
+      // una bugia, il valore mostrato è esattamente quello del marcatempo.
+      const origine = raw && round(raw) === v ? "timbrata" : "rapportino"
+      return { valore: v, origine }
     }
     if (raw) return { valore: round(raw), origine: "timbrata" }
     return { valore: null, origine: "assente" }

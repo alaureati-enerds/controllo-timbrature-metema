@@ -40,8 +40,10 @@ Due metà pure (nessun React, nessun I/O), così i numeri **a schermo** e quelli
    → assegnazione di `entrata1/uscita1/entrata2/uscita2`. Porta con sé due
    segnali grezzi (`nTimbrature`, `haSentinella0000`) che servono a valle.
 2. **Turni → corretti.** [`lib/timbrature/calcolo.ts`](../lib/timbrature/calcolo.ts)
-   con `calcolaCorretti(giornata, override, regole, orario)`: overlay delle
-   correzioni manuali → completamento della pausa → totali e anomalie.
+   con `calcolaCorretti(giornata, override, regole, orario, rapportino)`:
+   [overlay a tre livelli](#lorario-dei-giorni-con-rapportino) (correzione
+   manuale → rapportino → marcatempo) → completamento della pausa → totali e
+   anomalie.
 
 Le correzioni manuali dell'admin sono un **overlay non distruttivo** salvato in
 `timbratura_corretta` (Prisma): un ricalcolo non le cancella mai.
@@ -73,6 +75,7 @@ i default di fallback sono in `CALCOLO_DEFAULTS`
 | `pausaSpanMinimo` | `360` | Sotto le 6h di span fra entrata e uscita la pausa **non** viene ricostruita (resta una mezza giornata). |
 | `minutiOrdinari` | `480` | Oltre le 8h il tempo diventa straordinario. |
 | `oreMassimeGiorno` | `720` | Oltre le 12h il giorno è segnalato `durata_eccessiva`. |
+| `ancoraRapportinoAlleTimbrature` | `true` | Sui giorni con rapportino spalma le ore dichiarate sugli **orari davvero timbrati** invece che sull'orario standard (vedi sotto). Disattivo = comportamento storico. |
 | `sogliaScostamentoRapportino` | `60` | Oltre questa differenza (minuti) fra ore da timbratura e ore da rapportino, il giorno è segnalato `scostamento_rapportino`. `0` = disattivato. Calibrato sui dati reali: sui giorni "puliti" il 93% degli scostamenti sta entro 30', il 97% entro 60' — oltre inizia la coda degli errori veri (solo l'1.3% supera i 120'). |
 
 ## La ricostruzione della pausa
@@ -94,13 +97,99 @@ uno). La regola è **auto-selettiva**: su chi timbra la pausa non scatta (i timb
 ci sono già), su chi non la timbra scatta sempre — per questo non serve
 configurarla per dipendente.
 
+## L'orario dei giorni con rapportino
+
+I tecnici in assistenza compilano un **rapportino** (tabella `cmd` del MySQL
+aziendale, letta da [`lib/mysql/rapportini.ts`](../lib/mysql/rapportini.ts) e
+sommata per giorno da [`lib/rapportini/calcolo.ts`](../lib/rapportini/calcolo.ts)).
+Quando un giorno ha un rapportino con **ore > 0**, quelle ore sono la verità del
+giorno: il marcatempo di chi gira fra i cantieri è inaffidabile per definizione.
+
+### L'overlay a tre livelli
+
+`calcolaCorretti` risolve ogni slot **indipendentemente dagli altri**, in
+quest'ordine:
+
+1. **correzione manuale** (`override`) — l'admin ha scritto un orario: vince
+   sempre, è l'unica fonte umana;
+2. **rapportino** — orario ricostruito dalle ore dichiarate (lavoro + viaggio);
+3. **marcatempo** — il timbro reale arrotondato.
+
+Essendo slot per slot, l'admin può correggere la sola entrata e lasciare gli
+altri tre al rapportino. Sopra tutto sta il
+[giustificativo di assenza](#i-giustificativi-di-assenza), che azzera la
+giornata prima ancora di guardare le fonti.
+
+Un rapportino **con zero ore** (es. solo spese) non spiega nulla: il giorno
+ricade sul marcatempo come se non esistesse. Il rapportino **spiega** il giorno,
+quindi silenzia le anomalie del grezzo (`assente`, `timbratura_sospetta`).
+
+Le **ore** (`totale`/`ordinario`/`straordinario`) vengono dalle ore dichiarate,
+non dagli orari ricostruiti — con una sola eccezione: appena l'admin corregge un
+orario a mano, il totale torna a derivare dagli orari (altrimenti la correzione
+sposterebbe l'orario mostrato senza mai muovere le ore). Il prezzo è perdere la
+distinzione lavoro/viaggio su quel giorno: l'admin ha scritto un orario, non
+delle ore di viaggio.
+
+### L'ancoraggio alle timbrature
+
+Il rapportino dice **quante** ore, non **quando**. Storicamente il motore
+riempiva l'orario standard dal primo ingresso (`costruisciOrario`): funziona
+solo per chi quell'orario lo segue davvero. Su un tecnico che entra alle 06:37
+ed esce alle 17:14 il registro mostrava `07:30–18:00`, cioè **un'uscita dopo
+l'ultimo timbro**: una giornata mai esistita.
+
+Con `ancoraRapportinoAlleTimbrature` (default) le ore si spalmano invece sugli
+orari **davvero timbrati** (`costruisciOrarioAncorato`). Le ancore sono la
+prima entrata e l'ultima uscita, arrotondate **con le stesse regole** degli slot
+`timbrata`: l'orario corretto è quindi *letteralmente* il valore che la colonna
+del marcatempo mostra, senza una seconda convenzione. Quattro casi:
+
+| Caso | Condizione | Cosa fa |
+| --- | --- | --- |
+| **A** | Entrambe le ancore e le ore ci stanno | La differenza fra span timbrato e ore dichiarate **è la pausa pranzo**: entrata e uscita restano quelle vere. La pausa parte dall'uscita di mezzogiorno realmente timbrata, se c'è, altrimenti da `primaUscita`. |
+| **C** | Regge l'uscita **serale** | Si riempie **all'indietro**: pomeriggio da `secondoIngresso` fino al timbro, il resto in coda al mattino. |
+| **B** | Regge l'entrata | Si riempie **in avanti** dal timbro: mattino fino alla pausa, il resto dal `secondoIngresso`. |
+| **D** | Nessuna timbratura | Niente a cui ancorarsi: `costruisciOrario` e orario standard, come prima. |
+
+Il totale ricostruito è **sempre** uguale alle ore del rapportino, in ogni ramo:
+cambia la giornata rappresentata, mai le ore. Sui dati reali di giugno-luglio
+2026 la modifica ha cambiato l'orario di 172 giorni su 320 senza spostare di un
+minuto un solo totale mensile.
+
+**Perché la pausa assorbe la differenza (caso A).** Non è un residuo di calcolo:
+sui 177 giorni con entrambi gli estremi timbrati sta fra 0 e 120 minuti nel
+**98,9% dei casi**, con mediana 75'. È una pausa pranzo vera. Sui giorni in cui
+i tecnici timbrano tutti e quattro i colpi, l'uscita di mezzogiorno è alle ~12:31
+e il rientro alle ~13:53: ancorare l'**inizio** della pausa è la scelta più
+aderente ai dati, e lascia tre slot su quattro uguali al timbro reale.
+
+**Perché quando le ore non entrano regge l'uscita (caso C).** Mostrare ore
+**dopo** l'ultimo timbro è esattamente il difetto da correggere, mentre chi ha
+lavorato prima di timbrare è plausibile: il timbro del mattino dimenticato è il
+caso reale più frequente. Un'uscita di **mezzogiorno** però non è la fine della
+giornata — lì regge l'entrata, altrimenti 8h ancorate a un'uscita delle 12:00
+farebbero cominciare la giornata alle 04:00. Il giorno resta comunque segnalato
+da `scostamento_rapportino`.
+
+**Guardie.** Se le ore riempiono esattamente lo span, o se la giornata non
+attraversa la fascia della pausa (es. tutta di pomeriggio), si usa un **turno
+unico**: è l'unico ramo in cui una delle due ancore cede. Se riempire
+all'indietro porterebbe l'entrata prima di mezzanotte (rapportini abnormi) si
+rinuncia all'ancora: meglio l'orario standard di un orario all'indietro.
+
 ## La provenienza degli slot
 
 Ogni slot corretto porta la sua origine (`GiornataCalcolata.provenienza`):
 
-- `timbrata` — dal dato reale del marcatempo (arrotondato);
+- `timbrata` — dal dato reale del marcatempo (arrotondato). Include gli slot
+  **ancorati** di un giorno con rapportino: se il valore mostrato coincide con
+  il timbro arrotondato, quel valore *è* il timbro, e chiamarlo altrimenti
+  sarebbe una bugia;
 - `corretta` — valore inserito a mano dall'admin;
 - `ricostruita` — pausa dedotta dall'orario standard;
+- `rapportino` — slot [ricostruito dalle ore del rapportino](#lorario-dei-giorni-con-rapportino)
+  e non riconducibile a un timbro (tipicamente fine mattino e rientro);
 - `assente` — nessun valore (anche su una giornata coperta da un
   [giustificativo di assenza](#i-giustificativi-di-assenza): tutti e quattro
   gli slot sono vuoti per definizione).
@@ -171,8 +260,10 @@ il default di `sogliaScostamentoRapportino` a 60 minuti. Il confronto si
 calcola chiamando una **seconda volta** `calcolaCorretti` con `override` e
 `rapportino` entrambi `undefined`: è l'unico modo di ottenere il totale
 marcatempo "puro", perché quando un rapportino è attivo esso **sostituisce**
-(non affianca) il totale nel calcolo normale della riga — vedi più sopra "1.
-Overlay a 3 livelli". L'anomalia scatta solo se quel calcolo puro non ha già
+(non affianca) il totale nel calcolo normale della riga (vedi
+[L'overlay a tre livelli](#lorario-dei-giorni-con-rapportino)). Non risente
+dell'ancoraggio, che cambia gli orari mostrati ma non le ore: il confronto resta
+fra le stesse due grandezze di prima. L'anomalia scatta solo se quel calcolo puro non ha già
 anomalie proprie (`entrata_mancante`, `uscita_mancante`, `turno_incompleto`,
 `timbratura_sospetta`, `durata_eccessiva`, `assente`) e il giorno non ha una
 correzione manuale: è la lettura di "timbrature corrette determinabili
@@ -289,6 +380,18 @@ correzione manuale e rapportino, pernotto preservato). La
 regressione chiave: il **30/06 (`E 07:27 U 12:07`) deve restare a 4h30** — la
 giornata non è chiusa, quindi nessun fill. È ciò che distingue questo motore dal
 vecchio Access, che riempiva indiscriminatamente e accreditava ore mai lavorate.
+
+L'[ancoraggio alle timbrature](#lancoraggio-alle-timbrature) ha il suo blocco,
+sui casi reali di **luglio 2026** che l'hanno motivato: un ramo per caso
+(COLA DANIELE per la pausa che assorbe, il timbro del mattino e quello serale
+mancanti; CAPRADOSSI per la mezza giornata; MAGN.G e LENTINI per le ore che non
+entrano nella finestra timbrata), più tre invarianti che valgono ovunque:
+
+- **BONI 07/07 non cambia di un minuto** — chi segue davvero l'orario standard
+  deve restare identico a prima. È la regressione che protegge la maggioranza
+  dei dipendenti;
+- **il totale è sempre quello del rapportino**, ramo per ramo;
+- correzione manuale e giustificativo continuano a vincere sull'orario ancorato.
 
 ## Fuori scopo
 
