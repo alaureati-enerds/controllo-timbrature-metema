@@ -262,9 +262,11 @@ export function PaginaRegistroCompatto({ dati }: { dati: DatiStampa }) {
               {t}
             </Text>
           ))}
-          <Text style={[styles.intestazione, styles.wTot]}>Ord.</Text>
-          <Text style={[styles.intestazione, styles.wTot]}>Straord. lav.</Text>
-          <Text style={[styles.intestazione, styles.wTot]}>Straord. viag.</Text>
+          {/* Colonne dei totali molto più larghe che nel registro classico:
+              qui le etichette ci stanno per esteso, identiche alla pagina. */}
+          <Text style={[styles.intestazione, styles.wTot]}>Lav. Ordinario</Text>
+          <Text style={[styles.intestazione, styles.wTot]}>Lav. Straord.</Text>
+          <Text style={[styles.intestazione, styles.wTot]}>Ore Viaggio</Text>
         </View>
       </View>
 
@@ -275,19 +277,19 @@ export function PaginaRegistroCompatto({ dati }: { dati: DatiStampa }) {
       <View style={{ alignItems: "flex-end" }}>
         <View style={styles.totali}>
           <View style={styles.totale}>
-            <Text>Ordinario</Text>
+            <Text>Lavoro ordinario</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.ordinario)}
             </Text>
           </View>
           <View style={styles.totale}>
-            <Text>Straordinario lavoro</Text>
+            <Text>Lavoro straordinario</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.straordinario)}
             </Text>
           </View>
           <View style={styles.totale}>
-            <Text>Straordinario viaggio</Text>
+            <Text>Ore viaggio</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.straordinarioViaggio)}
             </Text>

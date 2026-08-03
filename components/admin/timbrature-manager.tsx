@@ -1502,7 +1502,7 @@ export function TimbratureManager({
                         "top-0 w-28 text-right tabular-nums"
                       )}
                     >
-                      Ordinario
+                      Lav. Ordinario
                     </TableHead>
                     <TableHead
                       rowSpan={2}
@@ -1511,7 +1511,7 @@ export function TimbratureManager({
                         "top-0 w-28 text-right tabular-nums"
                       )}
                     >
-                      Straord. lavoro
+                      Lav. Straord.
                     </TableHead>
                     <TableHead
                       rowSpan={2}
@@ -1520,7 +1520,7 @@ export function TimbratureManager({
                         "top-0 w-28 text-right tabular-nums"
                       )}
                     >
-                      Straord. viaggio
+                      Ore Viaggio
                     </TableHead>
                   </TableRow>
                   <TableRow>
