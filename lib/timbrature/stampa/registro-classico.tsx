@@ -103,9 +103,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   intestazione: { fontSize: 7, color: GRIGIO, textAlign: "center" },
-  // «Straord. viag.» è la più lunga delle tre etichette di totale: un punto
+  // «Lav. straord.» è la più lunga delle tre etichette di totale: un punto
   // in meno di corpo evita che vada a capo, mentre le altre due restano
-  // leggibili alla pari (stessa dimensione, per coerenza fra loro).
+  // leggibili alla pari (stessa dimensione, per coerenza fra loro). Per lo
+  // stesso motivo qui le etichette sono abbreviate: nei 7% di colonna le forme
+  // per esteso della pagina («Lav. Ordinario») non ci stanno su una riga.
   intestazioneTot: { fontSize: 6, color: GRIGIO, textAlign: "center" },
 
   riga: {
@@ -299,13 +301,11 @@ export function PaginaRegistroClassico({ dati }: { dati: DatiStampa }) {
             </Text>
           ))}
           <Text style={styles.wSpacer} />
-          <Text style={[styles.intestazioneTot, styles.wTot]}>Ord.</Text>
+          <Text style={[styles.intestazioneTot, styles.wTot]}>Lav. ord.</Text>
           <Text style={[styles.intestazioneTot, styles.wTot]}>
-            Straord. lav.
+            Lav. straord.
           </Text>
-          <Text style={[styles.intestazioneTot, styles.wTot]}>
-            Straord. viag.
-          </Text>
+          <Text style={[styles.intestazioneTot, styles.wTot]}>Ore viaggio</Text>
         </View>
       </View>
 
@@ -316,19 +316,19 @@ export function PaginaRegistroClassico({ dati }: { dati: DatiStampa }) {
       <View style={{ alignItems: "flex-end" }}>
         <View style={styles.totali}>
           <View style={styles.totale}>
-            <Text>Ordinario</Text>
+            <Text>Lavoro ordinario</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.ordinario)}
             </Text>
           </View>
           <View style={styles.totale}>
-            <Text>Straordinario lavoro</Text>
+            <Text>Lavoro straordinario</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.straordinario)}
             </Text>
           </View>
           <View style={styles.totale}>
-            <Text>Straordinario viaggio</Text>
+            <Text>Ore viaggio</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.straordinarioViaggio)}
             </Text>
