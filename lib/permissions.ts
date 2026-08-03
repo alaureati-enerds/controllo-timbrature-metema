@@ -32,6 +32,11 @@ const statement = {
   // dedicata, distinta da `timbrature` (che è sola lettura + upsert delle
   // correzioni). Vedi lib/timbrature/preset.ts e docs/analisi-timbrature-correzioni.md.
   presets: ["read", "create", "update", "delete"],
+  // Anagrafica dei giustificativi di assenza (F, M, L104, ...): risorsa
+  // dedicata, gemella di `presets` e distinta da `timbrature` per la stessa
+  // ragione — configurare i codici è un'attività di setup, applicarli alle
+  // giornate è lavoro quotidiano. Vedi lib/timbrature/giustificativo.ts.
+  giustificativi: ["read", "create", "update", "delete"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -49,6 +54,7 @@ export const admin = ac.newRole({
   audit: ["read", "configure"],
   timbrature: ["read", "update"],
   presets: ["read", "create", "update", "delete"],
+  giustificativi: ["read", "create", "update", "delete"],
 })
 
 // Ruoli esposti all'app. La chiave è il valore salvato in `user.role`.

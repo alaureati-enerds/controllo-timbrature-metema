@@ -121,6 +121,23 @@ const styles = StyleSheet.create({
   wOra: { width: "14.2%" },
   wTot: { width: "9.4%" },
 
+  // Banda del giustificativo di assenza: 4 × wOra = 56.8%, cioè l'intera fascia
+  // degli orari (la stessa larghezza che l'intestazione dichiara per il gruppo
+  // «Situazione arrotondata»). La riga resta a 100: 9 + 6 + 56.8 + 28.2.
+  wBanda: { width: "56.8%" },
+  banda: {
+    fontFamily: "Helvetica-Oblique",
+    color: GRIGIO,
+    textAlign: "center",
+    letterSpacing: 0.5,
+    // Padding, mai margin: yoga calcola le percentuali in border-box e un
+    // margine si sommerebbe al 56.8%, sfondando la riga.
+    paddingVertical: 1,
+    borderTopWidth: 0.25,
+    borderBottomWidth: 0.25,
+    borderColor: BORDO,
+  },
+
   // Ordinario/straordinario: cella riquadrata come sul modulo storico.
   boxTot: {
     marginHorizontal: 1.5,
@@ -179,14 +196,24 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
         {r.pernottamento ? "X" : ""}
       </Text>
 
-      {[r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
-        <Text
-          key={`corretto-${i}`}
-          style={[styles.cella, styles.wOra, { color: CORRETTO }]}
-        >
-          {ora(v)}
-        </Text>
-      ))}
+      {/* Giornata giustificata: al posto dei quattro orari (che sarebbero tutti
+          «—», perché il motore azzera la giornata) va il motivo dell'assenza. */}
+      {r.giustificativo ? (
+        <View style={styles.wBanda}>
+          <Text style={styles.banda}>
+            {r.giustificativo.descrizione.toUpperCase()}
+          </Text>
+        </View>
+      ) : (
+        [r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
+          <Text
+            key={`corretto-${i}`}
+            style={[styles.cella, styles.wOra, { color: CORRETTO }]}
+          >
+            {ora(v)}
+          </Text>
+        ))
+      )}
 
       <View style={styles.wTot}>
         <Text style={styles.boxTot}>{oreHHMM(r.ordinario)}</Text>
@@ -235,9 +262,11 @@ export function PaginaRegistroCompatto({ dati }: { dati: DatiStampa }) {
               {t}
             </Text>
           ))}
-          <Text style={[styles.intestazione, styles.wTot]}>Ord.</Text>
-          <Text style={[styles.intestazione, styles.wTot]}>Straord. lav.</Text>
-          <Text style={[styles.intestazione, styles.wTot]}>Straord. viag.</Text>
+          {/* Colonne dei totali molto più larghe che nel registro classico:
+              qui le etichette ci stanno per esteso, identiche alla pagina. */}
+          <Text style={[styles.intestazione, styles.wTot]}>Lav. Ordinario</Text>
+          <Text style={[styles.intestazione, styles.wTot]}>Lav. Straord.</Text>
+          <Text style={[styles.intestazione, styles.wTot]}>Ore Viaggio</Text>
         </View>
       </View>
 
@@ -248,19 +277,19 @@ export function PaginaRegistroCompatto({ dati }: { dati: DatiStampa }) {
       <View style={{ alignItems: "flex-end" }}>
         <View style={styles.totali}>
           <View style={styles.totale}>
-            <Text>Ordinario</Text>
+            <Text>Lavoro ordinario</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.ordinario)}
             </Text>
           </View>
           <View style={styles.totale}>
-            <Text>Straordinario lavoro</Text>
+            <Text>Lavoro straordinario</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.straordinario)}
             </Text>
           </View>
           <View style={styles.totale}>
-            <Text>Straordinario viaggio</Text>
+            <Text>Ore viaggio</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.straordinarioViaggio)}
             </Text>

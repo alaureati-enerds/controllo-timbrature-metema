@@ -1,7 +1,8 @@
 import { z } from "zod"
 
-import { ok, safeHandler } from "@/lib/api"
+import { ApiError, ok, safeHandler } from "@/lib/api"
 import { requireTimbraturePermission } from "@/lib/timbrature/authz"
+import { GIUSTIFICATIVO_CODICE_MAX } from "@/lib/timbrature/giustificativo-schema"
 import { prisma } from "@/lib/prisma"
 
 const getSchema = z.object({
@@ -27,6 +28,16 @@ const putSchema = z.object({
   // Segna il giorno come rivisto, a prescindere dalle anomalie (vedi schema.prisma).
   // Omesso: non tocca il flag esistente (bulk preset non deve resettarlo).
   revisionata: z.boolean().optional(),
+  // Sigla del giustificativo di assenza (denormalizzata, vedi schema.prisma).
+  // `null` lo rimuove, omesso NON lo tocca: stesso patto di `revisionata`.
+  giustificativo: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(1)
+    .max(GIUSTIFICATIVO_CODICE_MAX)
+    .nullable()
+    .optional(),
 })
 
 const deleteSchema = z.object({
@@ -59,6 +70,7 @@ export const GET = safeHandler(async (request) => {
       entrata2: true,
       uscita2: true,
       revisionata: true,
+      giustificativo: true,
     },
   })
 
@@ -72,6 +84,18 @@ export const PUT = safeHandler(async (request) => {
 
   const body = await request.json()
   const { dipendente, giorno, ...campi } = putSchema.parse(body)
+
+  // La sigla è denormalizzata (nessuna FK verso Giustificativo): questo è
+  // l'unico presidio contro un codice inesistente, che resterebbe poi per
+  // sempre nel badge e nella stampa. La UI manda solo codici dal dropdown, ma
+  // l'API è raggiungibile da chiunque abbia `timbrature.update`.
+  if (campi.giustificativo) {
+    const esiste = await prisma.giustificativo.findUnique({
+      where: { codice: campi.giustificativo },
+      select: { id: true },
+    })
+    if (!esiste) throw new ApiError("Giustificativo non riconosciuto", 400)
+  }
 
   await prisma.timbraturaCorretta.upsert({
     where: { dipendente_giorno: { dipendente, giorno } },

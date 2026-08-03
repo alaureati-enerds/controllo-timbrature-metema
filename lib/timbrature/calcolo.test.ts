@@ -8,7 +8,9 @@ import type {
 import {
   calcolaCorretti,
   calcolaOreSplit,
+  calcolaTotaliMese,
   costruisciOrario,
+  minutiDaOra,
 } from "@/lib/timbrature/calcolo"
 import type { RiepilogoRapportino } from "@/lib/timbrature/calcolo"
 import type { Giornata } from "@/lib/timbrature/giornate"
@@ -49,7 +51,8 @@ function calc(
   regole: CalcoloSettingsAdmin = CALCOLO_DEFAULTS,
   override?: Record<string, string | null>,
   rapportino?: RiepilogoRapportino,
-  oggi?: string
+  oggi?: string,
+  giustificato?: boolean
 ) {
   return calcolaCorretti(
     giornata(raw, giorno),
@@ -57,7 +60,8 @@ function calc(
     regole,
     ORARIO,
     rapportino,
-    oggi
+    oggi,
+    giustificato
   )
 }
 
@@ -316,6 +320,172 @@ describe("costruisciOrario", () => {
   })
 })
 
+// Casi REALI di luglio 2026 (MySQL aziendale), l'evidenza che ha motivato
+// l'ancoraggio: COLA DANIELE entra alle 06:37 ed esce alle 17:14, ma con
+// l'orario standard il registro mostrava 07:30–18:00, cioè un'uscita DOPO
+// l'ultimo timbro. BONI ROBERTO invece segue davvero l'orario standard: è la
+// regressione che deve restare identica.
+function giornataRapportino(raw: string, giorno: number): Giornata {
+  return {
+    giorno: `2026-07-${String(giorno).padStart(2, "0")}`,
+    giornoSettimana: new Date(2026, 6, giorno).getDay(),
+    ...assegnaTurni(parse(raw), ORARIO_RAPPORTINO, CALCOLO_DEFAULTS),
+  }
+}
+
+function ancorato(
+  raw: string,
+  giorno: number,
+  lavoroMinuti: number,
+  viaggioMinuti = 0,
+  regole: CalcoloSettingsAdmin = CALCOLO_DEFAULTS
+) {
+  return calcolaCorretti(
+    giornataRapportino(raw, giorno),
+    undefined,
+    regole,
+    ORARIO_RAPPORTINO,
+    { lavoroMinuti, viaggioMinuti, pernottamento: false }
+  )
+}
+
+function orari(r: ReturnType<typeof calcolaCorretti>) {
+  return [r.ce1, r.cu1, r.ce2, r.cu2]
+}
+
+describe("costruisciOrarioAncorato — le ore del rapportino sugli orari timbrati", () => {
+  it("BONI 07/07 (regressione): chi segue l'orario standard non cambia di un minuto", () => {
+    const r = ancorato("E 07:28 U 17:03", 7, 8 * 60)
+    expect(orari(r)).toEqual(["07:30", "12:30", "14:00", "17:00"])
+    expect(r.totale).toBe(8 * 60)
+  })
+
+  it("COLAD 07/07: 9h su 06:37–17:14 → entrata e uscita restano i timbri veri, la pausa assorbe", () => {
+    const r = ancorato("E 06:37 U 17:14", 7, 7 * 60, 2 * 60)
+    // Prima mostrava 07:30 12:30 14:00 18:00: un'uscita 46' dopo l'ultimo timbro.
+    expect(orari(r)).toEqual(["06:45", "12:30", "13:45", "17:00"])
+    expect(r.totale).toBe(9 * 60)
+    // La differenza fra span timbrato e ore dichiarate è la pausa: 75'.
+    expect(minutiDaOra("13:45") - minutiDaOra("12:30")).toBe(75)
+  })
+
+  it("COLAD 24/07: con tutti e 4 i timbri anche la pausa parte da quello vero", () => {
+    const r = ancorato("E 07:15 U 12:32 E 13:48 U 17:01", 24, 7 * 60, 60)
+    // Tre slot su quattro sono il timbro reale arrotondato: si sposta solo il
+    // rientro, l'unico che deve assorbire la differenza.
+    expect(orari(r)).toEqual(["07:15", "12:30", "14:15", "17:00"])
+    expect(r.totale).toBe(8 * 60)
+  })
+
+  it("COLAD 20/07: timbrata solo l'entrata → si riempie in avanti da quella", () => {
+    const r = ancorato("E 05:59", 20, 7 * 60 + 30, 4 * 60)
+    // Prima: 07:30 12:30 14:00 20:30.
+    expect(orari(r)).toEqual(["06:00", "12:30", "14:00", "19:00"])
+    expect(r.totale).toBe(11 * 60 + 30)
+  })
+
+  it("COLAD 06/07: timbrata solo l'uscita serale → si riempie all'indietro da quella", () => {
+    const r = ancorato("U 17:05", 6, 7 * 60, 2 * 60)
+    // Prima: 07:30 12:30 14:00 18:00, di nuovo oltre l'ultimo timbro.
+    expect(orari(r)).toEqual(["06:30", "12:30", "14:00", "17:00"])
+    expect(r.totale).toBe(9 * 60)
+  })
+
+  it("CAPRAD 17/07: mezza giornata → un turno solo, ancorato all'entrata", () => {
+    const r = ancorato("E 07:07 U 12:33", 17, 3 * 60, 2 * 60)
+    expect(orari(r)).toEqual(["07:15", "12:15", null, null])
+    expect(r.totale).toBe(5 * 60)
+  })
+
+  it("MAGN.G 01/07: 8h non entrano in un timbro di mezzogiorno → regge l'uscita serale", () => {
+    const r = ancorato("E 12:34 U 17:07", 1, 8 * 60)
+    // Ancorare l'entrata darebbe 12:45–20:45: ore inventate dopo l'ultimo
+    // timbro, proprio il difetto da correggere.
+    expect(orari(r)).toEqual(["07:30", "12:30", "14:00", "17:00"])
+    expect(r.totale).toBe(8 * 60)
+  })
+
+  it("LENTINI 09/07: 8h in 7h45 di finestra → l'uscita regge, l'entrata arretra", () => {
+    const r = ancorato("E 06:02 U 14:10", 9, 8 * 60)
+    expect(orari(r)).toEqual(["06:00", "14:00", null, null])
+    expect(r.totale).toBe(8 * 60)
+  })
+
+  it("un'uscita di mezzogiorno non regge la giornata: lì vince l'entrata", () => {
+    // Timbrata l'entrata e l'uscita per il pranzo, mai il rientro. Ancorare
+    // quell'uscita all'indietro farebbe cominciare la giornata alle 04:00.
+    const r = ancorato("E 07:30 U 12:00", 8, 8 * 60)
+    expect(orari(r)).toEqual(["07:30", "12:30", "14:00", "17:00"])
+    expect(r.totale).toBe(8 * 60)
+  })
+
+  it("nessuna timbratura: niente a cui ancorarsi, resta l'orario standard", () => {
+    const r = ancorato("", 16, 8 * 60)
+    expect(orari(r)).toEqual(["07:30", "12:30", "14:00", "17:00"])
+  })
+
+  it("gli slot che coincidono con il timbro si dichiarano «timbrata», non «rapportino»", () => {
+    const r = ancorato("E 06:37 U 17:14", 7, 7 * 60, 2 * 60)
+    expect(r.provenienza.e1).toBe("timbrata")
+    expect(r.provenienza.u2).toBe("timbrata")
+    // Fine mattino e rientro sono ricostruiti: quelli sì vengono dal rapportino.
+    expect(r.provenienza.u1).toBe("rapportino")
+    expect(r.provenienza.e2).toBe("rapportino")
+  })
+
+  it("il totale resta SEMPRE quello del rapportino, ramo per ramo", () => {
+    const casi: Array<[string, number]> = [
+      ["E 07:28 U 17:03", 480], // due ancore, ci sta
+      ["E 06:37 U 17:14", 540],
+      ["E 05:59", 690], // solo entrata
+      ["U 17:05", 540], // solo uscita
+      ["E 07:07 U 12:33", 300], // mezza giornata
+      ["E 12:34 U 17:07", 480], // non ci sta
+      ["", 480], // nessuna timbratura
+    ]
+    for (const [raw, totale] of casi) {
+      expect(ancorato(raw, 7, totale).totale).toBe(totale)
+    }
+  })
+
+  it("con il flag disattivato si torna all'orario standard di prima", () => {
+    const regole: CalcoloSettingsAdmin = {
+      ...CALCOLO_DEFAULTS,
+      ancoraRapportinoAlleTimbrature: false,
+    }
+    const r = ancorato("E 06:37 U 17:14", 7, 7 * 60, 2 * 60, regole)
+    expect(orari(r)).toEqual(["07:30", "12:30", "14:00", "18:00"])
+    expect(r.totale).toBe(9 * 60)
+  })
+
+  it("una correzione manuale vince comunque sull'orario ancorato", () => {
+    const r = calcolaCorretti(
+      giornataRapportino("E 06:37 U 17:14", 7),
+      { entrata1: "09:00" },
+      CALCOLO_DEFAULTS,
+      ORARIO_RAPPORTINO,
+      { lavoroMinuti: 9 * 60, viaggioMinuti: 0, pernottamento: false }
+    )
+    expect(r.ce1).toBe("09:00")
+    expect(r.provenienza.e1).toBe("corretta")
+    expect(r.cu2).toBe("17:00")
+  })
+
+  it("un giustificativo azzera comunque la giornata ancorata", () => {
+    const r = calcolaCorretti(
+      giornataRapportino("E 06:37 U 17:14", 7),
+      undefined,
+      CALCOLO_DEFAULTS,
+      ORARIO_RAPPORTINO,
+      { lavoroMinuti: 9 * 60, viaggioMinuti: 0, pernottamento: false },
+      undefined,
+      true
+    )
+    expect(orari(r)).toEqual([null, null, null, null])
+    expect(r.totale).toBe(0)
+  })
+})
+
 describe("calcolaCorretti — un rapportino guida la giornata", () => {
   it("sostituisce il marcatempo (giorno senza timbrature) con l'orario ricostruito", () => {
     const r = calc("", 10, CALCOLO_DEFAULTS, undefined, {
@@ -446,5 +616,105 @@ describe("calcolaCorretti — un rapportino guida la giornata", () => {
     // Zero ore non spiega il giorno: l'anomalia "assente" resta.
     expect(r.anomalie).toEqual(["assente"])
     expect(r.ce1).toBeNull()
+  })
+})
+
+describe("calcolaCorretti — giornata giustificata (ferie, malattia, ...)", () => {
+  it("azzera orari e ore anche su una giornata EUEU pulita", () => {
+    const r = calc(
+      "E 07:29 U 12:32 E 14:02 U 17:00",
+      3,
+      CALCOLO_DEFAULTS,
+      undefined,
+      undefined,
+      undefined,
+      true
+    )
+    expect(r.ce1).toBeNull()
+    expect(r.cu1).toBeNull()
+    expect(r.ce2).toBeNull()
+    expect(r.cu2).toBeNull()
+    expect(r.totale).toBe(0)
+    expect(r.ordinario).toBe(0)
+    expect(r.straordinario).toBe(0)
+    expect(r.straordinarioViaggio).toBe(0)
+    expect(r.anomalie).toEqual([])
+    expect(r.provenienza).toEqual({
+      e1: "assente",
+      u1: "assente",
+      e2: "assente",
+      u2: "assente",
+    })
+  })
+
+  it("spegne l'anomalia «assente» sul feriale vuoto", () => {
+    // Stesso giorno del test a inizio file, che senza giustificativo dà ["assente"].
+    const r = calc("", 23, CALCOLO_DEFAULTS, undefined, undefined, undefined, true)
+    expect(r.anomalie).toEqual([])
+  })
+
+  it("silenzia anche le anomalie del dato grezzo (sentinella 00:00)", () => {
+    const r = calc("E 00:00 U 17:12", 5, CALCOLO_DEFAULTS, undefined, undefined, undefined, true)
+    expect(r.anomalie).toEqual([])
+    expect(r.totale).toBe(0)
+  })
+
+  it("vince sulla correzione manuale, che resta salvata ma inerte", () => {
+    const r = calc(
+      "",
+      23,
+      CALCOLO_DEFAULTS,
+      { entrata1: "08:00", uscita1: "12:00" },
+      undefined,
+      undefined,
+      true
+    )
+    expect(r.ce1).toBeNull()
+    expect(r.cu1).toBeNull()
+    expect(r.totale).toBe(0)
+  })
+
+  it("vince sul rapportino ma ne conserva il pernotto", () => {
+    const r = calc(
+      "",
+      23,
+      CALCOLO_DEFAULTS,
+      undefined,
+      { lavoroMinuti: 8 * 60, viaggioMinuti: 60, pernottamento: true },
+      undefined,
+      true
+    )
+    expect(r.totale).toBe(0)
+    expect(r.ce1).toBeNull()
+    expect(r.pernottamento).toBe(true)
+  })
+
+  it("giustificato = false lascia il calcolo identico a com'era", () => {
+    const raw = "E 07:26 U 17:01"
+    expect(
+      calc(raw, 4, CALCOLO_DEFAULTS, undefined, undefined, undefined, false)
+    ).toEqual(calc(raw, 4))
+  })
+})
+
+describe("calcolaTotaliMese con giornate giustificate", () => {
+  it("le ore della giornata giustificata non entrano nei totali, il pernotto sì", () => {
+    const lavorata = calc("E 07:26 U 18:30", 18) // 9h30: 8h ord + 1h30 straord
+    const giustificata = calc(
+      "E 07:29 U 12:32 E 14:02 U 17:00",
+      3,
+      CALCOLO_DEFAULTS,
+      undefined,
+      { lavoroMinuti: 0, viaggioMinuti: 0, pernottamento: true },
+      undefined,
+      true
+    )
+
+    const totali = calcolaTotaliMese([lavorata, giustificata])
+    expect(totali.totale).toBe(570)
+    expect(totali.ordinario).toBe(480)
+    expect(totali.straordinario).toBe(90)
+    // Il pernotto resta un fatto del giorno anche se le ore sono azzerate.
+    expect(totali.giorniTrasferta).toBe(1)
   })
 })

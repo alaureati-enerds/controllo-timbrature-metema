@@ -103,9 +103,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   intestazione: { fontSize: 7, color: GRIGIO, textAlign: "center" },
-  // «Straord. viag.» è la più lunga delle tre etichette di totale: un punto
+  // «Lav. straord.» è la più lunga delle tre etichette di totale: un punto
   // in meno di corpo evita che vada a capo, mentre le altre due restano
-  // leggibili alla pari (stessa dimensione, per coerenza fra loro).
+  // leggibili alla pari (stessa dimensione, per coerenza fra loro). Per lo
+  // stesso motivo qui le etichette sono abbreviate: nei 7% di colonna le forme
+  // per esteso della pagina («Lav. Ordinario») non ci stanno su una riga.
   intestazioneTot: { fontSize: 6, color: GRIGIO, textAlign: "center" },
 
   riga: {
@@ -125,6 +127,25 @@ const styles = StyleSheet.create({
   wOra: { width: "7%" },
   wTot: { width: "7%" },
   wSpacer: { width: "4%" },
+
+  // Banda del giustificativo di assenza: occupa ESATTAMENTE la fascia degli
+  // orari — 28 (marcatempo) + 4 (spacer) + 28 (arrotondata) + 4 (spacer) = 64%
+  // — così la riga continua a sommare a 100 (9 + 6 + 64 + 21) e le colonne dei
+  // totali restano allineate a quelle delle altre righe.
+  wBanda: { width: "64%" },
+  banda: {
+    fontFamily: "Helvetica-Oblique",
+    color: GRIGIO,
+    textAlign: "center",
+    letterSpacing: 0.5,
+    // Padding, mai margin: yoga calcola le percentuali in border-box, quindi un
+    // margine si sommerebbe al 64% e sfonderebbe la riga (stessa ragione per
+    // cui `boxTot` mette il margine sul Text interno).
+    paddingVertical: 1,
+    borderTopWidth: 0.25,
+    borderBottomWidth: 0.25,
+    borderColor: BORDO,
+  },
 
   // Ordinario/straordinario: cella riquadrata come sul modulo storico.
   boxTot: {
@@ -184,27 +205,39 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
         {r.pernottamento ? "X" : ""}
       </Text>
 
-      {[r.entrata1, r.uscita1, r.entrata2, r.uscita2].map((v, i) => (
-        <Text
-          key={`reale-${i}`}
-          style={[styles.cella, styles.wOra, { color: NERO }]}
-        >
-          {ora(v)}
-        </Text>
-      ))}
+      {/* Giornata giustificata: al posto degli otto orari (che sarebbero tutti
+          «—», perché il motore azzera la giornata) va il motivo dell'assenza. */}
+      {r.giustificativo ? (
+        <View style={styles.wBanda}>
+          <Text style={styles.banda}>
+            {r.giustificativo.descrizione.toUpperCase()}
+          </Text>
+        </View>
+      ) : (
+        <>
+          {[r.entrata1, r.uscita1, r.entrata2, r.uscita2].map((v, i) => (
+            <Text
+              key={`reale-${i}`}
+              style={[styles.cella, styles.wOra, { color: NERO }]}
+            >
+              {ora(v)}
+            </Text>
+          ))}
 
-      <Text style={styles.wSpacer} />
+          <Text style={styles.wSpacer} />
 
-      {[r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
-        <Text
-          key={`corretto-${i}`}
-          style={[styles.cella, styles.wOra, { color: CORRETTO }]}
-        >
-          {ora(v)}
-        </Text>
-      ))}
+          {[r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
+            <Text
+              key={`corretto-${i}`}
+              style={[styles.cella, styles.wOra, { color: CORRETTO }]}
+            >
+              {ora(v)}
+            </Text>
+          ))}
 
-      <Text style={styles.wSpacer} />
+          <Text style={styles.wSpacer} />
+        </>
+      )}
 
       <View style={styles.wTot}>
         <Text style={styles.boxTot}>{oreHHMM(r.ordinario)}</Text>
@@ -268,13 +301,11 @@ export function PaginaRegistroClassico({ dati }: { dati: DatiStampa }) {
             </Text>
           ))}
           <Text style={styles.wSpacer} />
-          <Text style={[styles.intestazioneTot, styles.wTot]}>Ord.</Text>
+          <Text style={[styles.intestazioneTot, styles.wTot]}>Lav. ord.</Text>
           <Text style={[styles.intestazioneTot, styles.wTot]}>
-            Straord. lav.
+            Lav. straord.
           </Text>
-          <Text style={[styles.intestazioneTot, styles.wTot]}>
-            Straord. viag.
-          </Text>
+          <Text style={[styles.intestazioneTot, styles.wTot]}>Ore viaggio</Text>
         </View>
       </View>
 
@@ -285,19 +316,19 @@ export function PaginaRegistroClassico({ dati }: { dati: DatiStampa }) {
       <View style={{ alignItems: "flex-end" }}>
         <View style={styles.totali}>
           <View style={styles.totale}>
-            <Text>Ordinario</Text>
+            <Text>Lavoro ordinario</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.ordinario)}
             </Text>
           </View>
           <View style={styles.totale}>
-            <Text>Straordinario lavoro</Text>
+            <Text>Lavoro straordinario</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.straordinario)}
             </Text>
           </View>
           <View style={styles.totale}>
-            <Text>Straordinario viaggio</Text>
+            <Text>Ore viaggio</Text>
             <Text style={styles.totaleValore}>
               {formattaTotale(totali.straordinarioViaggio)}
             </Text>

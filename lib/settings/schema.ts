@@ -161,6 +161,7 @@ export const calcoloSettingsSchema = z.object({
   pausaSpanMinimo: z.coerce.number().int().min(0).optional(),
   minutiOrdinari: z.coerce.number().int().min(0).optional(),
   oreMassimeGiorno: z.coerce.number().int().min(0).optional(),
+  ancoraRapportinoAlleTimbrature: z.boolean().optional(),
   sogliaScostamentoRapportino: z.coerce.number().int().min(0).optional(),
 })
 
@@ -179,6 +180,7 @@ export const calcoloSettingsInputSchema = z.object({
   pausaSpanMinimo: z.coerce.number().int().min(0),
   minutiOrdinari: z.coerce.number().int().min(0),
   oreMassimeGiorno: z.coerce.number().int().min(0),
+  ancoraRapportinoAlleTimbrature: z.boolean(),
   sogliaScostamentoRapportino: z.coerce.number().int().min(0),
 })
 
@@ -204,6 +206,12 @@ export const CALCOLO_DEFAULTS: CalcoloSettingsAdmin = {
   pausaSpanMinimo: 360,
   minutiOrdinari: 480,
   oreMassimeGiorno: 720,
+  // Attivo di default: senza ancoraggio i giorni con rapportino ricadono
+  // sull'orario standard di tutti, che descrive la giornata solo di chi quel
+  // orario lo segue davvero. Sui dati reali (giugno-luglio 2026) le ore del
+  // rapportino stanno dentro la finestra timbrata nel 98,9% dei giorni con
+  // entrambi gli estremi: c'è quasi sempre di meglio dell'orario standard.
+  ancoraRapportinoAlleTimbrature: true,
   // 60' sta nel salto fra il rumore fisiologico di arrotondamento (sui dati
   // reali: 93% dei giorni puliti entro 30', 97% entro 60') e la coda di
   // errori veri (solo l'1.3% oltre 120', spesso di ore): vedi

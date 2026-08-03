@@ -386,21 +386,31 @@ model StampaGenerata {
 /// Quando esiste, i valori qui prevalgono sui calcolati dall'algoritmo. Questo
 /// modello NON tocca il MySQL aziendale: vive nel DB locale dell'app.
 model TimbraturaCorretta {
-  id          String   @id @default(cuid())
-  dipendente  String
-  giorno      String // YYYY-MM-DD
-  entrata1    String?
-  uscita1     String?
-  entrata2    String?
-  uscita2     String?
+  id             String   @id @default(cuid())
+  dipendente     String
+  giorno         String // YYYY-MM-DD
+  entrata1       String?
+  uscita1        String?
+  entrata2       String?
+  uscita2        String?
   /// Il giorno è stato rivisto dall'admin e le sue anomalie vanno considerate
   /// a posto (badge/tinta/conteggio), senza toccare gli orari: un "ho
   /// controllato, non serve correggere nulla", distinto da una correzione
   /// vera. Non interagisce col motore di calcolo (calcolo.ts) né con
   /// `correttoManualmente`: è solo un filtro applicato dopo, in UI e stampa.
-  revisionata Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  revisionata    Boolean  @default(false)
+  /// Sigla del giustificativo di assenza applicato alla giornata (F, M, L104…).
+  /// DENORMALIZZATA di proposito, come `dipendente`: nessuna FK verso
+  /// Giustificativo, così una giornata già archiviata resta leggibile anche se
+  /// il codice viene poi eliminato dall'anagrafica (si perde la descrizione
+  /// per esteso, non il fatto). Quando è valorizzata il motore
+  /// (lib/timbrature/calcolo.ts) azzera orari e ore del giorno e non segnala
+  /// anomalie: il giustificativo È la spiegazione della giornata. Gli orari
+  /// corretti qui sopra restano salvati ma inerti, e tornano validi se il
+  /// giustificativo viene rimosso.
+  giustificativo String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([dipendente, giorno])
   @@map("timbratura_corretta")
@@ -421,6 +431,22 @@ model TimbraturaPreset {
   updatedAt DateTime @updatedAt
 
   @@map("timbratura_preset")
+}
+
+/// Anagrafica dei giustificativi di assenza (es. F = Ferie, M = Malattia,
+/// L104, DONA), gestita dall'admin in /admin/giustificativi. Gemello di
+/// TimbraturaPreset per struttura e ciclo di vita: due soli campi, la SIGLA
+/// (`codice`, unica, normalizzata maiuscola) e la `descrizione` per esteso che
+/// finisce nel tooltip a schermo e nella banda del PDF. Le giornate ne
+/// conservano la sola sigla (TimbraturaCorretta.giustificativo), senza FK.
+model Giustificativo {
+  id          String   @id @default(cuid())
+  codice      String   @unique
+  descrizione String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("giustificativo")
 }
 
 /// Dipendenti (codice del gestionale MySQL) per cui il rapportino è

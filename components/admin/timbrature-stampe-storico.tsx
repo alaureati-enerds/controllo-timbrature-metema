@@ -405,7 +405,7 @@ export function TimbratureStampeStorico() {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="text-destructive focus:text-destructive focus:bg-destructive/10"
+          className="text-destructive [&_svg]:text-destructive focus:text-destructive focus:[&_svg]:text-destructive focus:bg-destructive/10"
           onClick={() => setPendingDeleteEntry(e)}
           disabled={deletingId === e.id}
         >
