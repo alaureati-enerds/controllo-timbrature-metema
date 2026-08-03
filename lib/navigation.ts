@@ -1,5 +1,6 @@
 import {
   CalendarClockIcon,
+  CalendarOffIcon,
   ClockIcon,
   FileClockIcon,
   HouseIcon,
@@ -32,6 +33,7 @@ export const navItems: NavItem[] = [
 export const adminPrimaryNavItems: NavItem[] = [
   { title: "Timbrature", url: "/admin/timbrature", icon: ClockIcon },
   { title: "Orari di lavoro", url: "/admin/orari-lavoro", icon: CalendarClockIcon },
+  { title: "Giustificativi", url: "/admin/giustificativi", icon: CalendarOffIcon },
 ]
 
 // Gruppo "Amministrazione": mostrato nella sidebar solo se l'utente ha ruolo

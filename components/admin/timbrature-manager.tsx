@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
 import {
+  CalendarOffIcon,
   CheckIcon,
   ClockIcon,
   FileTextIcon,
@@ -43,6 +44,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -112,6 +114,14 @@ type Preset = {
 
 const STANDARD_ID = "__standard__"
 
+// Un motivo di assenza dall'anagrafica (/admin/giustificativi). Sulle giornate
+// viaggia la sola SIGLA (`codice`), denormalizzata: vedi schema.prisma.
+type Giustificativo = {
+  id: string
+  codice: string
+  descrizione: string
+}
+
 // Colonne che precedono il blocco delle ore: checkbox, stato, data, i 4 turni
 // reali e i 4 corretti. È il colSpan dell'etichetta «Totale mese» nel footer:
 // tenerlo qui evita di doverlo ricontare a mano a ogni colonna aggiunta.
@@ -149,6 +159,7 @@ type CorrezioneRaw = {
   entrata2?: string | null
   uscita2?: string | null
   revisionata?: boolean
+  giustificativo?: string | null
 }
 
 function meseCorrente() {
@@ -191,6 +202,15 @@ function descriviPreset(p: Preset): string {
   return [primo ?? "1° turno azzerato", secondo ?? "2° turno azzerato"].join(
     " · "
   )
+}
+
+// La sigla resta leggibile anche se il codice è stato tolto dall'anagrafica (è
+// denormalizzata apposta): in quel caso la descrizione È la sigla.
+function descrizioneGiustificativo(
+  sigla: string,
+  catalogo: Giustificativo[]
+): string {
+  return catalogo.find((g) => g.codice === sigla)?.descrizione ?? sigla
 }
 
 const ANOMALIA_LABEL: Record<Anomalia, string> = {
@@ -322,6 +342,7 @@ type RigaConDettaglio = {
   data: Date
   anomalie: Anomalia[]
   revisionata: boolean
+  giustificativo: string | null
   righeRapportino: RapportinoRiga[]
   pernottamento: boolean
   confrontoRapportino: { totaleMarcatempo: number; totaleRapportino: number } | null
@@ -356,9 +377,15 @@ function GiornoDettaglioSheet({
               </>
             )}
           </SheetTitle>
-          {riga?.revisionata && (
+          {(riga?.giustificativo || riga?.revisionata) && (
             <SheetDescription>
-              Giorno segnato come revisionato.
+              {[
+                riga.giustificativo &&
+                  `Giornata giustificata con «${riga.giustificativo}».`,
+                riga.revisionata && "Giorno segnato come revisionato.",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             </SheetDescription>
           )}
         </SheetHeader>
@@ -459,6 +486,7 @@ function CorrettaCell({
   editRef,
   onSave,
   className,
+  disabled,
 }: {
   giorno: string
   campo: string
@@ -468,6 +496,9 @@ function CorrettaCell({
   editRef: React.RefObject<HTMLInputElement | null>
   onSave: (giorno: string, campo: string, v: string | null) => void
   className?: string
+  // Giornata giustificata: il motore azzera comunque gli orari, quindi la cella
+  // non è modificabile — altrimenti si scrive un valore che sparisce al salvataggio.
+  disabled?: boolean
 }) {
   const isEditing = editing?.giorno === giorno && editing?.campo === campo
   const [invalid, setInvalid] = useState(false)
@@ -511,6 +542,26 @@ function CorrettaCell({
       e.preventDefault()
       startEdit()
     }
+  }
+
+  if (disabled) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <TableCell
+            className={cn(
+              "text-center tabular-nums text-muted-foreground",
+              className
+            )}
+          >
+            {valore ?? "—"}
+          </TableCell>
+        </TooltipTrigger>
+        <TooltipContent>
+          Giornata giustificata: gli orari non si applicano
+        </TooltipContent>
+      </Tooltip>
+    )
   }
 
   if (isEditing) {
@@ -600,10 +651,19 @@ export function TimbratureManager({
   // Giorni segnati come revisionati: filtro di visualizzazione, indipendente
   // dalle correzioni (vedi `TimbraturaCorretta.revisionata` in schema.prisma).
   const [revisionati, setRevisionati] = useState<Set<string>>(new Set())
+  // Giorno → sigla del giustificativo. Deliberatamente FUORI dalla Map
+  // `correzioni`: lì dentro farebbe scattare `correttoManualmente` in
+  // calcolo.ts (che conta le chiavi dell'override), e un'assenza non è una
+  // correzione di orario. Stessa scelta del Set `revisionati` qui sopra.
+  const [giustificati, setGiustificati] = useState<Map<string, string>>(
+    new Map()
+  )
   const [applyingPreset, setApplyingPreset] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [revisionando, setRevisionando] = useState(false)
+  const [giustificando, setGiustificando] = useState(false)
   const [presets, setPresets] = useState<Preset[]>([])
+  const [giustificativi, setGiustificativi] = useState<Giustificativo[]>([])
 
   // Conferma delle azioni di massa. Il contenuto del dialog sta in uno stato
   // separato dall'`open`: confermando si svuota la selezione, e un testo legato
@@ -611,6 +671,7 @@ export function TimbratureManager({
   type Conferma =
     | { tipo: "preset"; preset: Preset; n: number }
     | { tipo: "reset"; n: number }
+    | { tipo: "giustifica"; giustificativo: Giustificativo | null; n: number }
   const [conferma, setConferma] = useState<Conferma | null>(null)
   const [confermaOpen, setConfermaOpen] = useState(false)
 
@@ -684,6 +745,13 @@ export function TimbratureManager({
               dipendente: dipendente.codice,
               giorno,
               ...campi,
+              // Assegnare un orario significa «questa giornata è stata lavorata
+              // così»: incompatibile con un'assenza giustificata, che azzera
+              // tutto. Senza questo, l'admin applicherebbe l'Orario Standard e
+              // continuerebbe a vedere zeri, senza capire perché. Sta solo nel
+              // body: `campi` finisce nella Map `correzioni`, dove una sigla non
+              // c'entra nulla.
+              giustificativo: null,
             }),
           }).then((r) => {
             if (!r.ok) throw new Error()
@@ -695,6 +763,11 @@ export function TimbratureManager({
         for (const giorno of selected) next.set(giorno, campi)
         return next
       })
+      setGiustificati((prev) => {
+        const next = new Map(prev)
+        for (const giorno of selected) next.delete(giorno)
+        return next
+      })
       toast.success(
         `«${preset.nome}» applicato a ${pluraleGiornate(selected.size)}`
       )
@@ -703,6 +776,51 @@ export function TimbratureManager({
       toast.error("Impossibile applicare l'orario")
     } finally {
       setApplyingPreset(false)
+    }
+  }
+
+  // Applica (o rimuove, con `codice = null`) un giustificativo di assenza a
+  // delle giornate. Parametrica sui giorni: la usano sia l'azione di massa sia
+  // il selettore nella Sheet di dettaglio (l'unico accesso da mobile).
+  // Non tocca gli orari corretti già salvati: restano in DB, inerti finché il
+  // giustificativo c'è, e riemergono quando viene tolto.
+  async function giustifica(codice: string | null, giorni: string[]) {
+    if (!dipendente || giorni.length === 0) return
+    setGiustificando(true)
+    try {
+      await Promise.all(
+        giorni.map((giorno) =>
+          fetch("/api/admin/timbrature/correzioni", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              dipendente: dipendente.codice,
+              giorno,
+              giustificativo: codice,
+            }),
+          }).then((r) => {
+            if (!r.ok) throw new Error()
+          })
+        )
+      )
+      setGiustificati((prev) => {
+        const next = new Map(prev)
+        for (const giorno of giorni) {
+          if (codice) next.set(giorno, codice)
+          else next.delete(giorno)
+        }
+        return next
+      })
+      toast.success(
+        codice
+          ? `«${descrizioneGiustificativo(codice, giustificativi)}» applicato a ${pluraleGiornate(giorni.length)}`
+          : `Giustificativo rimosso da ${pluraleGiornate(giorni.length)}`
+      )
+      setSelected(new Set())
+    } catch {
+      toast.error("Impossibile applicare il giustificativo")
+    } finally {
+      setGiustificando(false)
     }
   }
 
@@ -751,9 +869,15 @@ export function TimbratureManager({
         for (const giorno of selected) next.delete(giorno)
         return next
       })
-      // La DELETE elimina la riga intera: anche il flag `revisionata` sparisce.
+      // La DELETE elimina la riga intera: anche il flag `revisionata` e il
+      // giustificativo di assenza spariscono.
       setRevisionati((prev) => {
         const next = new Set(prev)
+        for (const giorno of selected) next.delete(giorno)
+        return next
+      })
+      setGiustificati((prev) => {
+        const next = new Map(prev)
         for (const giorno of selected) next.delete(giorno)
         return next
       })
@@ -820,6 +944,13 @@ export function TimbratureManager({
   }, [])
 
   useEffect(() => {
+    fetch("/api/admin/giustificativi")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setGiustificativi(data as Giustificativo[]))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     fetch("/api/admin/timbrature/dipendenti")
       .then((res) => res.json())
       .then((data) => {
@@ -845,6 +976,7 @@ export function TimbratureManager({
     setLoading(true)
     setCorrezioni(new Map())
     setRevisionati(new Set())
+    setGiustificati(new Map())
     setSelected(new Set())
     // Il filtro è una vista sul mese caricato: un altro mese (o un altro
     // dipendente) può non avere anomalie, e resterebbe «filtrato» a vuoto.
@@ -902,6 +1034,13 @@ export function TimbratureManager({
               correzioniRaw.filter((c) => c.revisionata).map((c) => c.giorno)
             )
           )
+          setGiustificati(
+            new Map(
+              correzioniRaw
+                .filter((c) => c.giustificativo)
+                .map((c) => [c.giorno, c.giustificativo!])
+            )
+          )
           setLoading(false)
         }
       )
@@ -932,13 +1071,18 @@ export function TimbratureManager({
     const we = isWeekend(g.giornoSettimana)
     const futuro = g.giorno >= oggi
     const rapportinoGiorno = sommaGiorno(righeRapportino)
+    // Un giustificativo azzera la giornata e spiega tutto: il motore lo sa dal
+    // 7° parametro, le due anomalie unite qui sotto devono saperlo a parte.
+    const giustificativo = giustificati.get(g.giorno) ?? null
+    const giustificato = giustificativo !== null
     const corretti = calcolaCorretti(
       g,
       correzioni.get(g.giorno),
       regole,
       orario,
       rapportinoGiorno,
-      oggi
+      oggi,
+      giustificato
     )
     // "rapportino_mancante" non è calcolata dal motore (che non conosce quali
     // dipendenti richiedono il rapportino): si unisce qui, l'unico punto che
@@ -946,6 +1090,8 @@ export function TimbratureManager({
     // dipendente. Da qui in poi badge/tinta riga/tab "Da verificare"/Sheet
     // leggono tutti `anomalie` e la trattano come le altre.
     const mancaRapportino =
+      // Chi è in ferie o in malattia non deve compilare il rapportino.
+      !giustificato &&
       dipendente != null &&
       mancaRapportinoObbligatorio({
         richiesto: richiestiRapportino.has(dipendente.codice),
@@ -966,8 +1112,11 @@ export function TimbratureManager({
       overrideGiorno != null && Object.keys(overrideGiorno).length > 0
     const rapportinoAttivo =
       rapportinoGiorno.lavoroMinuti + rapportinoGiorno.viaggioMinuti > 0
+    // Su un giorno giustificato non c'è niente da confrontare: le ore sono
+    // azzerate per definizione, e il blocco «Timbrature / Rapportino /
+    // Differenza» della Sheet paragonerebbe il nulla.
     const corrPuro =
-      !correttoManualmente && rapportinoAttivo
+      !giustificato && !correttoManualmente && rapportinoAttivo
         ? calcolaCorretti(g, undefined, regole, orario, undefined, oggi)
         : null
     const confrontoRapportino =
@@ -1000,6 +1149,7 @@ export function TimbratureManager({
       we,
       futuro,
       revisionata: revisionati.has(g.giorno),
+      giustificativo,
       // Mezzogiorno: la data è un giorno civile, non un istante — così nessun
       // fuso la fa scivolare al giorno prima.
       data: new Date(g.giorno + "T12:00:00"),
@@ -1021,7 +1171,7 @@ export function TimbratureManager({
   const nomeDipendente = dipendente
     ? dipendente.descrizione || dipendente.codice
     : null
-  const inCorso = applyingPreset || resetting || revisionando
+  const inCorso = applyingPreset || resetting || revisionando || giustificando
   const selezioneSmarca = Array.from(selected).some((g) => revisionati.has(g))
   const rigaDettaglio = righe.find((r) => r.giorno === dettaglioGiorno) ?? null
 
@@ -1118,7 +1268,9 @@ export function TimbratureManager({
                     Annulla selezione
                   </Button>
                 </div>
-                <div className="flex items-center gap-2">
+                {/* Quattro azioni, tutte con la loro etichetta: su una finestra
+                    stretta la fila va a capo invece di sfondare in orizzontale. */}
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" disabled={inCorso}>
@@ -1152,6 +1304,57 @@ export function TimbratureManager({
                           </span>
                         </DropdownMenuItem>
                       ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" disabled={inCorso}>
+                        {giustificando ? (
+                          <Spinner aria-hidden="true" />
+                        ) : (
+                          <CalendarOffIcon data-icon="inline-start" />
+                        )}
+                        Giustifica
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-auto min-w-56">
+                      {giustificativi.length === 0 ? (
+                        <DropdownMenuItem disabled>
+                          Nessun giustificativo: creane uno in Giustificativi
+                        </DropdownMenuItem>
+                      ) : (
+                        giustificativi.map((g) => (
+                          <DropdownMenuItem
+                            key={g.id}
+                            className="flex-col items-start gap-0 py-1.5"
+                            onSelect={() =>
+                              chiediConferma({
+                                tipo: "giustifica",
+                                giustificativo: g,
+                                n: nSelezionate,
+                              })
+                            }
+                          >
+                            <span className="font-medium">{g.codice}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {g.descrizione}
+                            </span>
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          chiediConferma({
+                            tipo: "giustifica",
+                            giustificativo: null,
+                            n: nSelezionate,
+                          })
+                        }
+                      >
+                        Rimuovi giustificativo
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 
@@ -1390,6 +1593,24 @@ export function TimbratureManager({
                               <TooltipContent>Pernotto</TooltipContent>
                             </Tooltip>
                           )}
+                          {r.giustificativo && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge
+                                  variant="secondary"
+                                  className="px-1.5 py-0 text-[10px] font-medium"
+                                >
+                                  {r.giustificativo}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {descrizioneGiustificativo(
+                                  r.giustificativo,
+                                  giustificativi
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell
@@ -1420,6 +1641,7 @@ export function TimbratureManager({
                         setEditing={setEditing}
                         editRef={editRef}
                         onSave={salvaCorrezione}
+                        disabled={r.giustificativo != null}
                         className={cn(COL_ORA, COL_ORA_GRUPPO)}
                       />
                       <CorrettaCell
@@ -1430,6 +1652,7 @@ export function TimbratureManager({
                         setEditing={setEditing}
                         editRef={editRef}
                         onSave={salvaCorrezione}
+                        disabled={r.giustificativo != null}
                         className={COL_ORA}
                       />
                       <CorrettaCell
@@ -1440,6 +1663,7 @@ export function TimbratureManager({
                         setEditing={setEditing}
                         editRef={editRef}
                         onSave={salvaCorrezione}
+                        disabled={r.giustificativo != null}
                         className={COL_ORA}
                       />
                       <CorrettaCell
@@ -1450,6 +1674,7 @@ export function TimbratureManager({
                         setEditing={setEditing}
                         editRef={editRef}
                         onSave={salvaCorrezione}
+                        disabled={r.giustificativo != null}
                         className={COL_ORA}
                       />
                       <TableCell
@@ -1573,6 +1798,24 @@ export function TimbratureManager({
                             <TooltipContent>Pernotto</TooltipContent>
                           </Tooltip>
                         )}
+                        {r.giustificativo && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge
+                                variant="secondary"
+                                className="px-1.5 py-0 text-[10px] font-medium"
+                              >
+                                {r.giustificativo}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {descrizioneGiustificativo(
+                                r.giustificativo,
+                                giustificativi
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                         <StatoIcon
                           anomalie={r.anomalie}
                           weekend={r.we}
@@ -1670,7 +1913,9 @@ export function TimbratureManager({
                     {descriviPreset(conferma.preset)}
                   </span>
                   , sostituendo le correzioni già presenti. Le timbrature reali
-                  del marcatempo non vengono modificate.
+                  del marcatempo non vengono modificate. Un eventuale
+                  giustificativo di assenza viene rimosso: una giornata con un
+                  orario è una giornata lavorata.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -1693,7 +1938,8 @@ export function TimbratureManager({
                   Le correzioni di {nomeDipendente} su{" "}
                   {pluraleGiornate(conferma.n)} verranno eliminate in modo
                   permanente e gli orari torneranno a quelli del marcatempo.
-                  L&apos;operazione non è reversibile.
+                  Anche la revisione e l&apos;eventuale giustificativo di
+                  assenza vengono rimossi. L&apos;operazione non è reversibile.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -1703,6 +1949,47 @@ export function TimbratureManager({
                   onClick={resettaSelezionate}
                 >
                   Azzera correzioni
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+          {conferma?.tipo === "giustifica" && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {conferma.giustificativo
+                    ? `Giustificare ${pluraleGiornate(conferma.n)} con «${conferma.giustificativo.descrizione}»?`
+                    : `Rimuovere il giustificativo da ${pluraleGiornate(conferma.n)}?`}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {conferma.giustificativo ? (
+                    <>
+                      Le giornate risulteranno giustificate: orari corretti e ore
+                      verranno azzerati e le relative anomalie non saranno più
+                      segnalate, anche dove esistono timbrature reali. Le
+                      timbrature del marcatempo non vengono modificate, e gli
+                      orari corretti già salvati tornano validi se il
+                      giustificativo viene rimosso.
+                    </>
+                  ) : (
+                    <>
+                      Le giornate torneranno a essere calcolate normalmente, con
+                      gli orari corretti già salvati e le eventuali anomalie.
+                    </>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() =>
+                    giustifica(
+                      conferma.giustificativo?.codice ?? null,
+                      Array.from(selected)
+                    )
+                  }
+                >
+                  {conferma.giustificativo ? "Giustifica" : "Rimuovi"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </>

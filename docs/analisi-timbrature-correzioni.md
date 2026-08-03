@@ -323,3 +323,48 @@ errore) e con le route API/pagina che compilano e applicano le guard
 
 **Prossimo intervento**: audit log sulle correzioni (punto 3 della lista
 priorità, problema 1.3).
+
+**2026-07-31** — Giustificativi di assenza (ferie, malattia, permessi):
+
+- Nuova pagina admin **Giustificativi** (`/admin/giustificativi`): CRUD di
+  un'anagrafica a due campi, sigla (`codice`, unica e maiuscola) e
+  `descrizione`. Modello Prisma `Giustificativo`, service
+  `lib/timbrature/giustificativo.ts`, risorsa RBAC dedicata `giustificativi`,
+  route `app/api/admin/giustificativi/**` con audit log
+  (`timbrature.giustificativo.create/update/delete`). Seed idempotente dei
+  quattro codici in uso dal cliente (F, M, L104, DONA).
+- **Sulla giornata viene salvata la sola sigla**, in
+  `TimbraturaCorretta.giustificativo`: denormalizzata, senza FK, così una
+  giornata archiviata resta leggibile se il codice viene eliminato
+  dall'anagrafica. Rinominare una sigla propaga in transazione alle giornate
+  che la usano.
+- **Motore**: `calcolaCorretti` ha un 7° parametro `giustificato` che
+  cortocircuita il calcolo — orari nulli, ore a zero, nessuna anomalia — anche
+  in presenza di timbrature reali o correzioni manuali, che restano salvate ma
+  inerti. Il pernotto del rapportino resta preservato. Sette test nuovi in
+  `calcolo.test.ts`.
+- **Pagina Timbrature**: bottone «Giustifica» con dropdown sulle righe
+  selezionate, gemello di «Applica orario» e con la stessa conferma. Badge con
+  la sigla accanto alla data (desktop e mobile), celle degli orari corretti non
+  modificabili su una giornata giustificata, Sheet di dettaglio che dichiara in
+  testa la giornata giustificata. Applicare un orario rimuove il
+  giustificativo.
+- **Resta un'azione da desktop**, come tutte le azioni di massa: era stato
+  valutato un selettore dentro la Sheet di dettaglio (l'unico punto
+  raggiungibile da mobile, dove la card list non ha checkbox), ma sarebbe stato
+  l'unico controllo di riga in una Sheet finora di sola lettura, e per giunta
+  l'unica azione disponibile da telefono su una pagina che per il resto non ne
+  offre. Se un giorno si vorrà lavorare da mobile, la strada è aggiungere le
+  checkbox alla card list, non spostare le singole azioni nella Sheet.
+- **Barra delle azioni**: le quattro azioni restano tutte in chiaro con la loro
+  etichetta («Applica orario», «Giustifica», «Segnala come revisionato»,
+  «Azzera correzioni»). Era stato provato un kebab per le ultime due, ma
+  nascondere azioni d'uso quotidiano dietro un menu costa più di quanto valga:
+  la fila va a capo (`flex-wrap`) sulle finestre strette.
+- **Stampa**: banda con la descrizione al posto dell'intera fascia orari in
+  entrambi i template; corretto `getDatiStampaCumulativo`, che escludeva dal
+  fascicolo un dipendente assente per tutto il mese.
+
+Verificato con `npm run test`, `npm run typecheck`, `npm run lint` e
+`npm run build` puliti, e con i due PDF generati su dati di prova (banda
+allineata, colonne dei totali a posto).

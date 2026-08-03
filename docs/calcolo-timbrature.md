@@ -101,13 +101,15 @@ Ogni slot corretto porta la sua origine (`GiornataCalcolata.provenienza`):
 - `timbrata` — dal dato reale del marcatempo (arrotondato);
 - `corretta` — valore inserito a mano dall'admin;
 - `ricostruita` — pausa dedotta dall'orario standard;
-- `assente` — nessun valore.
+- `assente` — nessun valore (anche su una giornata coperta da un
+  [giustificativo di assenza](#i-giustificativi-di-assenza): tutti e quattro
+  gli slot sono vuoti per definizione).
 
-La **stampa PDF** mette i valori `ricostruita` in corsivo grigio: sul documento
-che esce dall'ufficio, nessun orario dedotto si confonde con uno timbrato
-davvero.
+La provenienza è oggi **informativa**: nessun consumatore la legge — né la
+tabella né i template PDF, che mostrano gli orari senza distinguere da dove
+vengono.
 
-La **tabella della pagina Timbrature**, invece, non distingue le provenienze:
+La **tabella della pagina Timbrature** non distingue le provenienze:
 le quattro colonne corrette sono tutte blu e tutte cliccabili allo stesso modo
 (scelta deliberata, per non trasformare la griglia in un codice a colori da
 decifrare). La colonna dei dati grezzi, lì accanto, resta il riferimento: se un
@@ -129,6 +131,10 @@ un badge per riga, tinge la riga di rosso tenue e offre il filtro «Da verificar
 | `assente` | Giorno **feriale e già trascorso** senza alcuna timbratura (mai nel weekend, mai da oggi in avanti). | **grezzo** |
 | `rapportino_mancante` | Dipendente soggetto all'obbligo (impostazioni di sistema), giorno feriale già trascorso, nessun rapportino registrato — può comparire insieme ad `assente`. | **UI** |
 | `scostamento_rapportino` | Giorno determinabile automaticamente (nessuna correzione manuale, nessuna anomalia calcolata dal solo marcatempo) con rapportino attivo, e differenza fra i due totali oltre `sogliaScostamentoRapportino`. | **UI** |
+
+**Nessuna anomalia compare su una giornata coperta da un
+[giustificativo di assenza](#i-giustificativi-di-assenza)**: il motore esce
+prima di calcolarle, e le due anomalie unite in UI hanno la stessa guardia.
 
 **`rapportino_mancante` e `scostamento_rapportino` sono un'eccezione: non
 nascono in `calcolaCorretti`.** Le altre sei sono calcolate dentro il motore
@@ -207,6 +213,51 @@ d'occhio, il Tooltip resta l'unico modo per sapere che è stato rivisto a mano �
 ma non compare più nel filtro «Da verificare» né nel relativo conteggio. È un
 toggle: selezionando giorni già revisionati il bottone smarca la revisione.
 
+## I giustificativi di assenza
+
+«Revisionato» dice *ho guardato, va bene così*, ma non dice **perché**. Un
+giorno di ferie e uno di malattia si assomigliano troppo su un registro che
+esce dall'ufficio: da qui i **giustificativi di assenza**.
+
+**L'anagrafica è configurabile** dall'admin in `/admin/giustificativi`
+([`components/admin/giustificativi-manager.tsx`](../components/admin/giustificativi-manager.tsx),
+service in [`lib/timbrature/giustificativo.ts`](../lib/timbrature/giustificativo.ts)),
+esattamente come i preset di orario: due campi, una **sigla** (`codice`, unica,
+maiuscola) e una `descrizione` per esteso. Al primo avvio il seed crea F
+(Ferie), M (Malattia), L104 (Permesso Legge 104) e DONA (Donazione sangue).
+
+**Sulla giornata viene salvata la sola sigla**, in
+`TimbraturaCorretta.giustificativo` — denormalizzata, senza chiave esterna
+verso l'anagrafica. È deliberato: eliminare un codice non deve poter riscrivere
+la storia delle presenze, e una giornata di due anni fa resta leggibile anche
+se quel codice non esiste più (si perde la descrizione, non il fatto). Il
+prezzo è che **rinominare** una sigla propaga l'aggiornamento alle giornate che
+la usano, in transazione (`updateGiustificativo`).
+
+**Il motore riceve solo un booleano.** `calcolaCorretti` ha un 7° parametro
+`giustificato`: quando è vero esce subito con la giornata **azzerata** — orari
+`ce1…cu2` nulli, ore a zero, nessuna anomalia — prima di overlay, fill e
+controlli. Vale anche in presenza di timbrature reali o di una correzione
+manuale, che restano salvate ma inerti e tornano valide se il giustificativo
+viene rimosso. Il **pernotto** del rapportino, se c'è, viene comunque
+preservato: resta un fatto del giorno, e continua a contare in
+`giorniTrasferta`.
+
+**Dove si applica.** Dalla pagina Timbrature, con il bottone **«Giustifica»**
+sulle righe selezionate: gemello di «Applica orario», stessa conferma, stesso
+posto. È quindi **un'azione da desktop**, come tutte le altre azioni di massa —
+la lista mobile non ha le checkbox e la Sheet di dettaglio resta di sola
+lettura. Applicare un **orario** a una giornata giustificata **rimuove** il
+giustificativo: una giornata con un orario è una giornata lavorata. «Azzera
+correzioni» lo rimuove insieme a tutto il resto (la DELETE elimina l'intera
+riga).
+
+**Come si vede.** In pagina, un badge con la sigla accanto alla data (tooltip
+con la descrizione), su desktop e su mobile; le celle degli orari corretti
+diventano non modificabili e la Sheet di dettaglio lo dichiara in testa. Nel
+PDF, una banda che sostituisce l'intera fascia degli orari con la descrizione
+per esteso — vedi [stampa-timbrature.md](stampa-timbrature.md).
+
 ## Come estendere
 
 - **Aggiungere una regola:** aggiungi il campo a `calcoloSettingsSchema` /
@@ -232,17 +283,20 @@ toggle: selezionando giorni già revisionati il bottone smarca la revisione.
 
 Le funzioni pure sono coperte da
 [`lib/timbrature/calcolo.test.ts`](../lib/timbrature/calcolo.test.ts) (`npm run
-test`, vitest, nessun I/O) con i casi reali di BONI di giugno 2026. La
+test`, vitest, nessun I/O) con i casi reali di BONI di giugno 2026, più un
+blocco dedicato alla giornata giustificata (azzeramento, precedenza su
+correzione manuale e rapportino, pernotto preservato). La
 regressione chiave: il **30/06 (`E 07:27 U 12:07`) deve restare a 4h30** — la
 giornata non è chiusa, quindi nessun fill. È ciò che distingue questo motore dal
 vecchio Access, che riempiva indiscriminatamente e accreditava ore mai lavorate.
 
 ## Fuori scopo
 
-- **Ferie / permessi / malattia.** Un giorno feriale senza timbrature è oggi
-  indistinguibile da un'assenza giustificata: lo marchiamo `assente`.
 - **Calendario delle festività.** Nessuna fonte disponibile: le festività
-  infrasettimanali risultano `assente`.
+  infrasettimanali risultano `assente`. Rimedio manuale: giustificarle con un
+  codice dedicato (vedi [I giustificativi di assenza](#i-giustificativi-di-assenza)).
+- **Monte ore delle assenze.** Un giorno giustificato vale zero ore: il registro
+  documenta le ore lavorate, non matura ferie né conteggia i permessi residui.
 - **Override delle regole per dipendente.** I dati 2026 non ne mostrano il
   bisogno (la regola della pausa è auto-selettiva). Se servisse: una tabella
   `dipendente_regole` con un JSON parziale in merge sul globale.

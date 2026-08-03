@@ -27,9 +27,10 @@ impostabile in [`/settings`](../app/(dashboard)/settings/page.tsx) (vedi
 
 Lo switch **«Stampa cumulativa»** nel dialog genera un **unico PDF** con tutti i
 dipendenti del mese, **uno per foglio** e in **ordine alfabetico** (l'ordine di
-`listDipendenti`). Sono **esclusi i dipendenti senza timbrature**, con un
-controllo sui valori **corretti** (`ce1…cu2`) e non sui grezzi: chi ha solo
-correzioni manuali compare comunque. In questa modalità il parametro
+`listDipendenti`). Sono **esclusi i dipendenti senza timbrature e senza giornate
+giustificate**, con un controllo sui valori **corretti** (`ce1…cu2`) e non sui
+grezzi: chi ha solo correzioni manuali compare comunque, e chi è stato assente
+tutto il mese non sparisce dal fascicolo. In questa modalità il parametro
 `cumulativo=1` sostituisce `dipendente`; i dati di tutti i dipendenti sono
 costruiti da `getDatiStampaCumulativo`
 ([`lib/timbrature/stampa/dati.ts`](../lib/timbrature/stampa/dati.ts)) e composti
@@ -53,6 +54,21 @@ quindi sempre coerenti fra schermo e stampa, su entrambi i template.
 
 Ogni stampa è tracciata nell'**audit log** (evento `timbrature.stampa`, con
 dipendente, mese e template): è un export di dati sul personale.
+
+### Le giornate giustificate
+
+Su una giornata coperta da un [giustificativo di assenza](calcolo-timbrature.md#i-giustificativi-di-assenza)
+gli orari sono azzerati per definizione: stamparne otto «—» non direbbe nulla.
+Al loro posto va una **banda** con la descrizione per esteso («FERIE»,
+«MALATTIA»), che occupa l'**intera fascia degli orari** — nel registro classico
+anche le colonne di marcatempo grezzo (64% della riga), nel compatto le quattro
+colonne dei corretti (56.8%). Data, Trasferta e le colonne dei totali restano
+al loro posto, allineate alle altre righe: le percentuali di larghezza della
+riga continuano a sommare a 100.
+
+La descrizione è **già risolta** in `dati.ts` (`RigaStampa.giustificativo`), che
+legge l'anagrafica una volta e ricade sulla sigla se il codice non c'è più: i
+template restano puri, senza lookup.
 
 ### I pezzi
 

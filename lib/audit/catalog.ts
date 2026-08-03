@@ -72,6 +72,11 @@ export const auditCatalog = [
   { action: "timbrature.preset.update", category: "timbrature", label: "Preset orario modificato" },
   { action: "timbrature.preset.delete", category: "timbrature", label: "Preset orario eliminato" },
 
+  // --- Timbrature (giustificativi di assenza) -------------------------------
+  { action: "timbrature.giustificativo.create", category: "timbrature", label: "Giustificativo creato" },
+  { action: "timbrature.giustificativo.update", category: "timbrature", label: "Giustificativo modificato" },
+  { action: "timbrature.giustificativo.delete", category: "timbrature", label: "Giustificativo eliminato" },
+
   // --- Timbrature (stampa) --------------------------------------------------
   { action: "timbrature.stampa", category: "timbrature", label: "Registro presenze stampato" },
 

@@ -8,6 +8,7 @@ import type {
 import {
   calcolaCorretti,
   calcolaOreSplit,
+  calcolaTotaliMese,
   costruisciOrario,
 } from "@/lib/timbrature/calcolo"
 import type { RiepilogoRapportino } from "@/lib/timbrature/calcolo"
@@ -49,7 +50,8 @@ function calc(
   regole: CalcoloSettingsAdmin = CALCOLO_DEFAULTS,
   override?: Record<string, string | null>,
   rapportino?: RiepilogoRapportino,
-  oggi?: string
+  oggi?: string,
+  giustificato?: boolean
 ) {
   return calcolaCorretti(
     giornata(raw, giorno),
@@ -57,7 +59,8 @@ function calc(
     regole,
     ORARIO,
     rapportino,
-    oggi
+    oggi,
+    giustificato
   )
 }
 
@@ -446,5 +449,105 @@ describe("calcolaCorretti — un rapportino guida la giornata", () => {
     // Zero ore non spiega il giorno: l'anomalia "assente" resta.
     expect(r.anomalie).toEqual(["assente"])
     expect(r.ce1).toBeNull()
+  })
+})
+
+describe("calcolaCorretti — giornata giustificata (ferie, malattia, ...)", () => {
+  it("azzera orari e ore anche su una giornata EUEU pulita", () => {
+    const r = calc(
+      "E 07:29 U 12:32 E 14:02 U 17:00",
+      3,
+      CALCOLO_DEFAULTS,
+      undefined,
+      undefined,
+      undefined,
+      true
+    )
+    expect(r.ce1).toBeNull()
+    expect(r.cu1).toBeNull()
+    expect(r.ce2).toBeNull()
+    expect(r.cu2).toBeNull()
+    expect(r.totale).toBe(0)
+    expect(r.ordinario).toBe(0)
+    expect(r.straordinario).toBe(0)
+    expect(r.straordinarioViaggio).toBe(0)
+    expect(r.anomalie).toEqual([])
+    expect(r.provenienza).toEqual({
+      e1: "assente",
+      u1: "assente",
+      e2: "assente",
+      u2: "assente",
+    })
+  })
+
+  it("spegne l'anomalia «assente» sul feriale vuoto", () => {
+    // Stesso giorno del test a inizio file, che senza giustificativo dà ["assente"].
+    const r = calc("", 23, CALCOLO_DEFAULTS, undefined, undefined, undefined, true)
+    expect(r.anomalie).toEqual([])
+  })
+
+  it("silenzia anche le anomalie del dato grezzo (sentinella 00:00)", () => {
+    const r = calc("E 00:00 U 17:12", 5, CALCOLO_DEFAULTS, undefined, undefined, undefined, true)
+    expect(r.anomalie).toEqual([])
+    expect(r.totale).toBe(0)
+  })
+
+  it("vince sulla correzione manuale, che resta salvata ma inerte", () => {
+    const r = calc(
+      "",
+      23,
+      CALCOLO_DEFAULTS,
+      { entrata1: "08:00", uscita1: "12:00" },
+      undefined,
+      undefined,
+      true
+    )
+    expect(r.ce1).toBeNull()
+    expect(r.cu1).toBeNull()
+    expect(r.totale).toBe(0)
+  })
+
+  it("vince sul rapportino ma ne conserva il pernotto", () => {
+    const r = calc(
+      "",
+      23,
+      CALCOLO_DEFAULTS,
+      undefined,
+      { lavoroMinuti: 8 * 60, viaggioMinuti: 60, pernottamento: true },
+      undefined,
+      true
+    )
+    expect(r.totale).toBe(0)
+    expect(r.ce1).toBeNull()
+    expect(r.pernottamento).toBe(true)
+  })
+
+  it("giustificato = false lascia il calcolo identico a com'era", () => {
+    const raw = "E 07:26 U 17:01"
+    expect(
+      calc(raw, 4, CALCOLO_DEFAULTS, undefined, undefined, undefined, false)
+    ).toEqual(calc(raw, 4))
+  })
+})
+
+describe("calcolaTotaliMese con giornate giustificate", () => {
+  it("le ore della giornata giustificata non entrano nei totali, il pernotto sì", () => {
+    const lavorata = calc("E 07:26 U 18:30", 18) // 9h30: 8h ord + 1h30 straord
+    const giustificata = calc(
+      "E 07:29 U 12:32 E 14:02 U 17:00",
+      3,
+      CALCOLO_DEFAULTS,
+      undefined,
+      { lavoroMinuti: 0, viaggioMinuti: 0, pernottamento: true },
+      undefined,
+      true
+    )
+
+    const totali = calcolaTotaliMese([lavorata, giustificata])
+    expect(totali.totale).toBe(570)
+    expect(totali.ordinario).toBe(480)
+    expect(totali.straordinario).toBe(90)
+    // Il pernotto resta un fatto del giorno anche se le ore sono azzerate.
+    expect(totali.giorniTrasferta).toBe(1)
   })
 })

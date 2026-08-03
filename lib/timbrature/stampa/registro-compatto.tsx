@@ -121,6 +121,23 @@ const styles = StyleSheet.create({
   wOra: { width: "14.2%" },
   wTot: { width: "9.4%" },
 
+  // Banda del giustificativo di assenza: 4 × wOra = 56.8%, cioè l'intera fascia
+  // degli orari (la stessa larghezza che l'intestazione dichiara per il gruppo
+  // «Situazione arrotondata»). La riga resta a 100: 9 + 6 + 56.8 + 28.2.
+  wBanda: { width: "56.8%" },
+  banda: {
+    fontFamily: "Helvetica-Oblique",
+    color: GRIGIO,
+    textAlign: "center",
+    letterSpacing: 0.5,
+    // Padding, mai margin: yoga calcola le percentuali in border-box e un
+    // margine si sommerebbe al 56.8%, sfondando la riga.
+    paddingVertical: 1,
+    borderTopWidth: 0.25,
+    borderBottomWidth: 0.25,
+    borderColor: BORDO,
+  },
+
   // Ordinario/straordinario: cella riquadrata come sul modulo storico.
   boxTot: {
     marginHorizontal: 1.5,
@@ -179,14 +196,24 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
         {r.pernottamento ? "X" : ""}
       </Text>
 
-      {[r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
-        <Text
-          key={`corretto-${i}`}
-          style={[styles.cella, styles.wOra, { color: CORRETTO }]}
-        >
-          {ora(v)}
-        </Text>
-      ))}
+      {/* Giornata giustificata: al posto dei quattro orari (che sarebbero tutti
+          «—», perché il motore azzera la giornata) va il motivo dell'assenza. */}
+      {r.giustificativo ? (
+        <View style={styles.wBanda}>
+          <Text style={styles.banda}>
+            {r.giustificativo.descrizione.toUpperCase()}
+          </Text>
+        </View>
+      ) : (
+        [r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
+          <Text
+            key={`corretto-${i}`}
+            style={[styles.cella, styles.wOra, { color: CORRETTO }]}
+          >
+            {ora(v)}
+          </Text>
+        ))
+      )}
 
       <View style={styles.wTot}>
         <Text style={styles.boxTot}>{oreHHMM(r.ordinario)}</Text>
