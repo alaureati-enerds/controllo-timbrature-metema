@@ -219,6 +219,10 @@ export type GiornataCalcolata = {
  * 3. Anomalie: segnalate DOPO overlay+fill, così una correzione manuale (o un
  *    rapportino) che sistema il giorno lo fa sparire dalle anomalie senza
  *    codice extra.
+ *
+ * Sopra tutto questo sta il giustificativo di assenza (`giustificato`): se il
+ * giorno è coperto da ferie/malattia/permesso non c'è nulla da ricostruire, e
+ * la funzione esce subito con la giornata azzerata e senza anomalie.
  */
 export function calcolaCorretti(
   g: Giornata,
@@ -230,8 +234,45 @@ export function calcolaCorretti(
   // "assente" su giorni non ancora passati: default "oggi" reale, esplicito
   // solo nei test o quando il chiamante vuole garantire lo stesso istante di
   // un altro calcolo fatto nello stesso render (vedi timbrature-manager.tsx).
-  oggi: string = format(new Date(), "yyyy-MM-dd")
+  oggi: string = format(new Date(), "yyyy-MM-dd"),
+  // Il giorno è coperto da un giustificativo di assenza (ferie, malattia,
+  // permesso 104, ...). Al motore basta il FATTO: la sigla è un dato di
+  // presentazione (badge in pagina, banda nel PDF) e vive accanto agli orari
+  // corretti, in TimbraturaCorretta.giustificativo.
+  giustificato: boolean = false
 ): GiornataCalcolata {
+  // 0. Giornata giustificata: non è una giornata di lavoro da ricostruire.
+  // Azzera orari e ore come farebbe un preset vuoto — anche in presenza di
+  // timbrature reali o di una correzione manuale, che restano salvate ma
+  // inerti e tornano valide togliendo il giustificativo (l'overlay resta non
+  // distruttivo) — e non segnala nulla: il giustificativo È la spiegazione
+  // della giornata, quindi "assente" e compagnia non hanno più niente da dire.
+  if (giustificato) {
+    return {
+      ce1: null,
+      cu1: null,
+      ce2: null,
+      cu2: null,
+      totale: 0,
+      ordinario: 0,
+      straordinario: 0,
+      straordinarioViaggio: 0,
+      // Il pernotto resta un fatto del giorno, indipendente dalle ore: stessa
+      // regola del ritorno normale, in fondo alla funzione.
+      pernottamento: rapportino?.pernottamento ?? false,
+      // "assente" significa già "nessun valore": non serve una provenienza
+      // dedicata per un dato che nessuno mostra (la UI legge gli orari, non da
+      // dove vengono, quando sono nulli).
+      provenienza: {
+        e1: "assente",
+        u1: "assente",
+        e2: "assente",
+        u2: "assente",
+      },
+      anomalie: [],
+    }
+  }
+
   const roundE = (o: string) => arrotondaEntrata(o, regole)
   const roundU = (o: string) => arrotondaUscita(o, regole)
 

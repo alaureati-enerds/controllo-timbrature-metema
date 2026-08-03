@@ -126,6 +126,25 @@ const styles = StyleSheet.create({
   wTot: { width: "7%" },
   wSpacer: { width: "4%" },
 
+  // Banda del giustificativo di assenza: occupa ESATTAMENTE la fascia degli
+  // orari — 28 (marcatempo) + 4 (spacer) + 28 (arrotondata) + 4 (spacer) = 64%
+  // — così la riga continua a sommare a 100 (9 + 6 + 64 + 21) e le colonne dei
+  // totali restano allineate a quelle delle altre righe.
+  wBanda: { width: "64%" },
+  banda: {
+    fontFamily: "Helvetica-Oblique",
+    color: GRIGIO,
+    textAlign: "center",
+    letterSpacing: 0.5,
+    // Padding, mai margin: yoga calcola le percentuali in border-box, quindi un
+    // margine si sommerebbe al 64% e sfonderebbe la riga (stessa ragione per
+    // cui `boxTot` mette il margine sul Text interno).
+    paddingVertical: 1,
+    borderTopWidth: 0.25,
+    borderBottomWidth: 0.25,
+    borderColor: BORDO,
+  },
+
   // Ordinario/straordinario: cella riquadrata come sul modulo storico.
   boxTot: {
     marginHorizontal: 1.5,
@@ -184,27 +203,39 @@ function Riga({ r }: { r: DatiStampa["righe"][number] }) {
         {r.pernottamento ? "X" : ""}
       </Text>
 
-      {[r.entrata1, r.uscita1, r.entrata2, r.uscita2].map((v, i) => (
-        <Text
-          key={`reale-${i}`}
-          style={[styles.cella, styles.wOra, { color: NERO }]}
-        >
-          {ora(v)}
-        </Text>
-      ))}
+      {/* Giornata giustificata: al posto degli otto orari (che sarebbero tutti
+          «—», perché il motore azzera la giornata) va il motivo dell'assenza. */}
+      {r.giustificativo ? (
+        <View style={styles.wBanda}>
+          <Text style={styles.banda}>
+            {r.giustificativo.descrizione.toUpperCase()}
+          </Text>
+        </View>
+      ) : (
+        <>
+          {[r.entrata1, r.uscita1, r.entrata2, r.uscita2].map((v, i) => (
+            <Text
+              key={`reale-${i}`}
+              style={[styles.cella, styles.wOra, { color: NERO }]}
+            >
+              {ora(v)}
+            </Text>
+          ))}
 
-      <Text style={styles.wSpacer} />
+          <Text style={styles.wSpacer} />
 
-      {[r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
-        <Text
-          key={`corretto-${i}`}
-          style={[styles.cella, styles.wOra, { color: CORRETTO }]}
-        >
-          {ora(v)}
-        </Text>
-      ))}
+          {[r.ce1, r.cu1, r.ce2, r.cu2].map((v, i) => (
+            <Text
+              key={`corretto-${i}`}
+              style={[styles.cella, styles.wOra, { color: CORRETTO }]}
+            >
+              {ora(v)}
+            </Text>
+          ))}
 
-      <Text style={styles.wSpacer} />
+          <Text style={styles.wSpacer} />
+        </>
+      )}
 
       <View style={styles.wTot}>
         <Text style={styles.boxTot}>{oreHHMM(r.ordinario)}</Text>

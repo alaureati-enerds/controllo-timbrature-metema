@@ -24,7 +24,14 @@ import { getGiornate, type Giornata } from "@/lib/timbrature/giornate"
 
 /** Una riga della stampa: dato grezzo (marcatempo) + dato corretto + totali. */
 export type RigaStampa = Giornata &
-  GiornataCalcolata & { weekend: boolean; revisionata: boolean }
+  GiornataCalcolata & {
+    weekend: boolean
+    revisionata: boolean
+    // Giustificativo di assenza, già RISOLTO contro l'anagrafica: i template
+    // non fanno lookup. Se la sigla non è più in catalogo, `descrizione`
+    // ricade sulla sigla stessa — la giornata resta leggibile comunque.
+    giustificativo: { codice: string; descrizione: string } | null
+  }
 
 export type DatiStampa = {
   dipendente: Dipendente
@@ -56,6 +63,7 @@ export async function getDatiStampa(
     { giornate, orario, regole },
     correzioni,
     rapportiniPerGiorno,
+    catalogoGiustificativi,
   ] = await Promise.all([
     getDipendente(codiceDipendente).catch((error: unknown) => {
       const detail =
@@ -72,6 +80,7 @@ export async function getDatiStampa(
         entrata2: true,
         uscita2: true,
         revisionata: true,
+        giustificativo: true,
       },
     }),
     // I rapportini sono un'estensione: se il DB esterno non li espone (o la
@@ -80,6 +89,11 @@ export async function getDatiStampa(
     getRapportini(codiceDipendente, dal, al)
       .then(raggruppaPerGiorno)
       .catch(() => new Map<string, RapportinoRiga[]>()),
+    // Anagrafica dei giustificativi: serve solo a risolvere la sigla salvata
+    // sulla giornata nella descrizione per esteso da stampare.
+    prisma.giustificativo.findMany({
+      select: { codice: true, descrizione: true },
+    }),
   ])
 
   if (!dipendente) throw new ApiError("Dipendente non trovato", 404)
@@ -101,18 +115,36 @@ export async function getDatiStampa(
   const revisionati = new Set(
     correzioni.filter((c) => c.revisionata).map((c) => c.giorno)
   )
-  const righe: RigaStampa[] = giornate.map((g) => ({
-    ...g,
-    ...calcolaCorretti(
-      g,
-      override.get(g.giorno),
-      regole,
-      orario,
-      sommaGiorno(rapportiniPerGiorno.get(g.giorno) ?? [])
-    ),
-    weekend: isWeekend(g.giornoSettimana),
-    revisionata: revisionati.has(g.giorno),
-  }))
+  const giustificati = new Map(
+    correzioni
+      .filter((c) => c.giustificativo)
+      .map((c) => [c.giorno, c.giustificativo!])
+  )
+  const descrizioni = new Map(
+    catalogoGiustificativi.map((g) => [g.codice, g.descrizione])
+  )
+  const righe: RigaStampa[] = giornate.map((g) => {
+    const sigla = giustificati.get(g.giorno) ?? null
+    return {
+      ...g,
+      ...calcolaCorretti(
+        g,
+        override.get(g.giorno),
+        regole,
+        orario,
+        sommaGiorno(rapportiniPerGiorno.get(g.giorno) ?? []),
+        // `oggi`: si vuole il default reale, esplicito solo per raggiungere il
+        // parametro successivo.
+        undefined,
+        sigla !== null
+      ),
+      weekend: isWeekend(g.giornoSettimana),
+      revisionata: revisionati.has(g.giorno),
+      giustificativo: sigla
+        ? { codice: sigla, descrizione: descrizioni.get(sigla) ?? sigla }
+        : null,
+    }
+  })
 
   return {
     dipendente,
@@ -128,9 +160,11 @@ export async function getDatiStampa(
  * Dati di stampa CUMULATIVA: un `DatiStampa` per ogni dipendente del mese, in
  * ordine alfabetico (l'ordine di `listDipendenti`, che è già `ORDER BY
  * DESCRIZIONE` ed esclude gli obsoleti). Sono esclusi i dipendenti **senza
- * alcuna timbratura corretta** nel mese: il controllo è sui valori corretti
- * (`ce1…cu2`), non sui grezzi, così chi ha solo correzioni manuali compare
- * comunque. La stampa iterata usa le stesse funzioni della singola.
+ * alcuna timbratura corretta e senza giornate giustificate** nel mese: il
+ * controllo è sui valori corretti (`ce1…cu2`), non sui grezzi, così chi ha solo
+ * correzioni manuali compare comunque, e sul giustificativo, così chi è stato
+ * assente tutto il mese non sparisce. La stampa iterata usa le stesse funzioni
+ * della singola.
  *
  * Il loop è sequenziale: `getDatiStampa` apre una connessione MySQL per
  * chiamata, e un export on-demand di poche decine di dipendenti resta rapido
@@ -148,10 +182,13 @@ export async function getDatiStampaCumulativo(
   const risultati: DatiStampa[] = []
   for (const d of dipendenti) {
     const dati = await getDatiStampa(d.codice, mese, anno)
-    const haTimbrature = dati.righe.some(
-      (r) => r.ce1 || r.cu1 || r.ce2 || r.cu2
+    // Un mese fatto di sole assenze giustificate ha `ce1…cu2` tutti null:
+    // senza il secondo termine, un dipendente in malattia per tutto il mese
+    // sparirebbe dal fascicolo proprio quando c'è più bisogno di documentarlo.
+    const haContenuto = dati.righe.some(
+      (r) => r.ce1 || r.cu1 || r.ce2 || r.cu2 || r.giustificativo
     )
-    if (haTimbrature) risultati.push(dati)
+    if (haContenuto) risultati.push(dati)
   }
   return risultati
 }

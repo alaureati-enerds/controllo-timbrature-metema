@@ -57,6 +57,35 @@ async function seedSystemSettings() {
   console.log("✔ Create impostazioni di sistema con i valori di default.")
 }
 
+// Anagrafica iniziale dei giustificativi di assenza, così la pagina Timbrature
+// ha già i codici d'uso quotidiano al primo avvio invece di un dropdown vuoto.
+// Stessa cautela di seedUser: si semina SOLO su catalogo vuoto, mai con un
+// createMany + skipDuplicates, altrimenti un codice eliminato dall'admin
+// tornerebbe al deploy successivo (il seed gira a ogni aggiornamento, vedi
+// docker-compose.prod.yml). Resta il caso limite noto: svuotando del tutto
+// l'anagrafica, il deploy seguente la ripristina — come per le impostazioni.
+const GIUSTIFICATIVI_DEFAULT = [
+  { codice: "F", descrizione: "Ferie" },
+  { codice: "M", descrizione: "Malattia" },
+  { codice: "L104", descrizione: "Permesso Legge 104" },
+  { codice: "DONA", descrizione: "Donazione sangue" },
+]
+
+async function seedGiustificativi() {
+  const existing = await prisma.giustificativo.count()
+  if (existing > 0) {
+    console.log(
+      `✔ Giustificativi già presenti (${existing}), nessuna azione.`,
+    )
+    return
+  }
+
+  await prisma.giustificativo.createMany({ data: GIUSTIFICATIVI_DEFAULT })
+  console.log(
+    `✔ Creati ${GIUSTIFICATIVI_DEFAULT.length} giustificativi di assenza.`,
+  )
+}
+
 // Notifiche di esempio per un utente, così la campanella e la pagina /notifications
 // hanno qualcosa da mostrare senza dover prima scatenare eventi reali. Idempotente:
 // se l'utente ha già notifiche, non aggiunge nulla. Le righe si creano direttamente
@@ -123,6 +152,7 @@ async function seedNotifications(email: string) {
 
 async function main() {
   await seedSystemSettings()
+  await seedGiustificativi()
 
   // Gli account (e le notifiche demo) si creano SOLO su un database vuoto, cioè
   // al primo avvio. Con almeno un utente presente il seed non tocca più gli
