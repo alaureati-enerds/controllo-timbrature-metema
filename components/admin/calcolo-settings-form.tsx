@@ -71,6 +71,8 @@ export function CalcoloSettingsForm({
   const [oreMassimeGiorno, setOreMassimeGiorno] = useState(
     String(initial.oreMassimeGiorno)
   )
+  const [ancoraRapportinoAlleTimbrature, setAncoraRapportinoAlleTimbrature] =
+    useState(initial.ancoraRapportinoAlleTimbrature)
   const [sogliaScostamentoRapportino, setSogliaScostamentoRapportino] =
     useState(String(initial.sogliaScostamentoRapportino))
   const [saving, setSaving] = useState(false)
@@ -94,6 +96,7 @@ export function CalcoloSettingsForm({
           pausaSpanMinimo: Number(pausaSpanMinimo),
           minutiOrdinari: Number(minutiOrdinari),
           oreMassimeGiorno: Number(oreMassimeGiorno),
+          ancoraRapportinoAlleTimbrature,
           sogliaScostamentoRapportino: Number(sogliaScostamentoRapportino),
         }),
       })
@@ -367,6 +370,25 @@ export function CalcoloSettingsForm({
 
             <FieldSet>
               <FieldLegend variant="label">Confronto con il rapportino</FieldLegend>
+              <Field orientation="responsive">
+                <FieldContent>
+                  <FieldLabel htmlFor="calcolo-ancora-rapportino">
+                    Ancora l&apos;orario alle timbrature
+                  </FieldLabel>
+                  <FieldDescription>
+                    Le ore del rapportino vengono spalmate sugli orari davvero
+                    timbrati, così prima entrata e ultima uscita restano quelle
+                    vere e la differenza diventa la pausa. Disattivo, il giorno
+                    ricade sull&apos;orario standard di lavoro.
+                  </FieldDescription>
+                </FieldContent>
+                <Switch
+                  id="calcolo-ancora-rapportino"
+                  checked={ancoraRapportinoAlleTimbrature}
+                  onCheckedChange={setAncoraRapportinoAlleTimbrature}
+                  disabled={saving}
+                />
+              </Field>
               <Field>
                 <FieldLabel htmlFor="calcolo-scostamento-rapportino">
                   Soglia di scostamento (minuti)
