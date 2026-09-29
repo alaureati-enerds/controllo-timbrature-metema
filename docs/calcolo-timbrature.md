@@ -204,6 +204,17 @@ le quattro colonne corrette sono tutte blu e tutte cliccabili allo stesso modo
 decifrare). La colonna dei dati grezzi, lì accanto, resta il riferimento: se un
 orario compare fra i corretti ma non fra i grezzi, è dedotto.
 
+L'unica distinzione è **per riga**: un giorno con una correzione manuale
+(valore digitato o preset applicato, anche un turno svuotato) mostra una
+**matita** accanto alla data — in tabella, nella card mobile e nella Sheet di
+dettaglio («Orari corretti a mano»). Serve a sapere su quali righe ha effetto
+«Azzera correzioni», che riporta il giorno al calcolo automatico. Il confronto
+coi grezzi da solo non basta: arrotondamenti e rapportini producono differenze
+anche senza nessun intervento a mano, e la correzione silenzia le anomalie
+legate al dato grezzo, quindi la riga perde anche la tinta rossa. Il segno non
+compare sui giorni giustificati, dove le correzioni restano salvate ma non si
+applicano.
+
 ## Le anomalie
 
 Calcolate **dopo** overlay e fill (`GiornataCalcolata.anomalie`). La pagina mostra
