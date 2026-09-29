@@ -9,6 +9,7 @@ import {
   ClockIcon,
   FileTextIcon,
   MoonIcon,
+  PencilIcon,
   RotateCcwIcon,
   TriangleAlertIcon,
   UserIcon,
@@ -343,6 +344,7 @@ type RigaConDettaglio = {
   anomalie: Anomalia[]
   revisionata: boolean
   giustificativo: string | null
+  correttoManualmente: boolean
   righeRapportino: RapportinoRiga[]
   pernottamento: boolean
   confrontoRapportino: { totaleMarcatempo: number; totaleRapportino: number } | null
@@ -377,11 +379,14 @@ function GiornoDettaglioSheet({
               </>
             )}
           </SheetTitle>
-          {(riga?.giustificativo || riga?.revisionata) && (
+          {(riga?.giustificativo ||
+            riga?.revisionata ||
+            riga?.correttoManualmente) && (
             <SheetDescription>
               {[
                 riga.giustificativo &&
                   `Giornata giustificata con «${riga.giustificativo}».`,
+                riga.correttoManualmente && "Orari corretti a mano.",
                 riga.revisionata && "Giorno segnato come revisionato.",
               ]
                 .filter(Boolean)
@@ -1150,6 +1155,12 @@ export function TimbratureManager({
       futuro,
       revisionata: revisionati.has(g.giorno),
       giustificativo,
+      // Le celle corrette sono tutte blu a prescindere dall'origine (vedi
+      // CorrettaCell): questo flag è l'unico segno che la riga non è più il
+      // dato del marcatempo, e dice su quali righe ha senso «Azzera
+      // correzioni». Spento su un giorno giustificato, dove le correzioni
+      // restano salvate ma non si applicano (e il badge spiega già tutto).
+      correttoManualmente: correttoManualmente && !giustificato,
       // Mezzogiorno: la data è un giorno civile, non un istante — così nessun
       // fuso la fa scivolare al giorno prima.
       data: new Date(g.giorno + "T12:00:00"),
@@ -1593,6 +1604,19 @@ export function TimbratureManager({
                               <TooltipContent>Pernotto</TooltipContent>
                             </Tooltip>
                           )}
+                          {r.correttoManualmente && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <PencilIcon
+                                  className="size-3.5 shrink-0 text-muted-foreground"
+                                  aria-label="Orari corretti a mano"
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Orari corretti a mano
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                           {r.giustificativo && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1796,6 +1820,19 @@ export function TimbratureManager({
                               />
                             </TooltipTrigger>
                             <TooltipContent>Pernotto</TooltipContent>
+                          </Tooltip>
+                        )}
+                        {r.correttoManualmente && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <PencilIcon
+                                className="size-3.5 shrink-0 text-muted-foreground"
+                                aria-label="Orari corretti a mano"
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Orari corretti a mano
+                            </TooltipContent>
                           </Tooltip>
                         )}
                         {r.giustificativo && (
